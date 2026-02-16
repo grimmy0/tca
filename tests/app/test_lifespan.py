@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from http import HTTPStatus
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -67,11 +67,13 @@ def test_app_lifespan_triggers_logging_and_hooks_once(
     app = create_app()
     db = RecordingDependency()
     settings = RecordingDependency()
+    auth = RecordingDependency()
     telethon_manager = RecordingDependency()
     scheduler = RecordingDependency()
     app.state.dependencies = StartupDependencies(
         db=db,
         settings=settings,
+        auth=auth,
         telethon_manager=telethon_manager,
         scheduler=scheduler,
     )
@@ -81,26 +83,37 @@ def test_app_lifespan_triggers_logging_and_hooks_once(
         if response.status_code != HTTPStatus.OK:
             raise AssertionError
 
-    if db.startup_calls != 1 or telethon_manager.startup_calls != 1:
-        raise AssertionError
-    if settings.startup_calls != 1:
-        raise AssertionError
-    if scheduler.startup_calls != 1:
-        raise AssertionError
-    if db.shutdown_calls != 1 or telethon_manager.shutdown_calls != 1:
-        raise AssertionError
-    if settings.shutdown_calls != 1:
-        raise AssertionError
-    if scheduler.shutdown_calls != 1:
-        raise AssertionError
+    _assert_dependency_call_counts(
+        dependency=db,
+        expected_startup=1,
+        expected_shutdown=1,
+    )
+    _assert_dependency_call_counts(
+        dependency=settings,
+        expected_startup=1,
+        expected_shutdown=1,
+    )
+    _assert_dependency_call_counts(
+        dependency=auth,
+        expected_startup=1,
+        expected_shutdown=1,
+    )
+    _assert_dependency_call_counts(
+        dependency=telethon_manager,
+        expected_startup=1,
+        expected_shutdown=1,
+    )
+    _assert_dependency_call_counts(
+        dependency=scheduler,
+        expected_startup=1,
+        expected_shutdown=1,
+    )
 
-    if not any(
-        "Starting TCA in secure-interactive mode" in record.message
-        for record in caplog.records
-    ):
-        raise AssertionError
-    if not any("Shutting down TCA" in record.message for record in caplog.records):
-        raise AssertionError
+    _assert_log_contains(
+        caplog=caplog,
+        fragment="Starting TCA in secure-interactive mode",
+    )
+    _assert_log_contains(caplog=caplog, fragment="Shutting down TCA")
 
 
 def test_create_app_initializes_logger_level() -> None:
@@ -150,6 +163,7 @@ def test_lifespan_shuts_down_started_dependencies_on_startup_failure() -> None:
     app = create_app()
     db = RecordingDependency()
     settings = RecordingDependency()
+    auth = RecordingDependency()
     telethon_manager = FailingStartupDependency(
         error_message="forced-telethon-startup-failure",
     )
@@ -157,6 +171,7 @@ def test_lifespan_shuts_down_started_dependencies_on_startup_failure() -> None:
     app.state.dependencies = StartupDependencies(
         db=db,
         settings=settings,
+        auth=auth,
         telethon_manager=telethon_manager,
         scheduler=scheduler,
     )
@@ -167,23 +182,31 @@ def test_lifespan_shuts_down_started_dependencies_on_startup_failure() -> None:
     ):
         pass
 
-    if db.startup_calls != 1:
-        raise AssertionError
-    if settings.startup_calls != 1:
-        raise AssertionError
-    if telethon_manager.startup_calls != 1:
-        raise AssertionError
-    if scheduler.startup_calls != 0:
-        raise AssertionError
-
-    if db.shutdown_calls != 1:
-        raise AssertionError
-    if settings.shutdown_calls != 1:
-        raise AssertionError
-    if telethon_manager.shutdown_calls != 0:
-        raise AssertionError
-    if scheduler.shutdown_calls != 0:
-        raise AssertionError
+    _assert_dependency_call_counts(
+        dependency=db,
+        expected_startup=1,
+        expected_shutdown=1,
+    )
+    _assert_dependency_call_counts(
+        dependency=settings,
+        expected_startup=1,
+        expected_shutdown=1,
+    )
+    _assert_dependency_call_counts(
+        dependency=auth,
+        expected_startup=1,
+        expected_shutdown=1,
+    )
+    _assert_dependency_call_counts(
+        dependency=telethon_manager,
+        expected_startup=1,
+        expected_shutdown=0,
+    )
+    _assert_dependency_call_counts(
+        dependency=scheduler,
+        expected_startup=0,
+        expected_shutdown=0,
+    )
 
 
 def test_lifespan_disposes_runtime_when_writer_queue_factory_is_invalid() -> None:
@@ -266,3 +289,30 @@ def _assert_dispose_runtime_called_once(
 def _build_invalid_writer_queue_runtime() -> InvalidWriterQueueRuntime:
     """Build invalid queue runtime object for startup validation tests."""
     return InvalidWriterQueueRuntime()
+
+
+def _assert_log_contains(*, caplog: LogCaptureFixture, fragment: str) -> None:
+    """Assert captured logs contain expected fragment at least once."""
+    if not any(fragment in record.message for record in caplog.records):
+        raise AssertionError
+
+
+def _assert_dependency_call_counts(
+    *,
+    dependency: DependencyCallCounts,
+    expected_startup: int,
+    expected_shutdown: int,
+) -> None:
+    """Assert startup/shutdown counters for a lifecycle dependency."""
+    if dependency.startup_calls != expected_startup:
+        raise AssertionError
+    if dependency.shutdown_calls != expected_shutdown:
+        raise AssertionError
+
+
+@runtime_checkable
+class DependencyCallCounts(Protocol):
+    """Runtime-checkable protocol for lifecycle call counters."""
+
+    startup_calls: int
+    shutdown_calls: int

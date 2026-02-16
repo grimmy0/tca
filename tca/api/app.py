@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from tca.api.routes.channel_groups import router as channel_groups_router
 from tca.api.routes.health import router as health_router
 from tca.api.routes.settings import router as settings_router
+from tca.auth import BootstrapBearerTokenDependency
 from tca.config.logging import init_logging
 from tca.config.settings import load_settings
 from tca.storage import (
@@ -99,6 +100,7 @@ class StartupDependencies:
 
     db: LifecycleDependency
     settings: LifecycleDependency
+    auth: LifecycleDependency
     telethon_manager: LifecycleDependency
     scheduler: LifecycleDependency
 
@@ -123,6 +125,7 @@ def _default_dependencies() -> StartupDependencies:
     return StartupDependencies(
         db=MigrationRunnerDependency(),
         settings=SettingsSeedDependency(),
+        auth=BootstrapBearerTokenDependency(),
         telethon_manager=NoopDependency("telethon_manager"),
         scheduler=NoopDependency("scheduler"),
     )
@@ -136,7 +139,7 @@ def _resolve_startup_dependencies(app: FastAPI) -> StartupDependencies:
         raise StartupDependencyError.missing_container()
 
     dependency_container = cast("object", raw_dependencies)
-    for name in ("db", "settings", "telethon_manager", "scheduler"):
+    for name in ("db", "settings", "auth", "telethon_manager", "scheduler"):
         dependency = getattr(dependency_container, name, None)
         if dependency is None:
             raise StartupDependencyError.missing_named_dependency(name)
@@ -156,6 +159,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     startup_order: tuple[LifecycleDependency, ...] = (
         dependencies.db,
         dependencies.settings,
+        dependencies.auth,
         dependencies.telethon_manager,
         dependencies.scheduler,
     )

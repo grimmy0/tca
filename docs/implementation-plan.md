@@ -620,11 +620,19 @@ An item is commit-ready only if all are true:
   - Generate `secrets.token_urlsafe(32)` token on first run.
   - Persist only SHA-256 digest.
 - Acceptance criteria:
-  - [ ] Plain token is never written to DB.
-  - [ ] Token is shown once at bootstrap output path.
-  - [ ] Re-start does not rotate token automatically.
+  - [x] Plain token is never written to DB. [Tests: tests/auth/test_bootstrap_token.py::test_bootstrap_token_plain_value_is_never_persisted_to_db]
+  - [x] Token is shown once at bootstrap output path. [Tests: tests/auth/test_bootstrap_token.py::test_bootstrap_token_is_written_once_to_configured_output_path]
+  - [x] Re-start does not rotate token automatically. [Tests: tests/auth/test_bootstrap_token.py::test_restart_does_not_rotate_bootstrap_token_automatically]
 - Verification:
   - `uv run pytest -q tests/auth/test_bootstrap_token.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `TBD`
+  - Verification summary:
+    - Added `tca/auth/bootstrap_token.py` with startup bootstrap flow that generates a first-run bearer token via `secrets.token_urlsafe(32)`, persists only its SHA-256 digest in `settings`, and writes the plain token once to a bootstrap output file path.
+    - Wired bootstrap token initialization into app lifespan startup via `StartupDependencies.auth` in `tca/api/app.py`, keeping token generation independent from later auth middleware enforcement work.
+    - Added `tests/auth/test_bootstrap_token.py` covering digest-only DB persistence, one-time token output emission, and restart behavior that preserves the original token digest without automatic rotation.
+    - Verified with `uv run pytest -q tests/auth/test_bootstrap_token.py` (`3 passed in 2.54s`), plus `uv run ruff check tca/auth/bootstrap_token.py tca/auth/__init__.py tca/api/app.py tests/auth/test_bootstrap_token.py tests/app/test_lifespan.py`, `uv run pytest -q tests/auth/test_bootstrap_token.py tests/app/test_lifespan.py`, and `uv run mypy tca/auth/bootstrap_token.py tca/auth/__init__.py tca/api/app.py tests/auth/test_bootstrap_token.py tests/app/test_lifespan.py`.
 
 ### C028 - Implement Bearer Auth Middleware
 
