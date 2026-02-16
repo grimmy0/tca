@@ -36,6 +36,11 @@ def upgrade() -> None:
             name="fk_raw_messages_channel_id",
             ondelete="CASCADE",
         ),
+        sa.UniqueConstraint(
+            "channel_id",
+            "message_id",
+            name="uq_raw_messages_channel_id_message_id",
+        ),
     )
 
     op.create_table(

@@ -335,10 +335,10 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/migrations/test_content_dedupe_schema.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `TBD`
+  - Commit: `d434237`
   - Verification summary:
     - Added Alembic revision `5f8b0d1e2a44` creating `raw_messages`, `items`, `dedupe_clusters`, `dedupe_members`, and `dedupe_decisions`.
-    - Implemented `items.raw_message_id` foreign key with `ON DELETE SET NULL` and `items(channel_id, message_id)` uniqueness.
+    - Implemented `items.raw_message_id` foreign key with `ON DELETE SET NULL`, plus uniqueness on `raw_messages(channel_id, message_id)` and `items(channel_id, message_id)`.
     - Added migration tests validating FK delete behavior and uniqueness constraints for `items` and `dedupe_members`.
 
 ### C014 - Create Base Migration: Ops Tables

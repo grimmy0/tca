@@ -77,6 +77,22 @@ def test_items_channel_message_uniqueness_exists(tmp_path: Path) -> None:
     raise AssertionError
 
 
+def test_raw_messages_channel_message_uniqueness_exists(tmp_path: Path) -> None:
+    """Ensure uniqueness exists on `raw_messages(channel_id, message_id)`."""
+    db_path = tmp_path / "c013-raw-messages-unique.sqlite3"
+    _upgrade_to_head(db_path)
+
+    with sqlite3.connect(db_path.as_posix()) as connection:
+        if _has_unique_constraint(
+            connection,
+            "raw_messages",
+            ["channel_id", "message_id"],
+        ):
+            return
+
+    raise AssertionError
+
+
 def test_dedupe_members_cluster_item_uniqueness_exists(tmp_path: Path) -> None:
     """Ensure uniqueness exists on `dedupe_members(cluster_id, item_id)`."""
     db_path = tmp_path / "c013-members-unique.sqlite3"
@@ -91,6 +107,27 @@ def test_dedupe_members_cluster_item_uniqueness_exists(tmp_path: Path) -> None:
             return
 
     raise AssertionError
+
+
+def test_content_and_dedupe_tables_are_removed_on_downgrade_to_base(
+    tmp_path: Path,
+) -> None:
+    """Ensure C013 tables are removed when downgrading back to base revision."""
+    db_path = tmp_path / "c013-downgrade.sqlite3"
+    _upgrade_to_head(db_path)
+
+    result = _run_alembic_command(db_path, ("downgrade", "base"))
+    if result.returncode != 0:
+        raise AssertionError
+
+    with sqlite3.connect(db_path.as_posix()) as connection:
+        rows = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'",
+        ).fetchall()
+    name_rows = cast("list[SQLiteNameRow]", rows)
+    table_names = {row[0] for row in name_rows}
+    if EXPECTED_CONTENT_TABLES & table_names:
+        raise AssertionError
 
 
 def _has_unique_constraint(
