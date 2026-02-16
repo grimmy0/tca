@@ -584,7 +584,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/api/test_channel_groups_api.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `PENDING`
+  - Commit: `3bf7b207ebd0bfdfe86ee15b125b39c15277cd49`
   - Verification summary:
     - Added `tca/api/routes/channel_groups.py` implementing design section 12.4 endpoints: group list/create/update/delete and membership put/delete, with writer-queue execution for mutating operations.
     - Extended `tca/storage/channel_groups_repo.py` with `list_groups()` to support `GET /channel-groups` ordering and response payloads.
