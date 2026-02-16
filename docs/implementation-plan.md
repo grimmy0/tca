@@ -439,11 +439,18 @@ An item is commit-ready only if all are true:
 - Change:
   - CRUD helpers for `settings` table with typed conversions.
 - Acceptance criteria:
-  - [ ] Can create/read/update by `key`.
-  - [ ] Duplicate key insertion fails deterministically.
-  - [ ] JSON values preserve type fidelity.
+  - [x] Can create/read/update by `key`. [Tests: tests/storage/test_settings_repo.py::test_create_read_and_update_by_key]
+  - [x] Duplicate key insertion fails deterministically. [Tests: tests/storage/test_settings_repo.py::test_duplicate_key_insert_fails_deterministically]
+  - [x] JSON values preserve type fidelity. [Tests: tests/storage/test_settings_repo.py::test_json_values_preserve_type_fidelity]
 - Verification:
   - `uv run pytest -q tests/storage/test_settings_repo.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `TBD`
+  - Verification summary:
+    - Added `tca/storage/settings_repo.py` with typed `create/get_by_key/update` helpers for `settings` keyed access, deterministic duplicate-key errors, and JSON encode/decode validation.
+    - Added `tests/storage/test_settings_repo.py` covering by-key CRUD, deterministic duplicate insertion failure, and JSON type-fidelity round trips.
+    - Verified with `uv run pytest -q tests/storage/test_settings_repo.py` (`3 passed in 0.16s`), plus targeted lint/type checks for touched module paths.
 
 ### C020 - Seed Default Dynamic Settings on First Boot
 

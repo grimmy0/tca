@@ -14,10 +14,20 @@ from .migrations import (
     MigrationStartupError,
     run_startup_migrations,
 )
+from .settings_repo import (
+    JSONValue,
+    SettingAlreadyExistsError,
+    SettingRecord,
+    SettingsRepository,
+)
 
 __all__ = [
+    "JSONValue",
     "MigrationRunnerDependency",
     "MigrationStartupError",
+    "SettingAlreadyExistsError",
+    "SettingRecord",
+    "SettingsRepository",
     "StorageRuntime",
     "build_sqlite_url",
     "create_read_engine",
