@@ -297,7 +297,7 @@ An item is commit-ready only if all are true:
   - `rg -n "render_as_batch|SQLite|ALTER TABLE" docs/migration-policy.md docs/implementation-plan.md`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `TBD`
+  - Commit: `45dca17`
   - Verification summary:
     - Added `docs/migration-policy.md` with explicit SQLite `ALTER TABLE` limitations and `render_as_batch=True` policy.
     - Added concise migration checklist covering pre-checks, lock scope, and rollback expectations.
