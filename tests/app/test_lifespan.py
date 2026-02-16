@@ -32,6 +32,24 @@ class RecordingDependency:
         self.shutdown_calls += 1
 
 
+@dataclass(slots=True)
+class FailingStartupDependency:
+    """Lifecycle hook that raises on startup for failure-path tests."""
+
+    startup_calls: int = 0
+    shutdown_calls: int = 0
+    error_message: str = "forced-startup-failure"
+
+    async def startup(self) -> None:
+        """Raise deterministic startup failure."""
+        self.startup_calls += 1
+        raise RuntimeError(self.error_message)
+
+    async def shutdown(self) -> None:
+        """Record shutdown invocation."""
+        self.shutdown_calls += 1
+
+
 def test_app_lifespan_triggers_logging_and_hooks_once(
     caplog: LogCaptureFixture,
 ) -> None:
@@ -116,3 +134,44 @@ def test_lifespan_fails_fast_on_missing_named_dependency() -> None:
         TestClient(app),
     ):
         pass
+
+
+def test_lifespan_shuts_down_started_dependencies_on_startup_failure() -> None:
+    """Ensure started dependencies are torn down when a later startup hook fails."""
+    app = create_app()
+    db = RecordingDependency()
+    settings = RecordingDependency()
+    telethon_manager = FailingStartupDependency(
+        error_message="forced-telethon-startup-failure",
+    )
+    scheduler = RecordingDependency()
+    app.state.dependencies = StartupDependencies(
+        db=db,
+        settings=settings,
+        telethon_manager=telethon_manager,
+        scheduler=scheduler,
+    )
+
+    with (
+        pytest.raises(RuntimeError, match=r"forced-telethon-startup-failure"),
+        TestClient(app),
+    ):
+        pass
+
+    if db.startup_calls != 1:
+        raise AssertionError
+    if settings.startup_calls != 1:
+        raise AssertionError
+    if telethon_manager.startup_calls != 1:
+        raise AssertionError
+    if scheduler.startup_calls != 0:
+        raise AssertionError
+
+    if db.shutdown_calls != 1:
+        raise AssertionError
+    if settings.shutdown_calls != 1:
+        raise AssertionError
+    if telethon_manager.shutdown_calls != 0:
+        raise AssertionError
+    if scheduler.shutdown_calls != 0:
+        raise AssertionError

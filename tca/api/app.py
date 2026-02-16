@@ -117,6 +117,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Manage application startup and shutdown events."""
     dependencies = _resolve_startup_dependencies(app)
     settings = load_settings()
+    startup_order: tuple[LifecycleDependency, ...] = (
+        dependencies.db,
+        dependencies.settings,
+        dependencies.telethon_manager,
+        dependencies.scheduler,
+    )
+    started_dependencies: list[LifecycleDependency] = []
 
     logger.info(
         "Starting TCA in %s mode (bind=%s, db=%s)",
@@ -124,19 +131,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.bind,
         settings.db_path,
     )
-
-    await dependencies.db.startup()
-    await dependencies.settings.startup()
-    await dependencies.telethon_manager.startup()
-    await dependencies.scheduler.startup()
-
     try:
+        for dependency in startup_order:
+            await dependency.startup()
+            started_dependencies.append(dependency)
         yield
     finally:
-        await dependencies.scheduler.shutdown()
-        await dependencies.telethon_manager.shutdown()
-        await dependencies.settings.shutdown()
-        await dependencies.db.shutdown()
+        for dependency in reversed(started_dependencies):
+            await dependency.shutdown()
         logger.info("Shutting down TCA")
 
 

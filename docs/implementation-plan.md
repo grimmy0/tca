@@ -464,7 +464,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/settings/test_seed_defaults.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `615d82c374353f1ba33b4650db9c60a8dfdfeb5f`
+  - Commit: `97b8ef8293efb90fa1ce78628384193f066f1cec`
   - Verification summary:
     - Added `tca/storage/settings_seed.py` with design default dynamic setting keys and an idempotent `seed_default_dynamic_settings` routine that inserts only absent keys.
     - Wired startup lifecycle to run settings seeding after migrations by extending `StartupDependencies` in `tca/api/app.py` with `SettingsSeedDependency`.
