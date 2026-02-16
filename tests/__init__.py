@@ -1,1 +1,1 @@
-"""Test package for TCA."""
+"""TCA test suite."""

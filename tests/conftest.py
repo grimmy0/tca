@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 import aiosqlite
 import pytest
 
+from tests.mocks.mock_telegram_client import MockTelegramClient
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from pathlib import Path
@@ -53,3 +55,9 @@ async def sqlite_writer_pair(
     finally:
         await first.close()
         await second.close()
+
+
+@pytest.fixture
+def mock_tg_client() -> MockTelegramClient:
+    """Injectable mock for Telethon client flows."""
+    return MockTelegramClient(session=None, api_id=123, api_hash="abc")
