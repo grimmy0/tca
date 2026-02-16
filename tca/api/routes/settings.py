@@ -59,8 +59,8 @@ async def put_setting(
     async def _write_setting() -> SettingUpsertResponse:
         updated = await repository.update(key=key, value=value)
         if updated is None:
-            _ = await repository.create(key=key, value=value)
-        return await _resolve_effective_setting_value(repository=repository, key=key)
+            updated = await repository.create(key=key, value=value)
+        return SettingUpsertResponse(key=updated.key, value=updated.value)
 
     return await writer_queue.submit(_write_setting)
 

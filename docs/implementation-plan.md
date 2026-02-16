@@ -565,7 +565,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/api/test_settings_api.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `TO_FILL_BY_COMMIT`
+  - Commit: `ad71acfe64f155fd96d54cab0a6733dcc1008f18`
   - Verification summary:
     - Updated `tca/api/routes/settings.py` to enforce a dynamic-settings allowlist for both read and write operations, rejecting unknown keys with `400`.
     - Added `GET /settings/{key}` and updated `PUT /settings/{key}` to return effective persisted values with seeded-default fallback semantics.

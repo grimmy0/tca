@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
     from pathlib import Path
 
+    from tca.storage.db import SessionFactory, StorageRuntime
+
 T = TypeVar("T")
 ALLOWED_SETTINGS_KEY = "scheduler.max_pages_per_poll"
 UNKNOWN_SETTINGS_KEY = "scheduler.not_a_real_key"
@@ -26,6 +28,7 @@ EXPECTED_SUBMIT_CALLS = 2
 EXPECTED_CLOSE_CALLS = 1
 EXPECTED_BAD_REQUEST_STATUS = HTTPStatus.BAD_REQUEST
 EXPECTED_SUCCESS_STATUS = HTTPStatus.OK
+READ_SESSION_FAILURE_MESSAGE = "read-session-factory-should-not-run-for-put"
 
 
 @dataclass(slots=True)
@@ -83,6 +86,38 @@ def test_put_settings_writes_execute_through_app_writer_queue(
     if queue.submit_calls != EXPECTED_SUBMIT_CALLS:
         raise AssertionError
     if queue.close_calls != EXPECTED_CLOSE_CALLS:
+        raise AssertionError
+
+
+def test_put_setting_response_does_not_depend_on_read_session_factory(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Ensure PUT returns persisted value even when read session factory fails."""
+    db_path = tmp_path / "settings-api-write-result.sqlite3"
+    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+
+    app = create_app()
+    with TestClient(app, raise_server_exceptions=False) as client:
+        runtime_obj = getattr(cast("object", app.state), "storage_runtime", None)
+        if runtime_obj is None:
+            raise AssertionError
+        runtime = cast("StorageRuntime", runtime_obj)
+        runtime.read_session_factory = cast(
+            "SessionFactory",
+            cast("object", _RaisingReadSessionFactory()),
+        )
+        response = client.put(
+            f"/settings/{ALLOWED_SETTINGS_KEY}",
+            json={"value": UPDATED_MAX_PAGES},
+        )
+
+    if response.status_code != EXPECTED_SUCCESS_STATUS:
+        raise AssertionError
+    response_data = cast("dict[str, object]", response.json())
+    if response_data.get("key") != ALLOWED_SETTINGS_KEY:
+        raise AssertionError
+    if response_data.get("value") != UPDATED_MAX_PAGES:
         raise AssertionError
 
 
@@ -199,3 +234,14 @@ class MonkeyPatchLike(Protocol):
 
     def setenv(self, name: str, value: str) -> None:
         """Set environment variable for duration of current test."""
+
+
+@dataclass(slots=True, frozen=True)
+class _RaisingReadSessionFactory:
+    """Sentinel read-session factory that fails if route reads post-write."""
+
+    message: str = READ_SESSION_FAILURE_MESSAGE
+
+    def __call__(self) -> object:
+        """Raise deterministic error when invoked."""
+        raise RuntimeError(self.message)
