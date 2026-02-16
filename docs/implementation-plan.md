@@ -446,7 +446,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/storage/test_settings_repo.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `TBD`
+  - Commit: `7e711580c5dc095cdfbd133503c48ce53ff7d28e`
   - Verification summary:
     - Added `tca/storage/settings_repo.py` with typed `create/get_by_key/update` helpers for `settings` keyed access, deterministic duplicate-key errors, and JSON encode/decode validation.
     - Added `tests/storage/test_settings_repo.py` covering by-key CRUD, deterministic duplicate insertion failure, and JSON type-fidelity round trips.

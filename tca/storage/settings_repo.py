@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from json import JSONDecodeError
 from typing import TYPE_CHECKING, cast
@@ -71,6 +72,16 @@ class SettingValueDecodeError(SettingsRepositoryError):
         return cls(message)
 
 
+class _InvalidJSONConstantError(ValueError):
+    """Internal parse error for non-standard JSON numeric constants."""
+
+    @classmethod
+    def for_constant(cls, value: str) -> _InvalidJSONConstantError:
+        """Build deterministic parse error for JSON constants."""
+        message = f"invalid numeric constant '{value}'"
+        return cls(message)
+
+
 class SettingsRepository:
     """CRUD helper for dynamic settings rows keyed by `settings.key`."""
 
@@ -107,7 +118,9 @@ class SettingsRepository:
                 await session.commit()
             except IntegrityError as exc:
                 await session.rollback()
-                raise SettingAlreadyExistsError.for_key(key) from exc
+                if _is_duplicate_key_integrity_error(exc=exc):
+                    raise SettingAlreadyExistsError.for_key(key) from exc
+                raise
         return _decode_row(row)
 
     async def get_by_key(self, *, key: str) -> SettingRecord | None:
@@ -184,13 +197,19 @@ def _encode_value_json(*, key: str, value: JSONValue) -> str:
 def _decode_value_json(*, key: str, value_json: str) -> JSONValue:
     """Deserialize JSON text and validate value remains JSON-compatible."""
     try:
-        decoded = cast("object", json.loads(value_json))
-    except JSONDecodeError as exc:
+        decoded = cast(
+            "object",
+            json.loads(
+                value_json,
+                parse_constant=_raise_invalid_json_constant,
+            ),
+        )
+    except (JSONDecodeError, ValueError) as exc:
         raise SettingValueDecodeError.for_key(key, details=str(exc)) from exc
     if not _is_json_value(decoded):
         raise SettingValueDecodeError.for_key(
             key,
-            details=f"unsupported decoded type {type(decoded)!r}",
+            details="decoded payload contains non-JSON type or non-finite number",
         )
     return cast("JSONValue", decoded)
 
@@ -199,8 +218,10 @@ def _is_json_value(value: object) -> bool:
     """Recursively verify decoded value belongs to JSON type domain."""
     if value is None:
         return True
-    if isinstance(value, (str, int, float, bool)):
+    if isinstance(value, (str, bool, int)):
         return True
+    if isinstance(value, float):
+        return math.isfinite(value)
     if isinstance(value, list):
         items = cast("list[object]", value)
         return all(_is_json_value(item) for item in items)
@@ -210,3 +231,25 @@ def _is_json_value(value: object) -> bool:
             isinstance(key, str) and _is_json_value(val) for key, val in entries.items()
         )
     return False
+
+
+def _is_duplicate_key_integrity_error(*, exc: IntegrityError) -> bool:
+    """Return True only for unique-key violation on `settings.key`."""
+    message = _normalized_integrity_message(exc=exc)
+    if "uq_settings_key" in message:
+        return True
+    return "unique constraint failed" in message and "settings.key" in message
+
+
+def _normalized_integrity_message(*, exc: IntegrityError) -> str:
+    """Normalize SQLAlchemy/driver integrity error text for matching."""
+    driver_error = cast("object | None", getattr(exc, "orig", None))
+    message_parts = [str(exc)]
+    if driver_error is not None:
+        message_parts.append(str(driver_error))
+    return " ".join(message_parts).lower()
+
+
+def _raise_invalid_json_constant(value: str) -> object:
+    """Raise deterministic error for non-standard JSON numeric constants."""
+    raise _InvalidJSONConstantError.for_constant(value)

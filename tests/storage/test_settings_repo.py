@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import sqlite3
 from typing import TYPE_CHECKING, cast
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from tca.config.settings import load_settings
 from tca.storage import (
@@ -14,6 +16,7 @@ from tca.storage import (
     create_storage_runtime,
     dispose_storage_runtime,
 )
+from tca.storage.settings_repo import SettingValueDecodeError
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -99,6 +102,16 @@ async def test_duplicate_key_insert_fails_deterministically(
 
 
 @pytest.mark.asyncio
+async def test_create_does_not_mask_non_duplicate_integrity_errors(
+    settings_repository: SettingsRepository,
+) -> None:
+    """Ensure non-duplicate integrity failures remain surfaced to callers."""
+    invalid_key = cast("str", cast("object", None))
+    with pytest.raises(IntegrityError):
+        _ = await settings_repository.create(key=invalid_key, value=1)
+
+
+@pytest.mark.asyncio
 async def test_json_values_preserve_type_fidelity(
     settings_repository: SettingsRepository,
 ) -> None:
@@ -134,3 +147,45 @@ async def test_json_values_preserve_type_fidelity(
     weights = decoded.get("weights")
     if not isinstance(weights, dict):
         raise TypeError
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("key", "value_json", "expected_detail"),
+    [
+        (
+            "scheduler.invalid_json_nan",
+            "NaN",
+            "invalid numeric constant 'NaN'",
+        ),
+        (
+            "scheduler.invalid_json_overflow",
+            "1e309",
+            "decoded payload contains non-JSON type or non-finite number",
+        ),
+    ],
+)
+async def test_get_by_key_rejects_non_finite_json_values(
+    settings_repository: SettingsRepository,
+    tmp_path: Path,
+    key: str,
+    value_json: str,
+    expected_detail: str,
+) -> None:
+    """Ensure repository rejects non-standard or non-finite JSON numbers."""
+    db_path = tmp_path / "settings-repository.sqlite3"
+    with sqlite3.connect(db_path.as_posix()) as connection:
+        _ = connection.execute(
+            """
+            INSERT INTO settings (key, value_json)
+            VALUES (?, ?)
+            """,
+            (key, value_json),
+        )
+        connection.commit()
+
+    with pytest.raises(SettingValueDecodeError) as exc_info:
+        _ = await settings_repository.get_by_key(key=key)
+
+    if expected_detail not in str(exc_info.value):
+        raise AssertionError
