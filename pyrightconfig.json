@@ -1,0 +1,9 @@
+{
+  "include": [
+    "main.py",
+    "tca",
+    "tests"
+  ],
+  "typeCheckingMode": "strict",
+  "pythonVersion": "3.12"
+}
