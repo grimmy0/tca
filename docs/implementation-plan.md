@@ -539,11 +539,19 @@ An item is commit-ready only if all are true:
     - dynamic settings rows,
     - group-specific horizon override.
 - Acceptance criteria:
-  - [ ] Global horizon comes from settings key.
-  - [ ] Group override wins over global when present.
-  - [ ] Missing setting falls back to seeded default value.
+  - [x] Global horizon comes from settings key. [Tests: tests/settings/test_resolution.py::test_global_horizon_comes_from_dynamic_settings_key]
+  - [x] Group override wins over global when present. [Tests: tests/settings/test_resolution.py::test_group_override_wins_over_global_horizon]
+  - [x] Missing setting falls back to seeded default value. [Tests: tests/settings/test_resolution.py::test_missing_horizon_setting_falls_back_to_seeded_default]
 - Verification:
   - `uv run pytest -q tests/settings/test_resolution.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `COMMIT_SHA_PLACEHOLDER`
+  - Verification summary:
+    - Added `tca/config/resolution.py` with `ConfigResolutionService`, combining static app settings exposure with dynamic horizon resolution from settings rows and seeded-default fallback.
+    - Added `tests/settings/test_resolution.py` to validate global horizon lookup from `dedupe.default_horizon_minutes`, group override precedence, and fallback to the seeded default when the key is missing.
+    - Exported config resolution symbols from `tca/config/__init__.py` for downstream API and service integration.
+    - Verified with `uv run pytest -q tests/settings/test_resolution.py` (`3 passed in 0.15s`) plus lint/type checks `uv run ruff check tca/config/resolution.py tca/config/__init__.py tests/settings/test_resolution.py` and `uv run mypy tca/config/resolution.py`.
 
 ### C024 - Add Settings API (Read + Update Allowed Keys)
 
