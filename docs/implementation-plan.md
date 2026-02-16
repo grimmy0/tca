@@ -640,11 +640,19 @@ An item is commit-ready only if all are true:
   - Enforce bearer auth on all non-health routes.
   - Compare token digest with constant-time compare.
 - Acceptance criteria:
-  - [ ] Unauthenticated protected route returns `401`.
-  - [ ] Invalid token returns `401`.
-  - [ ] Valid token returns `200` for protected route.
+  - [x] Unauthenticated protected route returns `401`. [Tests: tests/api/test_bearer_auth.py::test_unauthenticated_protected_route_returns_401]
+  - [x] Invalid token returns `401`. [Tests: tests/api/test_bearer_auth.py::test_invalid_token_returns_401]
+  - [x] Valid token returns `200` for protected route. [Tests: tests/api/test_bearer_auth.py::test_valid_token_returns_200_for_protected_route]
 - Verification:
   - `uv run pytest -q tests/api/test_bearer_auth.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `PENDING`
+  - Verification summary:
+    - Added `tca/api/bearer_auth.py` with bearer-token validation that loads the stored bootstrap token digest from `settings`, computes the presented token digest, and verifies using constant-time `secrets.compare_digest`.
+    - Wired bearer auth enforcement in `tca/api/app.py` by applying `Depends(require_bearer_auth)` to all non-health routers while leaving `GET /health` unauthenticated.
+    - Added `tests/api/test_bearer_auth.py` covering `401` for missing auth, `401` for invalid token, and `200` for valid token on a protected settings route.
+    - Verified with `uv run pytest -q tests/api/test_bearer_auth.py` (`3 passed in 1.09s`), `uv run ruff check tca/api/bearer_auth.py tca/api/app.py tests/api/test_bearer_auth.py`, `uv run mypy tca/api/bearer_auth.py tca/api/app.py tests/api/test_bearer_auth.py`, and `uv run python scripts/validate_plan_criteria.py`.
 
 ### C029 - Add CORS Allowlist Enforcement
 

@@ -7,8 +7,9 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, cast, runtime_checkable
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
+from tca.api.bearer_auth import require_bearer_auth
 from tca.api.routes.channel_groups import router as channel_groups_router
 from tca.api.routes.health import router as health_router
 from tca.api.routes.settings import router as settings_router
@@ -203,11 +204,18 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    protected_route_dependencies = [Depends(require_bearer_auth)]
     app.state.dependencies = _default_dependencies()
     app.state.writer_queue_factory = WriterQueue
     app.include_router(health_router)
-    app.include_router(channel_groups_router)
-    app.include_router(settings_router)
+    app.include_router(
+        channel_groups_router,
+        dependencies=protected_route_dependencies,
+    )
+    app.include_router(
+        settings_router,
+        dependencies=protected_route_dependencies,
+    )
 
     return app
 
