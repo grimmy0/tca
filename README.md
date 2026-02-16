@@ -4,7 +4,7 @@ TCA is a local-first Telegram channel aggregator that runs on your machine, merg
 
 ## Status
 
-- Phase: design and implementation planning complete, code implementation pending.
+- Phase: implementation in progress (foundational plan items are underway).
 - Scope: Telegram only.
 - Deployment target: single local Docker container with SQLite persistence.
 
@@ -34,6 +34,7 @@ Use this section as the navigation hub for the repo.
 
 - Architecture and product design: [`docs/option-a-local-design.md`](docs/option-a-local-design.md)
 - Commit-atomic implementation roadmap: [`docs/implementation-plan.md`](docs/implementation-plan.md)
+- Shared testing/concurrency guide: [`docs/testing-guide.md`](docs/testing-guide.md)
 - Assistant-specific working context (non-product specs): [`CLAUDE.md`](CLAUDE.md)
 - Assistant-specific working context (non-product specs): [`GEMINI.md`](GEMINI.md)
 
@@ -41,7 +42,8 @@ Suggested reading order:
 
 1. [`docs/option-a-local-design.md`](docs/option-a-local-design.md)
 2. [`docs/implementation-plan.md`](docs/implementation-plan.md)
-3. [`README.md`](README.md) for day-to-day orientation
+3. [`docs/testing-guide.md`](docs/testing-guide.md)
+4. [`README.md`](README.md) for day-to-day orientation
 
 ## Architecture Snapshot
 
@@ -112,11 +114,20 @@ Dynamic settings (runtime editable via API/UI):
 Current codebase is still scaffold-first. Use:
 
 ```bash
-uv sync
+# install runtime + dev tooling
+uv sync --extra dev
+
+# run application placeholder
 uv run python main.py
+
+# run strict lint/type gate manually
+scripts/lint_strict.sh
+
+# install git pre-commit hook (runs strict lint gate)
+uv run pre-commit install
 ```
 
-As implementation advances (per plan), tests and checks will become mandatory for each atomic commit.
+Strict pre-commit gate is enabled and runs Ruff, format checks, MyPy strict mode, and Pyright warnings-as-errors.
 
 ## Execution Model for Contributors
 

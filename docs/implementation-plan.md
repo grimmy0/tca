@@ -101,7 +101,7 @@ An item is commit-ready only if all are true:
   - `rg -n "SQLITE_BUSY|concurrency" docs/testing-guide.md tests/conftest.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: this C003A implementation commit
+  - Commit: `87cac1b`
   - Verification summary:
     - `uv run pytest -q tests/storage/test_begin_immediate.py` passed (`1 passed`).
     - `rg -n "SQLITE_BUSY|concurrency" docs/testing-guide.md tests/conftest.py` matched fixture and guide references.

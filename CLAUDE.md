@@ -1,47 +1,58 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-TCA (Threaded Channel Aggregator) is a local-first Python application that aggregates updates from multiple channel types (RSS, YouTube, Reddit, etc.), deduplicates repeated stories, and presents a single merged thread. It runs as a single container with SQLite storage (Option A: Local Monolith architecture).
+TCA is a local-first Telegram channel aggregator. It ingests channel updates using a user account, deduplicates repeated stories, and exposes a unified thread.
 
-The project is in early scaffold stage. The detailed architecture spec lives in `docs/option-a-local-design.md`.
+- Scope: Telegram only.
+- Architecture source-of-truth: `docs/option-a-local-design.md`.
+- Execution source-of-truth: `docs/implementation-plan.md`.
+
+## Current State
+
+- Early implementation phase.
+- Package skeleton, dependency baseline, strict lint/type gates, and shared SQLite concurrency test harness are implemented.
 
 ## Development Commands
 
 ```bash
-# Install/sync dependencies
-uv sync
+# install runtime + dev dependencies
+uv sync --extra dev
 
-# Run the application
+# run placeholder app entrypoint
 uv run python main.py
+
+# strict lint/type gate (same as pre-commit)
+scripts/lint_strict.sh
+
+# run all tests
+uv run pytest -q
 ```
 
-No test runner, linter, or formatter is configured yet. When these are added, they will likely use `pytest` for testing and be invoked via `uv run`.
+## Quality Gate
 
-## Architecture
+Pre-commit is configured and should remain installed:
 
-The planned module structure follows a pipeline pattern:
+```bash
+uv run pre-commit install
+uv run pre-commit run --all-files
+```
 
-**ingest** (source adapters + polling) → **normalize** (canonical schema) → **dedupe** (strategy chain) → **timeline** (merged thread) → **api** (REST endpoints)
-
-Supporting modules: `auth/` (OAuth/token management), `storage/` (SQLite repository layer), `scheduler/` (per-source polling with backoff), `observability/` (logs, metrics, health).
-
-### Key Patterns
-
-- **Source adapters** are pluggable, each implementing: `validate_config`, `fetch_since`, `normalize`, `rate_limit_hint`
-- **Deduplication** uses an ordered strategy chain (exact_url → content_hash → title_similarity); each strategy can accept, reject, or pass. Decisions are recorded for explainability.
-- **Data flow**: raw items are stored in `raw_items` (audit trail), then normalized into `items`, grouped into `dedupe_clusters`, and surfaced via `thread_entries`
-
-### Environment Variables
-
-- `TCA_MASTER_KEY` — encryption key for stored tokens
-- `TCA_DB_PATH` — SQLite database path (default `/data/tca.db`)
-- `TCA_LOG_LEVEL` — log verbosity
+The hook runs strict checks and treats warnings as failures.
 
 ## Tech Stack
 
-- Python ≥3.14, managed with `uv`
-- SQLite for persistence
-- Docker Compose for deployment (port 8787)
+- Python 3.12.x
+- FastAPI + Uvicorn
+- Telethon (MTProto user account)
+- SQLAlchemy + aiosqlite + Alembic
+- RapidFuzz + SHA-256 content hashing
+- Jinja2 + HTMX + Pico CSS
+
+## Key Constraints
+
+- SQLite WAL and `BEGIN IMMEDIATE` are mandatory in runtime design.
+- Async ORM usage must avoid lazy-loading patterns.
+- No non-Telegram provider scope in this project.
