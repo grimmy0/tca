@@ -1,47 +1,141 @@
-# TCA (Threaded Channel Aggregator)
+# TCA - Telegram Channel Aggregator
 
-TCA is a channel aggregator that collects updates from all channels you follow and merges them into one unified thread.
+TCA is a local-first Telegram channel aggregator that runs on your machine, merges updates from channels you follow, and produces one deduplicated thread with explainable matching decisions.
 
-## Problem
+## Status
 
-If you follow many channels, the same story appears multiple times across sources. TCA aims to keep only one canonical item per story so your feed stays clean.
+- Phase: design and implementation planning complete, code implementation pending.
+- Scope: Telegram only.
+- Deployment target: single local Docker container with SQLite persistence.
 
-## Goals
+## Why TCA
 
-- Pull updates from multiple channel types (RSS, blogs, newsletters, video channels, and social feeds).
-- Normalize all incoming items into a shared schema.
-- Deduplicate repeated stories across sources.
-- Build a single chronological thread for easy scanning.
-- Keep source attribution so you can open the original channel post.
+If you follow many Telegram channels, the same story appears repeatedly with minor wording differences or tracking-link variants. TCA reduces feed noise by grouping duplicate posts and exposing one representative item with attribution.
 
-## How Deduplication Will Work
+## Product Scope
 
-TCA is designed to combine several strategies:
+In scope:
 
-- URL canonicalization to collapse tracking/query variants.
-- Exact-content hashing for obvious duplicates.
-- Near-duplicate matching using title and body similarity.
-- Time-window checks so repeated reposts can still be grouped.
+- Telegram user-account authentication (Telethon, MTProto).
+- Polling-based ingestion.
+- Multi-strategy deduplication with configurable horizon.
+- Local API plus minimal local web UI.
+- Local storage, retention, backups, and notifications.
 
-## Initial Architecture
+Out of scope:
 
-- `ingest/`: source adapters per channel/provider.
-- `normalize/`: convert source-specific payloads into one model.
-- `dedupe/`: duplicate detection and canonical item selection.
-- `timeline/`: ranking + merged thread generation.
-- `storage/`: persistence for seen items and dedupe clusters.
+- Managed/cloud service.
+- Multi-provider aggregation (RSS/YouTube/Reddit/etc.).
+- Bot API replacement for user-account access.
 
-## Development
+## Documentation Map
+
+Use this section as the navigation hub for the repo.
+
+- Architecture and product design: [`docs/option-a-local-design.md`](docs/option-a-local-design.md)
+- Commit-atomic implementation roadmap: [`docs/implementation-plan.md`](docs/implementation-plan.md)
+- Assistant-specific working context (non-product specs): [`CLAUDE.md`](CLAUDE.md)
+- Assistant-specific working context (non-product specs): [`GEMINI.md`](GEMINI.md)
+
+Suggested reading order:
+
+1. [`docs/option-a-local-design.md`](docs/option-a-local-design.md)
+2. [`docs/implementation-plan.md`](docs/implementation-plan.md)
+3. [`README.md`](README.md) for day-to-day orientation
+
+## Architecture Snapshot
+
+TCA follows a modular local-monolith layout:
+
+- `api/`: HTTP endpoints and auth middleware.
+- `ui/`: server-rendered pages (Jinja2 + HTMX + Pico CSS).
+- `auth/`: Telegram login flow and encrypted session handling.
+- `ingest/`: polling and message fetch logic.
+- `normalize/`: canonical item transformation.
+- `dedupe/`: strategy chain and cluster operations.
+- `storage/`: SQLAlchemy repositories and write serialization.
+- `scheduler/`: polling cadence, jitter, backoff, pause/resume.
+- `ops/`: retention, backup, health, graceful shutdown tasks.
+
+## Deduplication Model (Planned)
+
+Strategy order (short-circuiting):
+
+1. `exact_url`
+2. `content_hash`
+3. `title_similarity`
+
+Core behaviors:
+
+- Candidate reduction before expensive comparisons.
+- Configurable horizon (global + per channel group override).
+- Explainability via persisted decision records.
+- Deterministic cluster merge and representative item selection.
+
+## Security Model (Planned)
+
+- All API endpoints except `/health` require bearer auth.
+- Bearer token is generated once, stored as SHA-256 digest only.
+- Telegram session material is encrypted at rest.
+- KEK is derived with Argon2id from user passphrase.
+- Startup modes:
+  - `secure-interactive` (default)
+  - `auto-unlock` (optional, lower security)
+
+## Data and Reliability Model (Planned)
+
+- SQLite with WAL mode and mandatory PRAGMAs.
+- `BEGIN IMMEDIATE` for write transactions.
+- Single in-process writer queue for mutating operations.
+- Ordered retention pruning with bounded batch sizes.
+- Nightly backups via SQLite Online Backup API and integrity checks.
+
+## Configuration Surface (Planned)
+
+Static environment variables (restart required):
+
+- `TCA_DB_PATH`
+- `TCA_BIND`
+- `TCA_MODE`
+- `TCA_LOG_LEVEL`
+- `TCA_SECRET_FILE`
+
+Dynamic settings (runtime editable via API/UI):
+
+- dedupe horizon and thresholds
+- scheduler polling limits and intervals
+- retention windows
+- backup retention count
+
+## Local Development
+
+Current codebase is still scaffold-first. Use:
 
 ```bash
 uv sync
 uv run python main.py
 ```
 
-## Roadmap
+As implementation advances (per plan), tests and checks will become mandatory for each atomic commit.
 
-- [ ] Define core item schema and storage model.
-- [ ] Implement first source adapter (RSS).
-- [ ] Build URL and exact-match dedupe.
-- [ ] Add similarity-based near-duplicate detection.
-- [ ] Generate a merged "single thread" view.
+## Execution Model for Contributors
+
+Development is intentionally commit-atomic.
+
+- Plan source of truth: `docs/implementation-plan.md`
+- Each item is one commit-sized change.
+- Each item has binary acceptance criteria.
+- Each item includes verification commands.
+
+If you are implementing features, pick the next unchecked plan item and do not batch unrelated work into the same commit.
+
+## Notes on Repo Documents
+
+`CLAUDE.md` and `GEMINI.md` provide assistant/tooling context for automated coding workflows. Product and engineering source-of-truth remains:
+
+1. [`docs/option-a-local-design.md`](docs/option-a-local-design.md)
+2. [`docs/implementation-plan.md`](docs/implementation-plan.md)
+
+## License
+
+No license file has been added yet.
