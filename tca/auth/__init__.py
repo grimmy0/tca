@@ -7,6 +7,15 @@ from .bootstrap_token import (
     ensure_bootstrap_bearer_token,
     resolve_bootstrap_token_output_path,
 )
+from .auth_session_state import (
+    AUTH_SESSION_TTL_SECONDS,
+    AuthSessionExpiredError,
+    AuthSessionState,
+    AuthSessionStateConfigError,
+    AuthSessionStateError,
+    AuthSessionStateNotFoundError,
+    AuthSessionStateRepository,
+)
 from .encryption_utils import (
     AES_GCM_NONCE_BYTES,
     DATA_ENCRYPTION_KEY_BYTES,
@@ -53,6 +62,7 @@ from .unlock_modes import (
 )
 
 __all__ = [
+    "AUTH_SESSION_TTL_SECONDS",
     "AES_GCM_NONCE_BYTES",
     "ARGON2ID_MEMORY_COST_KIB",
     "ARGON2ID_PARALLELISM",
@@ -68,6 +78,12 @@ __all__ = [
     "KeyRotationStateMissingError",
     "SENSITIVE_OPERATION_LOCKED_MESSAGE",
     "AuthStartupDependency",
+    "AuthSessionExpiredError",
+    "AuthSessionState",
+    "AuthSessionStateConfigError",
+    "AuthSessionStateError",
+    "AuthSessionStateNotFoundError",
+    "AuthSessionStateRepository",
     "BootstrapBearerTokenDependency",
     "EnvelopeDecryptionError",
     "SensitiveOperationLockedError",

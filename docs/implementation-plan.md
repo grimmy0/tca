@@ -723,7 +723,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/auth/test_unlock_modes.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `PENDING`
+  - Commit: `e46e649`
   - Verification summary:
     - Added `tca/auth/unlock_modes.py` implementing startup unlock-mode initialization, in-memory unlock state, explicit unlock action helpers, and actionable startup errors for missing/unreadable/empty auto-unlock secrets.
     - Added `AuthStartupDependency` and wired `tca/api/app.py` default auth lifecycle dependency to initialize unlock modes before bootstrap bearer token setup.
@@ -797,11 +797,19 @@ An item is commit-ready only if all are true:
 - Change:
   - Add temporary auth session state model for phone/code/password steps.
 - Acceptance criteria:
-  - [ ] Auth session state has expiry.
-  - [ ] Expired session is rejected.
-  - [ ] Parallel auth sessions for different users are isolated.
+  - [x] Auth session state has expiry. [Tests: tests/auth/test_auth_session_state.py::test_auth_session_state_has_expiry]
+  - [x] Expired session is rejected. [Tests: tests/auth/test_auth_session_state.py::test_expired_session_is_rejected]
+  - [x] Parallel auth sessions for different users are isolated. [Tests: tests/auth/test_auth_session_state.py::test_parallel_auth_sessions_are_isolated]
 - Verification:
   - `uv run pytest -q tests/auth/test_auth_session_state.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `PENDING`
+  - Verification summary:
+    - Added `auth_session_state` storage table migration with expiry tracking for login wizard state.
+    - Implemented auth session state repository with expiry enforcement and session isolation behavior.
+    - Added auth session state tests covering expiry persistence, expired-session rejection, and parallel session isolation.
+    - Verified with `uv run pytest -q tests/auth/test_auth_session_state.py`.
 
 ### C037 - Implement `POST /auth/telegram/start`
 
