@@ -217,11 +217,17 @@ An item is commit-ready only if all are true:
   - Implement async engine/session factory using SQLite path from settings.
   - Provide separate session helpers for read and write paths.
 - Acceptance criteria:
-  - [ ] Engine initializes against configured DB path.
-  - [ ] Session factory can execute a simple `SELECT 1`.
-  - [ ] Test fixture can create and teardown session cleanly.
+  - [x] Engine initializes against configured DB path. [Tests: tests/storage/test_engine.py::test_engine_initializes_against_configured_db_path]
+  - [x] Session factory can execute a simple `SELECT 1`. [Tests: tests/storage/test_engine.py::test_session_factory_can_execute_select_one]
+  - [x] Test fixture can create and teardown session cleanly. [Tests: tests/storage/test_engine.py::test_fixture_supports_clean_read_and_write_session_lifecycle]
 - Verification:
   - `uv run pytest -q tests/storage/test_engine.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `TBD`
+  - Verification summary:
+    - Added `tca/storage/db.py` with typed async read/write engine and session factory helpers.
+    - Added `tests/storage/test_engine.py` for DB path wiring, `SELECT 1`, and fixture lifecycle coverage.
 
 ### C009 - Apply Mandatory SQLite PRAGMA Settings
 
