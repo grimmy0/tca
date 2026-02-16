@@ -502,7 +502,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/storage/test_channels_repo.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `COMMIT_SHA_PLACEHOLDER`
+  - Commit: `4f637b488c0e5b77633631783488d45222ace4fc`
   - Verification summary:
     - Added `tca/storage/channels_repo.py` with typed `telegram_channels` create/update/get operations, soft-disable/enable transitions, and an active-only list helper.
     - Exported `ChannelsRepository`, `ChannelRecord`, and channel decode/error types from `tca/storage/__init__.py` for downstream usage.
