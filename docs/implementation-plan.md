@@ -483,7 +483,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/storage/test_channel_groups_repo.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `3902a58b7c73802a22be4dc18c18dd3e369ee393`
+  - Commit: `1560869b5cc4b5fea203e7d2125c077071a7c734`
   - Verification summary:
     - Added `tca/storage/channel_groups_repo.py` with typed channel-group CRUD and membership helpers, including deterministic one-group-per-channel enforcement via `ChannelAlreadyAssignedToGroupError`.
     - Exported repository symbols via `tca/storage/__init__.py` for downstream API/service integration.

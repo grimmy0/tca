@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from tca.config.settings import load_settings
 from tca.storage import (
@@ -252,6 +253,67 @@ async def test_removing_group_cleans_memberships(
     )
     if membership is not None:
         raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_remove_channel_membership_works_and_is_idempotent(
+    repository_runtime: tuple[ChannelGroupsRepository, StorageRuntime],
+) -> None:
+    """Ensure membership remove reports existence and supports repeated calls."""
+    repository, runtime = repository_runtime
+    group = await repository.create_group(
+        name="Removable Membership Group",
+        description=None,
+        dedupe_horizon_minutes_override=None,
+    )
+    await _insert_channel(
+        runtime,
+        channel_id=SECONDARY_CHANNEL_ID,
+        telegram_channel_id=10003,
+        name="gamma",
+    )
+    _ = await repository.add_channel_membership(
+        group_id=group.id,
+        channel_id=SECONDARY_CHANNEL_ID,
+    )
+
+    removed = await repository.remove_channel_membership(
+        group_id=group.id,
+        channel_id=SECONDARY_CHANNEL_ID,
+    )
+    if not removed:
+        raise AssertionError
+    membership = await repository.get_membership_by_channel_id(
+        channel_id=SECONDARY_CHANNEL_ID,
+    )
+    if membership is not None:
+        raise AssertionError
+
+    removed_again = await repository.remove_channel_membership(
+        group_id=group.id,
+        channel_id=SECONDARY_CHANNEL_ID,
+    )
+    if removed_again:
+        raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_add_channel_membership_surfaces_foreign_key_integrity_errors(
+    repository_runtime: tuple[ChannelGroupsRepository, StorageRuntime],
+) -> None:
+    """Ensure FK integrity failures are not remapped as duplicate assignments."""
+    repository, _ = repository_runtime
+    group = await repository.create_group(
+        name="FK Validation Group",
+        description=None,
+        dedupe_horizon_minutes_override=None,
+    )
+
+    with pytest.raises(IntegrityError):
+        _ = await repository.add_channel_membership(
+            group_id=group.id,
+            channel_id=9999,
+        )
 
 
 async def _insert_channel(
