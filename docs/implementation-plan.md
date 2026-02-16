@@ -316,7 +316,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/migrations/test_base_schema_groups.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `TO_FILL_AFTER_COMMIT`
+  - Commit: `d93e6e9`
   - Verification summary:
     - Added Alembic revision `70bbc5b6d2f1` creating `telegram_accounts`, `telegram_channels`, `channel_groups`, `channel_group_members`, and `channel_state`.
     - Enforced one-group-per-channel membership with unique constraint on `channel_group_members.channel_id`.

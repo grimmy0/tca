@@ -72,46 +72,74 @@ def test_group_schema_foreign_keys_resolve_correctly(tmp_path: Path) -> None:
     _upgrade_to_head(db_path)
 
     with sqlite3.connect(db_path.as_posix()) as connection:
-        channels_fk = _fk_triplets(connection, "telegram_channels")
-        members_fk = _fk_triplets(connection, "channel_group_members")
-        state_fk = _fk_triplets(connection, "channel_state")
+        channels_fk = _fk_details(connection, "telegram_channels")
+        members_fk = _fk_details(connection, "channel_group_members")
+        state_fk = _fk_details(connection, "channel_state")
 
-    if channels_fk != {("account_id", "telegram_accounts", "id")}:
+    if channels_fk != {("account_id", "telegram_accounts", "id", "CASCADE")}:
         raise AssertionError
     if members_fk != {
-        ("channel_id", "telegram_channels", "id"),
-        ("group_id", "channel_groups", "id"),
+        ("channel_id", "telegram_channels", "id", "CASCADE"),
+        ("group_id", "channel_groups", "id", "CASCADE"),
     }:
         raise AssertionError
-    if state_fk != {("channel_id", "telegram_channels", "id")}:
+    if state_fk != {("channel_id", "telegram_channels", "id", "CASCADE")}:
         raise AssertionError
 
 
-def _fk_triplets(
+def test_base_group_tables_are_removed_on_downgrade_to_base(
+    tmp_path: Path,
+) -> None:
+    """Ensure C012 tables are removed when downgrading back to base revision."""
+    db_path = tmp_path / "c012-downgrade.sqlite3"
+    _upgrade_to_head(db_path)
+
+    result = _run_alembic_command(db_path, ("downgrade", "base"))
+    if result.returncode != 0:
+        raise AssertionError
+
+    with sqlite3.connect(db_path.as_posix()) as connection:
+        rows = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'",
+        ).fetchall()
+    name_rows = cast("list[SQLiteNameRow]", rows)
+    table_names = {row[0] for row in name_rows}
+    if EXPECTED_BASE_TABLES & table_names:
+        raise AssertionError
+
+
+def _fk_details(
     connection: sqlite3.Connection,
     table_name: str,
-) -> set[tuple[str, str, str]]:
+) -> set[tuple[str, str, str, str]]:
     rows = connection.execute(
         f"PRAGMA foreign_key_list('{table_name}')",
     ).fetchall()
     typed_rows = cast("list[SQLiteForeignKeyRow]", rows)
-    return {(row[3], row[2], row[4]) for row in typed_rows}
+    return {(row[3], row[2], row[4], row[6]) for row in typed_rows}
 
 
 def _upgrade_to_head(db_path: Path) -> None:
+    result = _run_alembic_command(db_path, ("upgrade", "head"))
+    if result.returncode != 0:
+        raise AssertionError
+
+
+def _run_alembic_command(
+    db_path: Path,
+    command_parts: tuple[str, ...],
+) -> subprocess.CompletedProcess[str]:
     alembic_executable = Path(sys.executable).with_name("alembic")
     if not alembic_executable.exists():
         raise AssertionError
 
     env = os.environ.copy()
     env["TCA_DB_PATH"] = db_path.as_posix()
-    result = subprocess.run(  # noqa: S603
-        [alembic_executable.as_posix(), "-c", "alembic.ini", "upgrade", "head"],
+    return subprocess.run(  # noqa: S603
+        [alembic_executable.as_posix(), "-c", "alembic.ini", *command_parts],
         cwd=PROJECT_ROOT,
         check=False,
         capture_output=True,
         text=True,
         env=env,
     )
-    if result.returncode != 0:
-        raise AssertionError
