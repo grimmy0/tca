@@ -335,6 +335,87 @@ def detect_quota_issue(*texts: str) -> str | None:
     return None
 
 
+def run_quota_probe(
+    *,
+    codex_bin: str,
+    repo_root: Path,
+    model: str | None,
+    logger: TeeLogger,
+) -> bool:
+    """Run a minimal codex exec to test whether API limits have reset."""
+    command: list[str] = [
+        codex_bin,
+        "exec",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--skip-git-repo-check",
+        "--color",
+        "never",
+        "--cd",
+        str(repo_root),
+        "-",
+    ]
+    if model is not None:
+        command.extend(["--model", model])
+    try:
+        completed = subprocess.run(  # noqa: S603
+            command,
+            cwd=repo_root,
+            input="Reply with exactly one word: OK",
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        logger.log("Quota probe timed out after 120s — treating as still limited.")
+        return False
+    if completed.returncode == 0:
+        return True
+    merged = f"{completed.stdout}\n{completed.stderr}"
+    if detect_quota_issue(merged) is not None:
+        return False
+    # Non-quota failure — log but treat as still limited to be safe.
+    logger.log(
+        f"Quota probe failed with code {completed.returncode} "
+        f"(non-quota error) — treating as still limited.",
+    )
+    return False
+
+
+def wait_for_quota_reset(  # noqa: PLR0913
+    *,
+    codex_bin: str,
+    repo_root: Path,
+    model: str | None,
+    logger: TeeLogger,
+    interval: float,
+    max_attempts: int,
+    step_name: str,
+    matched_line: str,
+) -> bool:
+    """Sleep-and-probe until quota resets. Returns True if recovered."""
+    if max_attempts <= 0:
+        return False
+    logger.section(f"Quota hit during '{step_name}' - entering wait loop")
+    logger.log(f"Matched: {matched_line}")
+    for attempt in range(1, max_attempts + 1):
+        logger.log(
+            f"Probe attempt {attempt}/{max_attempts} in {interval:.0f}s...",
+        )
+        time.sleep(interval)
+        if run_quota_probe(
+            codex_bin=codex_bin,
+            repo_root=repo_root,
+            model=model,
+            logger=logger,
+        ):
+            logger.log("Quota probe succeeded - resuming.")
+            return True
+        logger.log("Still limited.")
+    logger.log("All quota wait attempts exhausted.")
+    return False
+
+
 def graceful_quota_exit(
     *,
     logger: TeeLogger,
@@ -551,6 +632,109 @@ def build_review_prompt(  # noqa: PLR0913
     )
 
 
+def build_docs_review_prompt(*, repo_root: Path) -> str:
+    """Create a strict technical-writing docs review prompt for Codex."""
+    return (
+        textwrap.dedent(
+            f"""
+        You are running in repository: {repo_root}
+
+        Task: Review and update ALL project documentation to match the current
+        state of the codebase.
+
+        Scope — read every file in these locations:
+        - docs/
+        - README.md
+        - CLAUDE.md
+        - GEMINI.md
+        - .github/pull_request_template.md
+
+        Process:
+        1. Read the current codebase thoroughly to understand what is actually
+           implemented (modules, APIs, CLI flags, config, dependencies, etc.).
+        2. Do web research for any libraries, APIs, or patterns referenced in the
+           code that you are not 100% certain about.
+        3. Compare each doc against reality — identify stale, inaccurate, or
+           missing content.
+        4. Update, add, or remove doc sections as needed.
+        5. Commit all doc changes with a clear commit message.
+        6. Push to upstream.
+
+        Hard constraints:
+        - NEVER assume behavior — verify by reading code and doing web research.
+        - Follow modern technical writing practices: active voice,
+          task-oriented structure, concrete examples, no filler.
+        - Preserve existing doc structure and formatting conventions.
+        - Only change what needs changing — no cosmetic rewrites.
+        - Do not modify any non-documentation files.
+        - If all docs are already accurate, make no changes and push nothing.
+
+        Final response format:
+        DOCS_REVIEW_FILES_CHANGED: <integer>
+        DOCS_REVIEW_COMMIT: <sha|NONE>
+        PUSH_STATUS: <OK|FAILED: reason|SKIPPED>
+        """,
+        ).strip()
+        + "\n"
+    )
+
+
+def run_docs_review(  # noqa: PLR0913
+    *,
+    codex_bin: str,
+    repo_root: Path,
+    model: str | None,
+    cycle_number: int,
+    logs_root: Path,
+    logger: TeeLogger,
+    quota_wait_interval: float,
+    max_quota_waits: int,
+) -> None:
+    """Run a docs review step with quota retry.
+
+    Non-critical: logs warnings on failure.
+    """
+    logger.section(f"Docs Review (after cycle {cycle_number})")
+    prompt = build_docs_review_prompt(repo_root=repo_root)
+    while True:
+        result = run_codex_step(
+            codex_bin=codex_bin,
+            repo_root=repo_root,
+            model=model,
+            cycle_number=cycle_number,
+            step_name="docs_review",
+            prompt=prompt,
+            logs_root=logs_root,
+            logger=logger,
+        )
+        if result.returncode == 0:
+            logger.log("Docs review step completed successfully.")
+            return
+        quota_hit = detect_quota_issue(result.output, result.last_message)
+        if quota_hit is not None:
+            if wait_for_quota_reset(
+                codex_bin=codex_bin,
+                repo_root=repo_root,
+                model=model,
+                logger=logger,
+                interval=quota_wait_interval,
+                max_attempts=max_quota_waits,
+                step_name="docs_review",
+                matched_line=quota_hit,
+            ):
+                continue
+            logger.log(
+                "WARNING: Docs review quota exhausted — skipping. "
+                f"Matched: {quota_hit}",
+            )
+            return
+        logger.log(
+            f"WARNING: Docs review step failed with code {result.returncode} "
+            "— skipping (non-critical).",
+        )
+        return
+
+
 def run_codex_step(  # noqa: PLR0913
     *,
     codex_bin: str,
@@ -667,6 +851,30 @@ def parse_args() -> argparse.Namespace:
         help="Optional delay between cycles.",
     )
     parser.add_argument(
+        "--quota-wait-interval",
+        type=float,
+        default=3600.0,
+        help="Seconds between quota-reset probes (default: 3600 = 1 hour).",
+    )
+    parser.add_argument(
+        "--max-quota-waits",
+        type=int,
+        default=0,
+        help=(
+            "Max probe attempts before giving up on quota reset. "
+            "0 = exit immediately on quota hit (default)."
+        ),
+    )
+    parser.add_argument(
+        "--docs-review-interval",
+        type=int,
+        default=5,
+        help=(
+            "Run docs review every N cycles. 0 = disabled. "
+            "Also runs once when the plan completes (default: 5)."
+        ),
+    )
+    parser.add_argument(
         "--allow-dirty-start",
         action="store_true",
         help="Allow starting when git working tree already has uncommitted changes.",
@@ -700,6 +908,9 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
         logger.log(f"max_cycles={args.max_cycles}")
         logger.log(f"sleep_seconds={args.sleep_seconds}")
         logger.log(f"allow_dirty_start={args.allow_dirty_start}")
+        logger.log(f"quota_wait_interval={args.quota_wait_interval}")
+        logger.log(f"max_quota_waits={args.max_quota_waits}")
+        logger.log(f"docs_review_interval={args.docs_review_interval}")
         logger.log("mode=yolo (--dangerously-bypass-approvals-and-sandbox)")
 
         if not repo_root.exists():
@@ -829,6 +1040,17 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                     implement_result.last_message,
                 )
                 if quota_hit is not None:
+                    if wait_for_quota_reset(
+                        codex_bin=codex_bin,
+                        repo_root=repo_root,
+                        model=args.model,
+                        logger=logger,
+                        interval=args.quota_wait_interval,
+                        max_attempts=args.max_quota_waits,
+                        step_name="implement",
+                        matched_line=quota_hit,
+                    ):
+                        continue
                     return graceful_quota_exit(
                         logger=logger,
                         step_name="implement",
@@ -841,7 +1063,19 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                 return implement_result.returncode
 
             if is_plan_done(implement_result.last_message):
-                logger.log("Codex returned PLAN IS DONE. Stopping automation loop.")
+                logger.log("Codex returned PLAN IS DONE.")
+                if args.docs_review_interval > 0:
+                    run_docs_review(
+                        codex_bin=codex_bin,
+                        repo_root=repo_root,
+                        model=args.model,
+                        cycle_number=cycle_number,
+                        logs_root=logs_root,
+                        logger=logger,
+                        quota_wait_interval=args.quota_wait_interval,
+                        max_quota_waits=args.max_quota_waits,
+                    )
+                logger.log("Stopping automation loop.")
                 _ = sys.stdout.write("PLAN IS DONE\n")
                 return 0
 
@@ -858,6 +1092,17 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                     implement_result.last_message,
                 )
                 if quota_hit is not None:
+                    if wait_for_quota_reset(
+                        codex_bin=codex_bin,
+                        repo_root=repo_root,
+                        model=args.model,
+                        logger=logger,
+                        interval=args.quota_wait_interval,
+                        max_attempts=args.max_quota_waits,
+                        step_name="implement",
+                        matched_line=quota_hit,
+                    ):
+                        continue
                     return graceful_quota_exit(
                         logger=logger,
                         step_name="implement",
@@ -897,22 +1142,35 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                 upstream=upstream,
             )
             logger.log("Review prompt prepared and saved to per-step artifact file.")
-            review_result = run_codex_step(
-                codex_bin=codex_bin,
-                repo_root=repo_root,
-                model=args.model,
-                cycle_number=cycle_number,
-                step_name="review_fix_push",
-                prompt=review_prompt,
-                logs_root=logs_root,
-                logger=logger,
-            )
-            if review_result.returncode != 0:
+            while True:
+                review_result = run_codex_step(
+                    codex_bin=codex_bin,
+                    repo_root=repo_root,
+                    model=args.model,
+                    cycle_number=cycle_number,
+                    step_name="review_fix_push",
+                    prompt=review_prompt,
+                    logs_root=logs_root,
+                    logger=logger,
+                )
+                if review_result.returncode == 0:
+                    break
                 quota_hit = detect_quota_issue(
                     review_result.output,
                     review_result.last_message,
                 )
                 if quota_hit is not None:
+                    if wait_for_quota_reset(
+                        codex_bin=codex_bin,
+                        repo_root=repo_root,
+                        model=args.model,
+                        logger=logger,
+                        interval=args.quota_wait_interval,
+                        max_attempts=args.max_quota_waits,
+                        step_name="review_fix_push",
+                        matched_line=quota_hit,
+                    ):
+                        continue
                     return graceful_quota_exit(
                         logger=logger,
                         step_name="review_fix_push",
@@ -967,6 +1225,21 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                 logger.log(
                     "No upstream configured; push attempt outcome depends on "
                     "prompt logic.",
+                )
+
+            if (
+                args.docs_review_interval > 0
+                and cycle_number % args.docs_review_interval == 0
+            ):
+                run_docs_review(
+                    codex_bin=codex_bin,
+                    repo_root=repo_root,
+                    model=args.model,
+                    cycle_number=cycle_number,
+                    logs_root=logs_root,
+                    logger=logger,
+                    quota_wait_interval=args.quota_wait_interval,
+                    max_quota_waits=args.max_quota_waits,
                 )
 
             if args.sleep_seconds > 0:
