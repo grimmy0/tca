@@ -400,11 +400,17 @@ An item is commit-ready only if all are true:
 - Change:
   - Add insert/update/delete triggers to keep FTS index synchronized with `items`.
 - Acceptance criteria:
-  - [ ] Insert into `items` appears in FTS results.
-  - [ ] Update modifies FTS searchable text.
-  - [ ] Delete removes FTS hit.
+  - [x] Insert into `items` appears in FTS results. [Tests: tests/migrations/test_fts_triggers.py::test_insert_into_items_appears_in_fts_results]
+  - [x] Update modifies FTS searchable text. [Tests: tests/migrations/test_fts_triggers.py::test_update_modifies_fts_searchable_text]
+  - [x] Delete removes FTS hit. [Tests: tests/migrations/test_fts_triggers.py::test_delete_removes_fts_hit]
 - Verification:
   - `uv run pytest -q tests/migrations/test_fts_triggers.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `c017`
+  - Verification summary:
+    - Added Alembic revision `a1f6e7c9d2b4` creating `items_fts_ai`, `items_fts_au`, and `items_fts_ad` triggers to synchronize insert/update/delete changes from `items` into `items_fts`.
+    - Added migration tests validating insert visibility in `MATCH` results, update replacement of searchable terms, and delete removal from FTS hits.
 
 ### C018 - Add Migration Runner in App Startup Path
 
