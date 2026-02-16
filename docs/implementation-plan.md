@@ -93,12 +93,19 @@ An item is commit-ready only if all are true:
   - Add `tests/conftest.py` with reusable fixtures for async DB session setup and deterministic concurrency tests.
   - Add `docs/testing-guide.md` with a focused section showing how to reproduce and assert `SQLITE_BUSY` scenarios in tests.
 - Acceptance criteria:
-  - [ ] `tests/conftest.py` exposes fixtures used by storage tests and does not perform network calls.
-  - [ ] Guide includes one runnable example for concurrent write contention and expected assertion pattern.
-  - [ ] C010 tests use shared fixtures/harness instead of ad-hoc concurrency setup.
+  - [x] `tests/conftest.py` exposes fixtures used by storage tests and does not perform network calls.
+  - [x] Guide includes one runnable example for concurrent write contention and expected assertion pattern.
+  - [x] C010 tests use shared fixtures/harness instead of ad-hoc concurrency setup.
 - Verification:
   - `uv run pytest -q tests/storage/test_begin_immediate.py`
   - `rg -n "SQLITE_BUSY|concurrency" docs/testing-guide.md tests/conftest.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: this C003A implementation commit
+  - Verification summary:
+    - `uv run pytest -q tests/storage/test_begin_immediate.py` passed (`1 passed`).
+    - `rg -n "SQLITE_BUSY|concurrency" docs/testing-guide.md tests/conftest.py` matched fixture and guide references.
+    - `tests/storage/test_begin_immediate.py` uses shared fixture `sqlite_writer_pair` from `tests/conftest.py`.
 
 ### C003B - Add `MockTelegramClient` Test Double
 
