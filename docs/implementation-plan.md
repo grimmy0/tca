@@ -679,11 +679,19 @@ An item is commit-ready only if all are true:
   - Implement DEK generation + data encryption/decryption helpers.
   - Implement KEK wrapping/unwrapping flow.
 - Acceptance criteria:
-  - [ ] Encrypt/decrypt round trip returns exact original bytes.
-  - [ ] Decrypt with wrong key fails deterministically.
-  - [ ] Ciphertext payload includes version metadata.
+  - [x] Encrypt/decrypt round trip returns exact original bytes. [Tests: tests/auth/test_encryption_utils.py::test_encrypt_decrypt_round_trip_returns_exact_original_bytes]
+  - [x] Decrypt with wrong key fails deterministically. [Tests: tests/auth/test_encryption_utils.py::test_decrypt_with_wrong_key_fails_deterministically]
+  - [x] Ciphertext payload includes version metadata. [Tests: tests/auth/test_encryption_utils.py::test_ciphertext_payload_includes_version_metadata]
 - Verification:
   - `uv run pytest -q tests/auth/test_encryption_utils.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `PENDING`
+  - Verification summary:
+    - Added `tca/auth/encryption_utils.py` implementing DEK generation, AES key wrap/unwrap helpers for KEK flow, and AES-GCM envelope encrypt/decrypt helpers.
+    - Standardized envelope payload serialization as UTF-8 JSON with base64-encoded binary fields and explicit `version` metadata for forward-compatible schema evolution.
+    - Added `tests/auth/test_encryption_utils.py` covering byte-exact encrypt/decrypt round-trip, deterministic wrong-KEK decryption failure via `EnvelopeDecryptionError`, and payload version metadata presence.
+    - Verified with `uv run pytest -q tests/auth/test_encryption_utils.py`, `uv run ruff check tca/auth/encryption_utils.py tca/auth/__init__.py tests/auth/test_encryption_utils.py`, and `uv run mypy tca/auth/encryption_utils.py tca/auth/__init__.py tests/auth/test_encryption_utils.py`.
 
 ### C031 - Implement Argon2id KEK Derivation
 
