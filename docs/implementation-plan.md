@@ -372,7 +372,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/migrations/test_indexes.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `c015`
+  - Commit: `c0157c9`
   - Verification summary:
     - Added Alembic revision `c2f9c1e5a7b3` to create required Phase 1 secondary indexes on `items`, `dedupe_members`, `dedupe_clusters`, and `ingest_errors`.
     - Added migration tests asserting every design-defined Phase 1 index signature is present in SQLite metadata.

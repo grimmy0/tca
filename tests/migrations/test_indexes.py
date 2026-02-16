@@ -147,6 +147,19 @@ LIMIT 20
     ),
 )
 
+C015_CREATED_INDEX_NAMES = {
+    "items": frozenset(
+        {
+            "ix_items_published_at",
+            "ix_items_canonical_url_hash",
+            "ix_items_content_hash",
+        },
+    ),
+    "dedupe_members": frozenset({"ix_dedupe_members_item_id"}),
+    "dedupe_clusters": frozenset({"ix_dedupe_clusters_representative_item_id"}),
+    "ingest_errors": frozenset({"ix_ingest_errors_created_at"}),
+}
+
 
 def test_phase1_indexes_from_design_exist_in_metadata(tmp_path: Path) -> None:
     """Ensure all mandatory Phase 1 index signatures are present."""
@@ -194,6 +207,23 @@ def test_representative_read_path_query_plans_use_expected_indexes(
         raise AssertionError
 
 
+def test_c015_indexes_are_removed_when_downgrading_to_c014(tmp_path: Path) -> None:
+    """Ensure indexes introduced by C015 are removed by the C015 downgrade."""
+    db_path = tmp_path / "c015-downgrade.sqlite3"
+    _upgrade_to_head(db_path)
+
+    result = _run_alembic_command(db_path, ("downgrade", "9c2a8f6d0f7b"))
+    if result.returncode != 0:
+        raise AssertionError(result.stderr or result.stdout)
+
+    with sqlite3.connect(db_path.as_posix()) as connection:
+        for table_name, expected_absent in C015_CREATED_INDEX_NAMES.items():
+            existing = _index_names_for_table(connection, table_name)
+            remaining = expected_absent & existing
+            if remaining:
+                raise AssertionError
+
+
 def _assert_expected_phase1_indexes(connection: sqlite3.Connection) -> None:
     missing = [
         expectation
@@ -227,10 +257,7 @@ def _index_signatures_for_table(
     connection: sqlite3.Connection,
     table_name: str,
 ) -> set[IndexSignature]:
-    index_rows = connection.execute(
-        f"PRAGMA index_list('{table_name}')",
-    ).fetchall()
-    typed_index_rows = cast("list[SQLiteIndexListRow]", index_rows)
+    typed_index_rows = _index_list_rows_for_table(connection, table_name)
     signatures: set[IndexSignature] = set()
 
     for index_row in typed_index_rows:
@@ -260,10 +287,25 @@ def _explain_query_plan_details(
     return tuple(row[3] for row in typed_rows)
 
 
+def _index_names_for_table(connection: sqlite3.Connection, table_name: str) -> set[str]:
+    typed_index_rows = _index_list_rows_for_table(connection, table_name)
+    return {row[1] for row in typed_index_rows}
+
+
+def _index_list_rows_for_table(
+    connection: sqlite3.Connection,
+    table_name: str,
+) -> list[SQLiteIndexListRow]:
+    index_rows = connection.execute(
+        f"PRAGMA index_list('{table_name}')",
+    ).fetchall()
+    return cast("list[SQLiteIndexListRow]", index_rows)
+
+
 def _upgrade_to_head(db_path: Path) -> None:
     result = _run_alembic_command(db_path, ("upgrade", "head"))
     if result.returncode != 0:
-        raise AssertionError
+        raise AssertionError(result.stderr or result.stdout)
 
 
 def _run_alembic_command(
