@@ -11,7 +11,10 @@ from sqlalchemy import text
 from tca.auth import (
     DATA_ENCRYPTION_KEY_BYTES,
     EnvelopeDecryptionError,
+    TelegramAccountNotFoundError,
     TelegramSessionStorage,
+    TelegramSessionStorageError,
+    encrypt_with_envelope,
 )
 from tca.config.settings import load_settings
 from tca.storage import StorageRuntime, create_storage_runtime, dispose_storage_runtime
@@ -21,6 +24,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 DEFAULT_ACCOUNT_ID = 1
+MISSING_ACCOUNT_ID = 999
 
 
 @pytest.fixture
@@ -109,9 +113,7 @@ async def test_stored_session_data_is_encrypted_not_plaintext_stringsession(
         )
         stored_payload_obj = row_map.get("session_encrypted")
 
-    if not isinstance(stored_payload_obj, bytes):
-        raise TypeError
-    stored_payload = stored_payload_obj
+    stored_payload = _coerce_blob_bytes_for_assertion(value=stored_payload_obj)
     if stored_payload == string_session.encode("utf-8"):
         raise AssertionError
 
@@ -146,7 +148,9 @@ async def test_incorrect_kek_prevents_session_load(
     """Ensure decrypt attempt fails when caller provides incorrect KEK bytes."""
     storage, _ = session_storage_runtime
     correct_key_encryption_key = secrets.token_bytes(DATA_ENCRYPTION_KEY_BYTES)
-    wrong_key_encryption_key = secrets.token_bytes(DATA_ENCRYPTION_KEY_BYTES)
+    wrong_key_encryption_key = (
+        bytes([correct_key_encryption_key[0] ^ 0x01]) + correct_key_encryption_key[1:]
+    )
     session_value = "1AABBCCDDEE-wrong-kek-test-5f5b90702a2040b0a17d2a5d93fcae12"
 
     await storage.persist_session(
@@ -163,3 +167,129 @@ async def test_incorrect_kek_prevents_session_load(
             account_id=DEFAULT_ACCOUNT_ID,
             key_encryption_key=wrong_key_encryption_key,
         )
+
+
+@pytest.mark.asyncio
+async def test_persist_session_missing_account_raises_not_found_error(
+    session_storage_runtime: tuple[TelegramSessionStorage, StorageRuntime],
+) -> None:
+    """Ensure persist path raises deterministic missing-account error."""
+    storage, _ = session_storage_runtime
+    key_encryption_key = secrets.token_bytes(DATA_ENCRYPTION_KEY_BYTES)
+
+    with pytest.raises(
+        TelegramAccountNotFoundError,
+        match=(
+            "Unable to access Telegram session: "
+            f"no account row exists for id={MISSING_ACCOUNT_ID}."
+        ),
+    ):
+        await storage.persist_session(
+            account_id=MISSING_ACCOUNT_ID,
+            string_session="1AABBCCDDEE-missing-account-persist",
+            key_encryption_key=key_encryption_key,
+        )
+
+
+@pytest.mark.asyncio
+async def test_load_session_missing_account_raises_not_found_error(
+    session_storage_runtime: tuple[TelegramSessionStorage, StorageRuntime],
+) -> None:
+    """Ensure load path raises deterministic missing-account error."""
+    storage, _ = session_storage_runtime
+    key_encryption_key = secrets.token_bytes(DATA_ENCRYPTION_KEY_BYTES)
+
+    with pytest.raises(
+        TelegramAccountNotFoundError,
+        match=(
+            "Unable to access Telegram session: "
+            f"no account row exists for id={MISSING_ACCOUNT_ID}."
+        ),
+    ):
+        _ = await storage.load_session(
+            account_id=MISSING_ACCOUNT_ID,
+            key_encryption_key=key_encryption_key,
+        )
+
+
+@pytest.mark.asyncio
+async def test_load_session_rejects_non_bytes_payload_shape(
+    session_storage_runtime: tuple[TelegramSessionStorage, StorageRuntime],
+) -> None:
+    """Ensure payload-shape validation rejects non-BLOB session values."""
+    storage, runtime = session_storage_runtime
+    key_encryption_key = secrets.token_bytes(DATA_ENCRYPTION_KEY_BYTES)
+
+    async with runtime.write_session_factory() as session:
+        _ = await session.execute(
+            text(
+                """
+                UPDATE telegram_accounts
+                SET session_encrypted = :session_encrypted
+                WHERE id = :account_id
+                """,
+            ),
+            {
+                "account_id": DEFAULT_ACCOUNT_ID,
+                "session_encrypted": "not-bytes-payload",
+            },
+        )
+        await session.commit()
+
+    with pytest.raises(
+        TelegramSessionStorageError,
+        match=r"Stored Telegram session payload is not bytes\.",
+    ):
+        _ = await storage.load_session(
+            account_id=DEFAULT_ACCOUNT_ID,
+            key_encryption_key=key_encryption_key,
+        )
+
+
+@pytest.mark.asyncio
+async def test_load_session_rejects_non_utf8_decrypted_payload(
+    session_storage_runtime: tuple[TelegramSessionStorage, StorageRuntime],
+) -> None:
+    """Ensure UTF-8 decoding failures surface deterministic storage error."""
+    storage, runtime = session_storage_runtime
+    key_encryption_key = secrets.token_bytes(DATA_ENCRYPTION_KEY_BYTES)
+    ciphertext_payload = encrypt_with_envelope(
+        plaintext=b"\x80\x81\xff",
+        key_encryption_key=key_encryption_key,
+    )
+
+    async with runtime.write_session_factory() as session:
+        _ = await session.execute(
+            text(
+                """
+                UPDATE telegram_accounts
+                SET session_encrypted = :session_encrypted
+                WHERE id = :account_id
+                """,
+            ),
+            {
+                "account_id": DEFAULT_ACCOUNT_ID,
+                "session_encrypted": ciphertext_payload,
+            },
+        )
+        await session.commit()
+
+    with pytest.raises(
+        TelegramSessionStorageError,
+        match=r"Stored Telegram session payload is not valid UTF-8 text\.",
+    ):
+        _ = await storage.load_session(
+            account_id=DEFAULT_ACCOUNT_ID,
+            key_encryption_key=key_encryption_key,
+        )
+
+
+def _coerce_blob_bytes_for_assertion(*, value: object) -> bytes:
+    """Normalize BLOB readback variants for assertion logic in tests."""
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, bytearray):
+        return bytes(value)
+    if isinstance(value, memoryview):
+        return value.tobytes()
+    raise TypeError

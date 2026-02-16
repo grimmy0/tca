@@ -37,7 +37,7 @@ class TelegramAccountNotFoundError(TelegramSessionStorageError):
     def for_account_id(cls, account_id: int) -> TelegramAccountNotFoundError:
         """Build deterministic missing-account error with account context."""
         message = (
-            "Unable to persist Telegram session: no account row exists for "
+            "Unable to access Telegram session: no account row exists for "
             f"id={account_id}."
         )
         return cls(message)
