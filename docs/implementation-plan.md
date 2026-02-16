@@ -546,7 +546,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/settings/test_resolution.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `COMMIT_SHA_PLACEHOLDER`
+  - Commit: `77304c710c7928f0d8c128f5d27be3e100d2e6c8`
   - Verification summary:
     - Added `tca/config/resolution.py` with `ConfigResolutionService`, combining static app settings exposure with dynamic horizon resolution from settings rows and seeded-default fallback.
     - Added `tests/settings/test_resolution.py` to validate global horizon lookup from `dedupe.default_horizon_minutes`, group override precedence, and fallback to the seeded default when the key is missing.
