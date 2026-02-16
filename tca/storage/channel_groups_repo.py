@@ -127,6 +127,20 @@ class ChannelGroupsRepository:
             return None
         return _decode_group_row(row)
 
+    async def list_groups(self) -> list[ChannelGroupRecord]:
+        """Return all channel groups ordered by id."""
+        statement = text(
+            """
+            SELECT id, name, description, dedupe_horizon_minutes_override
+            FROM channel_groups
+            ORDER BY id ASC
+            """,
+        )
+        async with self._read_session_factory() as session:
+            result = await session.execute(statement)
+            rows = result.mappings().all()
+        return [_decode_group_row(row) for row in rows]
+
     async def update_group(
         self,
         *,

@@ -577,11 +577,19 @@ An item is commit-ready only if all are true:
 - Change:
   - Implement all endpoints from design section 12.4.
 - Acceptance criteria:
-  - [ ] CRUD operations return expected status codes.
-  - [ ] Membership add/remove endpoint updates join table.
-  - [ ] Group horizon override can be set and cleared.
+  - [x] CRUD operations return expected status codes. [Tests: tests/api/test_channel_groups_api.py::test_channel_group_crud_endpoints_return_expected_status_codes]
+  - [x] Membership add/remove endpoint updates join table. [Tests: tests/api/test_channel_groups_api.py::test_channel_group_membership_put_and_delete_update_join_table]
+  - [x] Group horizon override can be set and cleared. [Tests: tests/api/test_channel_groups_api.py::test_channel_group_horizon_override_can_be_set_and_cleared]
 - Verification:
   - `uv run pytest -q tests/api/test_channel_groups_api.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `PENDING`
+  - Verification summary:
+    - Added `tca/api/routes/channel_groups.py` implementing design section 12.4 endpoints: group list/create/update/delete and membership put/delete, with writer-queue execution for mutating operations.
+    - Extended `tca/storage/channel_groups_repo.py` with `list_groups()` to support `GET /channel-groups` ordering and response payloads.
+    - Registered channel-group routes in `tca/api/app.py` and added API coverage in `tests/api/test_channel_groups_api.py` for CRUD status codes, membership join-table add/remove behavior, and horizon override set/clear semantics.
+    - Verified with `uv run pytest -q tests/api/test_channel_groups_api.py` (`3 passed in 2.07s`), plus `uv run ruff check tca/api/routes/channel_groups.py tca/api/app.py tca/storage/channel_groups_repo.py tests/api/test_channel_groups_api.py` and `uv run mypy tca/api/routes/channel_groups.py tca/api/app.py tca/storage/channel_groups_repo.py tests/api/test_channel_groups_api.py`.
 
 ### C026 - Add OpenAPI Contract Snapshot for Config/Groups
 
