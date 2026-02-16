@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from http import HTTPStatus
 from typing import Protocol, cast, runtime_checkable
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -17,6 +18,7 @@ SET_OVERRIDE_MINUTES = 180
 EXPECTED_CREATED_STATUS = HTTPStatus.CREATED
 EXPECTED_NOT_FOUND_STATUS = HTTPStatus.NOT_FOUND
 EXPECTED_OK_STATUS = HTTPStatus.OK
+BOOTSTRAP_TOKEN = "channel-groups-api-token"  # noqa: S105
 
 SQLiteMembershipRow = tuple[int, int]
 SQLiteHorizonRow = tuple[int | None]
@@ -28,14 +30,27 @@ def test_channel_group_crud_endpoints_return_expected_status_codes(
 ) -> None:
     """Ensure create/list/patch/delete group endpoints return expected statuses."""
     db_path = _as_path(tmp_path) / "channel-groups-api-crud.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher = _as_monkeypatch(monkeypatch)
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (_as_path(tmp_path) / "channel-groups-bootstrap-token.txt").as_posix(),
+    )
 
     app = create_app()
-    with TestClient(app) as client:
-        initial_list = client.get("/channel-groups")
+    auth_headers = _auth_headers()
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
+        initial_list = client.get("/channel-groups", headers=auth_headers)
         created = client.post(
             "/channel-groups",
             json={"name": "Priority Sources", "description": "High-signal feeds"},
+            headers=auth_headers,
         )
 
         _assert_response_status(initial_list, expected=EXPECTED_OK_STATUS)
@@ -43,18 +58,22 @@ def test_channel_group_crud_endpoints_return_expected_status_codes(
         _assert_response_status(created, expected=EXPECTED_CREATED_STATUS)
         group_id = _extract_group_id(created)
 
-        listed = client.get("/channel-groups")
+        listed = client.get("/channel-groups", headers=auth_headers)
         _assert_response_status(listed, expected=EXPECTED_OK_STATUS)
         _assert_group_list_ids(listed, expected_ids=[group_id])
 
         patched = client.patch(
             f"/channel-groups/{group_id}",
             json={"name": "Priority Sources Updated"},
+            headers=auth_headers,
         )
         _assert_response_status(patched, expected=EXPECTED_OK_STATUS)
         _assert_group_name(patched, expected_name="Priority Sources Updated")
 
-        deleted = client.delete(f"/channel-groups/{group_id}")
+        deleted = client.delete(
+            f"/channel-groups/{group_id}",
+            headers=auth_headers,
+        )
         _assert_response_status(deleted, expected=EXPECTED_OK_STATUS)
         deleted_payload = cast("dict[str, object]", deleted.json())
         if deleted_payload.get("deleted_group_id") != group_id:
@@ -63,8 +82,12 @@ def test_channel_group_crud_endpoints_return_expected_status_codes(
         patch_missing = client.patch(
             f"/channel-groups/{group_id}",
             json={"name": "does-not-exist"},
+            headers=auth_headers,
         )
-        delete_missing = client.delete(f"/channel-groups/{group_id}")
+        delete_missing = client.delete(
+            f"/channel-groups/{group_id}",
+            headers=auth_headers,
+        )
         _assert_response_status(patch_missing, expected=EXPECTED_NOT_FOUND_STATUS)
         _assert_response_status(delete_missing, expected=EXPECTED_NOT_FOUND_STATUS)
 
@@ -75,13 +98,26 @@ def test_channel_group_membership_put_and_delete_update_join_table(
 ) -> None:
     """Ensure membership add/remove API endpoints update join-table rows."""
     db_path = _as_path(tmp_path) / "channel-groups-api-memberships.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher = _as_monkeypatch(monkeypatch)
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (_as_path(tmp_path) / "channel-groups-bootstrap-token.txt").as_posix(),
+    )
 
     app = create_app()
-    with TestClient(app) as client:
+    auth_headers = _auth_headers()
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
         created = client.post(
             "/channel-groups",
             json={"name": "Membership Group", "description": None},
+            headers=auth_headers,
         )
         if created.status_code != EXPECTED_CREATED_STATUS:
             raise AssertionError
@@ -100,6 +136,7 @@ def test_channel_group_membership_put_and_delete_update_join_table(
 
         added = client.put(
             f"/channel-groups/{group_id}/channels/{DEFAULT_CHANNEL_ID}",
+            headers=auth_headers,
         )
         if added.status_code != EXPECTED_OK_STATUS:
             raise AssertionError
@@ -111,6 +148,7 @@ def test_channel_group_membership_put_and_delete_update_join_table(
 
         removed = client.delete(
             f"/channel-groups/{group_id}/channels/{DEFAULT_CHANNEL_ID}",
+            headers=auth_headers,
         )
         if removed.status_code != EXPECTED_OK_STATUS:
             raise AssertionError
@@ -127,13 +165,26 @@ def test_channel_group_horizon_override_can_be_set_and_cleared(
 ) -> None:
     """Ensure PATCH can set and clear per-group horizon override values."""
     db_path = _as_path(tmp_path) / "channel-groups-api-horizon.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher = _as_monkeypatch(monkeypatch)
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (_as_path(tmp_path) / "channel-groups-bootstrap-token.txt").as_posix(),
+    )
 
     app = create_app()
-    with TestClient(app) as client:
+    auth_headers = _auth_headers()
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
         created = client.post(
             "/channel-groups",
             json={"name": "Horizon Group", "description": "override test"},
+            headers=auth_headers,
         )
         if created.status_code != EXPECTED_CREATED_STATUS:
             raise AssertionError
@@ -147,6 +198,7 @@ def test_channel_group_horizon_override_can_be_set_and_cleared(
         set_override = client.patch(
             f"/channel-groups/{group_id}",
             json={"dedupe_horizon_minutes_override": SET_OVERRIDE_MINUTES},
+            headers=auth_headers,
         )
         if set_override.status_code != EXPECTED_OK_STATUS:
             raise AssertionError
@@ -161,6 +213,7 @@ def test_channel_group_horizon_override_can_be_set_and_cleared(
         clear_override = client.patch(
             f"/channel-groups/{group_id}",
             json={"dedupe_horizon_minutes_override": None},
+            headers=auth_headers,
         )
         if clear_override.status_code != EXPECTED_OK_STATUS:
             raise AssertionError
@@ -273,6 +326,11 @@ def _extract_group_id(response: ResponseLike) -> int:
     if type(group_id_obj) is not int:
         raise AssertionError
     return group_id_obj
+
+
+def _auth_headers() -> dict[str, str]:
+    """Build deterministic Authorization header for protected endpoint tests."""
+    return {"Authorization": f"Bearer {BOOTSTRAP_TOKEN}"}
 
 
 def _as_path(value: object) -> PathLike:

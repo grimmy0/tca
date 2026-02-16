@@ -27,7 +27,12 @@ def test_startup_migrations_upgrade_empty_db_to_head(
 ) -> None:
     """Ensure startup upgrades an empty SQLite DB to Alembic head."""
     db_path = tmp_path / "startup-empty.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher = _as_monkeypatch(monkeypatch)
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (tmp_path / "startup-bootstrap-token.txt").as_posix(),
+    )
 
     app = create_app()
     with TestClient(app) as client:
@@ -52,7 +57,12 @@ def test_startup_migrations_are_idempotent_on_current_db(
 ) -> None:
     """Ensure startup migration runner is safe to execute repeatedly."""
     db_path = tmp_path / "startup-idempotent.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher = _as_monkeypatch(monkeypatch)
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (tmp_path / "startup-bootstrap-token.txt").as_posix(),
+    )
 
     app = create_app()
     with TestClient(app) as client:
@@ -85,7 +95,12 @@ def test_startup_migration_failure_blocks_api_startup(
 ) -> None:
     """Ensure API startup fails before serving requests when migrations fail."""
     db_path = tmp_path / "startup-failure.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher = _as_monkeypatch(monkeypatch)
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (tmp_path / "startup-bootstrap-token.txt").as_posix(),
+    )
 
     failed_upgrade = subprocess.CompletedProcess(
         args=["alembic", "-c", "alembic.ini", "upgrade", "head"],
@@ -114,7 +129,12 @@ def test_startup_migration_path_prepare_failure_raises_domain_error(
 ) -> None:
     """Ensure filesystem prep failures surface as startup migration errors."""
     db_path = tmp_path / "startup-path-prepare-failure.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher = _as_monkeypatch(monkeypatch)
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (tmp_path / "startup-bootstrap-token.txt").as_posix(),
+    )
 
     with patch(
         "tca.storage.migrations.Path.mkdir",

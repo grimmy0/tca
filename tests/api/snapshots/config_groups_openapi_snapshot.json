@@ -267,6 +267,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "List Channel Groups",
         "tags": [
           "channel-groups"
@@ -307,6 +312,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Create Channel Group",
         "tags": [
           "channel-groups"
@@ -350,6 +360,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Delete Channel Group",
         "tags": [
           "channel-groups"
@@ -401,6 +416,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Patch Channel Group",
         "tags": [
           "channel-groups"
@@ -453,6 +473,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Delete Channel Group Membership",
         "tags": [
           "channel-groups"
@@ -503,6 +528,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Put Channel Group Membership",
         "tags": [
           "channel-groups"
@@ -546,6 +576,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Setting",
         "tags": [
           "settings"
@@ -597,6 +632,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Put Setting",
         "tags": [
           "settings"

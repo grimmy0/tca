@@ -5,8 +5,10 @@ from __future__ import annotations
 import difflib
 import json
 import os
+from http import HTTPStatus
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, cast, runtime_checkable
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -22,6 +24,7 @@ SNAPSHOT_PATH = (
 )
 UPDATE_ENV_VAR = "TCA_UPDATE_OPENAPI_SNAPSHOT"
 COMPONENT_SCHEMA_PREFIX = "#/components/schemas/"
+OPENAPI_BEARER_TOKEN = "openapi-schema-token"  # noqa: S105
 TARGET_PATHS = (
     "/channel-groups",
     "/channel-groups/{group_id}",
@@ -98,11 +101,28 @@ def test_openapi_snapshot_matches_committed_contract(
 def _load_openapi(*, tmp_path: Path, monkeypatch: object) -> dict[str, object]:
     """Load OpenAPI payload from an isolated per-test SQLite file."""
     db_path = tmp_path / "openapi-config-groups.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher = _as_monkeypatch(monkeypatch)
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (tmp_path / "openapi-bootstrap-token.txt").as_posix(),
+    )
 
     app = create_app()
-    with TestClient(app) as client:
-        payload = cast("object", client.get("/openapi.json").json())
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=OPENAPI_BEARER_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
+        response = client.get(
+            "/openapi.json",
+            headers={"Authorization": f"Bearer {OPENAPI_BEARER_TOKEN}"},
+        )
+    if response.status_code != HTTPStatus.OK:
+        raise AssertionError
+    payload = cast("object", response.json())
     return _expect_dict(payload)
 
 

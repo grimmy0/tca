@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 PROTECTED_ROUTE_PATH = "/settings/scheduler.max_pages_per_poll"
+OPENAPI_ROUTE_PATH = "/openapi.json"
 BOOTSTRAP_TOKEN = "valid-bootstrap-token"  # noqa: S105
 INVALID_BEARER_TOKEN = "invalid-bearer-token"  # noqa: S105
 
@@ -80,6 +81,51 @@ def test_valid_token_returns_200_for_protected_route(
     ):
         response = client.get(
             PROTECTED_ROUTE_PATH,
+            headers={"Authorization": f"Bearer {BOOTSTRAP_TOKEN}"},
+        )
+
+    if response.status_code != HTTPStatus.OK:
+        raise AssertionError
+
+
+def test_unauthenticated_openapi_route_returns_401(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Ensure OpenAPI schema route is protected by bearer auth."""
+    _configure_auth_env(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    app = create_app()
+
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
+        response = client.get(OPENAPI_ROUTE_PATH)
+
+    if response.status_code != HTTPStatus.UNAUTHORIZED:
+        raise AssertionError
+
+
+def test_valid_token_returns_200_for_openapi_route(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Ensure OpenAPI schema route allows requests with valid bearer token."""
+    _configure_auth_env(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    app = create_app()
+
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
+        response = client.get(
+            OPENAPI_ROUTE_PATH,
             headers={"Authorization": f"Bearer {BOOTSTRAP_TOKEN}"},
         )
 

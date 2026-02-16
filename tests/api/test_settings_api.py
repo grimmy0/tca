@@ -5,10 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Protocol, TypeVar, cast, runtime_checkable
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
 from tca.api.app import create_app
+from tca.api.bearer_auth import require_bearer_auth
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -29,6 +31,7 @@ EXPECTED_CLOSE_CALLS = 1
 EXPECTED_BAD_REQUEST_STATUS = HTTPStatus.BAD_REQUEST
 EXPECTED_SUCCESS_STATUS = HTTPStatus.OK
 READ_SESSION_FAILURE_MESSAGE = "read-session-factory-should-not-run-for-put"
+BOOTSTRAP_TOKEN = "settings-api-token"  # noqa: S105
 
 
 @dataclass(slots=True)
@@ -53,21 +56,34 @@ def test_put_settings_writes_execute_through_app_writer_queue(
     monkeypatch: object,
 ) -> None:
     """Ensure settings mutating API path runs through configured writer queue."""
-    db_path = tmp_path / "settings-api.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    _ = _configure_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="settings-api.sqlite3",
+        output_file_name="settings-api-bootstrap-token.txt",
+    )
 
     app = create_app()
     queue = RecordingWriterQueue()
     app.state.writer_queue_factory = lambda: queue
 
-    with TestClient(app) as client:
+    auth_headers = _auth_headers()
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
         created = client.put(
             f"/settings/{ALLOWED_SETTINGS_KEY}",
             json={"value": INITIAL_MAX_PAGES},
+            headers=auth_headers,
         )
         updated = client.put(
             f"/settings/{ALLOWED_SETTINGS_KEY}",
             json={"value": UPDATED_MAX_PAGES},
+            headers=auth_headers,
         )
 
     if created.status_code != EXPECTED_SUCCESS_STATUS:
@@ -94,11 +110,22 @@ def test_put_setting_response_does_not_depend_on_read_session_factory(
     monkeypatch: object,
 ) -> None:
     """Ensure PUT returns persisted value even when read session factory fails."""
-    db_path = tmp_path / "settings-api-write-result.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    _ = _configure_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="settings-api-write-result.sqlite3",
+        output_file_name="settings-api-bootstrap-token.txt",
+    )
 
     app = create_app()
-    with TestClient(app, raise_server_exceptions=False) as client:
+    app.dependency_overrides[require_bearer_auth] = _allow_all_bearer_auth
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app, raise_server_exceptions=False) as client,
+    ):
         runtime_obj = getattr(cast("object", app.state), "storage_runtime", None)
         if runtime_obj is None:
             raise AssertionError
@@ -111,6 +138,7 @@ def test_put_setting_response_does_not_depend_on_read_session_factory(
             f"/settings/{ALLOWED_SETTINGS_KEY}",
             json={"value": UPDATED_MAX_PAGES},
         )
+    app.dependency_overrides.clear()
 
     if response.status_code != EXPECTED_SUCCESS_STATUS:
         raise AssertionError
@@ -126,16 +154,31 @@ def test_unknown_setting_keys_are_rejected_with_bad_request(
     monkeypatch: object,
 ) -> None:
     """Ensure settings API rejects unknown keys on read and write with 400."""
-    db_path = tmp_path / "settings-api-unknown-key.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    _ = _configure_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="settings-api-unknown-key.sqlite3",
+        output_file_name="settings-api-bootstrap-token.txt",
+    )
 
     app = create_app()
-    with TestClient(app) as client:
+    auth_headers = _auth_headers()
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
         write_response = client.put(
             f"/settings/{UNKNOWN_SETTINGS_KEY}",
             json={"value": 123},
+            headers=auth_headers,
         )
-        read_response = client.get(f"/settings/{UNKNOWN_SETTINGS_KEY}")
+        read_response = client.get(
+            f"/settings/{UNKNOWN_SETTINGS_KEY}",
+            headers=auth_headers,
+        )
 
     if write_response.status_code != EXPECTED_BAD_REQUEST_STATUS:
         raise AssertionError
@@ -156,16 +199,31 @@ def test_allowed_setting_key_updates_immediately_and_persists_across_restart(
     monkeypatch: object,
 ) -> None:
     """Ensure allowlisted key writes are immediately readable and persisted."""
-    db_path = tmp_path / "settings-api-persist.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    _ = _configure_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="settings-api-persist.sqlite3",
+        output_file_name="settings-api-bootstrap-token.txt",
+    )
 
     app = create_app()
-    with TestClient(app) as client:
+    auth_headers = _auth_headers()
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
         updated = client.put(
             f"/settings/{ALLOWED_SETTINGS_KEY}",
             json={"value": RESTART_UPDATED_MAX_PAGES},
+            headers=auth_headers,
         )
-        immediate_read = client.get(f"/settings/{ALLOWED_SETTINGS_KEY}")
+        immediate_read = client.get(
+            f"/settings/{ALLOWED_SETTINGS_KEY}",
+            headers=auth_headers,
+        )
 
     if updated.status_code != EXPECTED_SUCCESS_STATUS:
         raise AssertionError
@@ -180,8 +238,17 @@ def test_allowed_setting_key_updates_immediately_and_persists_across_restart(
         raise AssertionError
 
     restarted_app = create_app()
-    with TestClient(restarted_app) as restarted_client:
-        persisted_read = restarted_client.get(f"/settings/{ALLOWED_SETTINGS_KEY}")
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(restarted_app) as restarted_client,
+    ):
+        persisted_read = restarted_client.get(
+            f"/settings/{ALLOWED_SETTINGS_KEY}",
+            headers=auth_headers,
+        )
 
     if persisted_read.status_code != EXPECTED_SUCCESS_STATUS:
         raise AssertionError
@@ -195,16 +262,31 @@ def test_put_setting_returns_effective_value_after_write(
     monkeypatch: object,
 ) -> None:
     """Ensure PUT response returns the same effective value as subsequent GET."""
-    db_path = tmp_path / "settings-api-effective-value.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    _ = _configure_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="settings-api-effective-value.sqlite3",
+        output_file_name="settings-api-bootstrap-token.txt",
+    )
 
     app = create_app()
-    with TestClient(app) as client:
+    auth_headers = _auth_headers()
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
         write_response = client.put(
             f"/settings/{HORIZON_SETTINGS_KEY}",
             json={"value": UPDATED_HORIZON_MINUTES},
+            headers=auth_headers,
         )
-        read_response = client.get(f"/settings/{HORIZON_SETTINGS_KEY}")
+        read_response = client.get(
+            f"/settings/{HORIZON_SETTINGS_KEY}",
+            headers=auth_headers,
+        )
 
     if write_response.status_code != EXPECTED_SUCCESS_STATUS:
         raise AssertionError
@@ -226,6 +308,34 @@ def _as_monkeypatch(value: object) -> MonkeyPatchLike:
     if not isinstance(value, MonkeyPatchLike):
         raise TypeError
     return value
+
+
+def _configure_auth_env(
+    *,
+    tmp_path: Path,
+    monkeypatch: object,
+    db_name: str,
+    output_file_name: str,
+) -> Path:
+    """Set DB/token-output env vars for authenticated API tests."""
+    patcher = _as_monkeypatch(monkeypatch)
+    db_path = tmp_path / db_name
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (tmp_path / output_file_name).as_posix(),
+    )
+    return db_path
+
+
+def _auth_headers() -> dict[str, str]:
+    """Build deterministic Authorization header for settings API tests."""
+    return {"Authorization": f"Bearer {BOOTSTRAP_TOKEN}"}
+
+
+async def _allow_all_bearer_auth() -> None:
+    """Bypass bearer auth in tests that isolate non-auth route behavior."""
+    return
 
 
 @runtime_checkable

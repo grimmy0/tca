@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Protocol, cast, runtime_checkable
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -11,6 +13,8 @@ from tca.api.app import create_app
 if TYPE_CHECKING:
     from pathlib import Path
 
+OPENAPI_BEARER_TOKEN = "api-contract-openapi-token"  # noqa: S105
+
 
 def test_health_openapi_contract_uses_component_schema(
     tmp_path: Path,
@@ -18,11 +22,28 @@ def test_health_openapi_contract_uses_component_schema(
 ) -> None:
     """Ensure /health response links to explicit HealthResponse schema."""
     db_path = tmp_path / "api-contract-openapi.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher = _as_monkeypatch(monkeypatch)
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (tmp_path / "api-contract-openapi-token.txt").as_posix(),
+    )
 
     app = create_app()
-    with TestClient(app) as client:
-        openapi = cast("dict[str, object]", client.get("/openapi.json").json())
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=OPENAPI_BEARER_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
+        response = client.get(
+            "/openapi.json",
+            headers={"Authorization": f"Bearer {OPENAPI_BEARER_TOKEN}"},
+        )
+    if response.status_code != HTTPStatus.OK:
+        raise AssertionError
+    openapi = cast("dict[str, object]", response.json())
 
     paths = cast("dict[str, object]", openapi["paths"])
     health_path = cast("dict[str, object]", paths["/health"])
@@ -43,11 +64,28 @@ def test_health_component_schema_has_required_properties(
 ) -> None:
     """Ensure HealthResponse schema is explicit and non-generic."""
     db_path = tmp_path / "api-contract-component.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher = _as_monkeypatch(monkeypatch)
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (tmp_path / "api-contract-component-token.txt").as_posix(),
+    )
 
     app = create_app()
-    with TestClient(app) as client:
-        openapi = cast("dict[str, object]", client.get("/openapi.json").json())
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=OPENAPI_BEARER_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
+        response = client.get(
+            "/openapi.json",
+            headers={"Authorization": f"Bearer {OPENAPI_BEARER_TOKEN}"},
+        )
+    if response.status_code != HTTPStatus.OK:
+        raise AssertionError
+    openapi = cast("dict[str, object]", response.json())
 
     components = cast("dict[str, object]", openapi["components"])
     schemas = cast("dict[str, object]", components["schemas"])

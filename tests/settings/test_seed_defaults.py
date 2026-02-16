@@ -25,12 +25,17 @@ def test_first_boot_inserts_all_design_default_keys(
 ) -> None:
     """Ensure first startup inserts all design-defined dynamic setting defaults."""
     db_path = tmp_path / "seed-defaults-first-boot.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher = _as_monkeypatch(monkeypatch)
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (tmp_path / "seed-defaults-bootstrap-token.txt").as_posix(),
+    )
 
     _boot_app_once()
 
     snapshot = _read_settings_snapshot(db_path)
-    if set(snapshot) != set(DEFAULTS_BY_KEY):
+    if not set(DEFAULTS_BY_KEY).issubset(set(snapshot)):
         raise AssertionError
     for key, expected_value in DEFAULTS_BY_KEY.items():
         value, _ = snapshot[key]
@@ -44,7 +49,12 @@ def test_second_boot_does_not_overwrite_modified_values(
 ) -> None:
     """Ensure rerunning startup seed keeps existing user-edited values."""
     db_path = tmp_path / "seed-defaults-second-boot.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher = _as_monkeypatch(monkeypatch)
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (tmp_path / "seed-defaults-bootstrap-token.txt").as_posix(),
+    )
 
     _boot_app_once()
 
@@ -70,7 +80,12 @@ def test_missing_single_key_is_backfilled_without_touching_others(
 ) -> None:
     """Ensure startup backfills missing key while leaving other rows unchanged."""
     db_path = tmp_path / "seed-defaults-backfill.sqlite3"
-    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher = _as_monkeypatch(monkeypatch)
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (tmp_path / "seed-defaults-bootstrap-token.txt").as_posix(),
+    )
 
     _boot_app_once()
 

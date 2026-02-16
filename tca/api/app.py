@@ -202,6 +202,9 @@ def create_app() -> FastAPI:
         description="Threaded Channel Aggregator",
         version="0.1.0",
         lifespan=lifespan,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
     )
 
     protected_route_dependencies = [Depends(require_bearer_auth)]
@@ -214,6 +217,14 @@ def create_app() -> FastAPI:
     )
     app.include_router(
         settings_router,
+        dependencies=protected_route_dependencies,
+    )
+
+    app.add_api_route(
+        "/openapi.json",
+        endpoint=lambda: cast("dict[str, object]", app.openapi()),
+        methods=["GET"],
+        include_in_schema=False,
         dependencies=protected_route_dependencies,
     )
 
