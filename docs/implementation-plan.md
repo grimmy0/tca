@@ -383,11 +383,17 @@ An item is commit-ready only if all are true:
 - Change:
   - Create FTS5 virtual table linked to `items` as external content.
 - Acceptance criteria:
-  - [ ] FTS5 table exists and is queryable with `MATCH`.
-  - [ ] Migration is reversible.
-  - [ ] FTS migration runs on SQLite without manual intervention.
+  - [x] FTS5 table exists and is queryable with `MATCH`. [Tests: tests/migrations/test_fts_table.py::test_fts_table_exists_and_supports_match_queries]
+  - [x] Migration is reversible. [Tests: tests/migrations/test_fts_table.py::test_fts_table_is_removed_when_downgrading_to_c015]
+  - [x] FTS migration runs on SQLite without manual intervention. [Tests: tests/migrations/test_fts_table.py::test_fts_migration_runs_on_sqlite_without_manual_intervention]
 - Verification:
   - `uv run pytest -q tests/migrations/test_fts_table.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `c016`
+  - Verification summary:
+    - Added Alembic revision `8f3a7b0c1d2e` creating `items_fts` as an FTS5 external-content virtual table over `items(title, body)`.
+    - Added migration tests verifying `MATCH` queryability, downgrade removal back to `c2f9c1e5a7b3`, and SQLite `alembic upgrade head` execution.
 
 ### C017 - Add FTS5 Trigger Migration
 
