@@ -558,11 +558,19 @@ An item is commit-ready only if all are true:
 - Change:
   - Add API endpoints for dynamic settings read/update with allowlist.
 - Acceptance criteria:
-  - [ ] Unknown keys are rejected with `400`.
-  - [ ] Allowed keys update immediately and persist.
-  - [ ] Response returns effective value after write.
+  - [x] Unknown keys are rejected with `400`. [Tests: tests/api/test_settings_api.py::test_unknown_setting_keys_are_rejected_with_bad_request]
+  - [x] Allowed keys update immediately and persist. [Tests: tests/api/test_settings_api.py::test_allowed_setting_key_updates_immediately_and_persists_across_restart]
+  - [x] Response returns effective value after write. [Tests: tests/api/test_settings_api.py::test_put_setting_returns_effective_value_after_write]
 - Verification:
   - `uv run pytest -q tests/api/test_settings_api.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `TO_FILL_BY_COMMIT`
+  - Verification summary:
+    - Updated `tca/api/routes/settings.py` to enforce a dynamic-settings allowlist for both read and write operations, rejecting unknown keys with `400`.
+    - Added `GET /settings/{key}` and updated `PUT /settings/{key}` to return effective persisted values with seeded-default fallback semantics.
+    - Extended `tests/api/test_settings_api.py` with coverage for unknown key rejection, immediate update + restart persistence, and effective write response behavior.
+    - Verified with `uv run pytest -q tests/api/test_settings_api.py` (`4 passed in 3.35s`), `uv run ruff check tca/api/routes/settings.py tests/api/test_settings_api.py`, and `uv run mypy tca/api/routes/settings.py`.
 
 ### C025 - Add Channel Group API Endpoints
 
