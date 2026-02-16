@@ -269,12 +269,19 @@ An item is commit-ready only if all are true:
   - Add Alembic environment and configure `render_as_batch=True`.
   - Link migration configuration notes to `docs/migration-policy.md`.
 - Acceptance criteria:
-  - [ ] `alembic upgrade head` works on empty DB.
-  - [ ] Alembic config clearly enables batch mode.
-  - [ ] Migration command is invokable from project root.
+  - [x] `alembic upgrade head` works on empty DB. [Tests: tests/migrations/test_alembic_setup.py::test_alembic_upgrade_head_works_on_empty_db]
+  - [x] Alembic config clearly enables batch mode. [Tests: tests/migrations/test_alembic_setup.py::test_alembic_batch_mode_is_enabled_in_env_configuration]
+  - [x] Migration command is invokable from project root. [Tests: tests/migrations/test_alembic_setup.py::test_alembic_current_command_invokable_from_project_root]
 - Verification:
   - `uv run alembic upgrade head`
   - `uv run alembic current`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `TBD`
+  - Verification summary:
+    - Initialized Alembic project files (`alembic.ini`, `alembic/env.py`, templates) from repository root.
+    - Configured `render_as_batch=True` in both offline and online migration contexts.
+    - Added `tests/migrations/test_alembic_setup.py` validating upgrade/current invocations and batch-mode configuration.
 
 ### C011A - Add Migration Policy Note for SQLite Batch Mode
 
