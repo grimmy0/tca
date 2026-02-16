@@ -27,6 +27,19 @@ from .kdf import (
     derive_key_encryption_key,
 )
 from .service import request_login_code
+from .unlock_modes import (
+    SENSITIVE_OPERATION_LOCKED_MESSAGE,
+    AuthStartupDependency,
+    SensitiveOperationLockedError,
+    StartupUnlockDependency,
+    StartupUnlockModeError,
+    UnlockState,
+    get_sensitive_operation_secret,
+    get_unlock_state,
+    initialize_startup_unlock_mode,
+    require_sensitive_operation_unlock,
+    unlock_with_passphrase,
+)
 
 __all__ = [
     "AES_GCM_NONCE_BYTES",
@@ -38,16 +51,27 @@ __all__ = [
     "DATA_ENCRYPTION_KEY_BYTES",
     "ENVELOPE_VERSION",
     "KEY_ENCRYPTION_KEY_BYTES",
+    "SENSITIVE_OPERATION_LOCKED_MESSAGE",
+    "AuthStartupDependency",
     "BootstrapBearerTokenDependency",
     "EnvelopeDecryptionError",
+    "SensitiveOperationLockedError",
+    "StartupUnlockDependency",
+    "StartupUnlockModeError",
+    "UnlockState",
     "compute_token_sha256_digest",
     "decrypt_with_envelope",
     "derive_key_encryption_key",
     "encrypt_with_envelope",
     "ensure_bootstrap_bearer_token",
     "generate_data_encryption_key",
+    "get_sensitive_operation_secret",
+    "get_unlock_state",
+    "initialize_startup_unlock_mode",
     "request_login_code",
+    "require_sensitive_operation_unlock",
     "resolve_bootstrap_token_output_path",
+    "unlock_with_passphrase",
     "unwrap_data_encryption_key",
     "wrap_data_encryption_key",
 ]

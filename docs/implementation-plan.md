@@ -716,11 +716,19 @@ An item is commit-ready only if all are true:
 - Change:
   - Add `secure-interactive` and `auto-unlock` startup behavior.
 - Acceptance criteria:
-  - [ ] Secure mode requires unlock action before sensitive operations.
-  - [ ] Auto-unlock mode reads mounted secret file.
-  - [ ] Missing secret in auto mode fails startup with actionable error.
+  - [x] Secure mode requires unlock action before sensitive operations. [Tests: tests/auth/test_unlock_modes.py::test_secure_interactive_mode_requires_explicit_unlock_action_before_sensitive_operations]
+  - [x] Auto-unlock mode reads mounted secret file. [Tests: tests/auth/test_unlock_modes.py::test_auto_unlock_mode_reads_secret_from_mounted_file]
+  - [x] Missing secret in auto mode fails startup with actionable error. [Tests: tests/auth/test_unlock_modes.py::test_auto_unlock_mode_missing_secret_fails_startup_with_actionable_error]
 - Verification:
   - `uv run pytest -q tests/auth/test_unlock_modes.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `PENDING`
+  - Verification summary:
+    - Added `tca/auth/unlock_modes.py` implementing startup unlock-mode initialization, in-memory unlock state, explicit unlock action helpers, and actionable startup errors for missing/unreadable/empty auto-unlock secrets.
+    - Added `AuthStartupDependency` and wired `tca/api/app.py` default auth lifecycle dependency to initialize unlock modes before bootstrap bearer token setup.
+    - Added `tests/auth/test_unlock_modes.py` covering secure-interactive lock enforcement, auto-unlock mounted-secret file loading, and startup failure with actionable guidance when auto-unlock secret is missing.
+    - Verified with `uv run pytest -q tests/auth/test_unlock_modes.py`, plus regression checks `uv run pytest -q tests/app/test_lifespan.py tests/auth/test_bootstrap_token.py tests/api/test_bearer_auth.py` and lint checks `uv run ruff check tca/auth/unlock_modes.py tca/auth/__init__.py tca/api/app.py tests/auth/test_unlock_modes.py`.
 
 ### C033 - Persist Encrypted Telegram Session Material
 

@@ -15,7 +15,7 @@ from tca.api.bearer_auth import require_bearer_auth
 from tca.api.routes.channel_groups import router as channel_groups_router
 from tca.api.routes.health import router as health_router
 from tca.api.routes.settings import router as settings_router
-from tca.auth import BootstrapBearerTokenDependency
+from tca.auth import AuthStartupDependency
 from tca.config.logging import init_logging
 from tca.config.settings import load_settings
 from tca.storage import (
@@ -142,7 +142,7 @@ def _default_dependencies() -> StartupDependencies:
     return StartupDependencies(
         db=MigrationRunnerDependency(),
         settings=SettingsSeedDependency(),
-        auth=BootstrapBearerTokenDependency(),
+        auth=AuthStartupDependency(),
         telethon_manager=NoopDependency("telethon_manager"),
         scheduler=NoopDependency("scheduler"),
     )
