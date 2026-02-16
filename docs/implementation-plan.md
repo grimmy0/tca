@@ -173,11 +173,18 @@ An item is commit-ready only if all are true:
   - Implement FastAPI app factory with lifespan context manager.
   - Register startup/shutdown hook stubs for DB, Telethon manager, scheduler.
 - Acceptance criteria:
-  - [ ] App can start and stop cleanly in tests without real Telegram calls.
-  - [ ] Lifespan hooks run once per test app lifecycle.
-  - [ ] Missing startup dependency fails fast with clear error.
+  - [x] App can start and stop cleanly in tests without real Telegram calls.
+  - [x] Lifespan hooks run once per test app lifecycle.
+  - [x] Missing startup dependency fails fast with clear error.
 - Verification:
   - `uv run pytest -q tests/app/test_lifespan.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `ee95ac6`
+  - Verification summary:
+    - Implemented `create_app` factory and `lifespan` context manager in `tca/api/app.py`.
+    - Integrated settings loading and logging initialization in the factory.
+    - Added `tests/app/test_lifespan.py` verifying that lifespan events (startup/shutdown) are correctly triggered and logged during `TestClient` context usage.
 
 ### C007 - Add `/health` Endpoint
 
