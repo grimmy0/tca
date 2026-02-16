@@ -224,7 +224,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/storage/test_engine.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `TBD`
+  - Commit: `f389bc6`
   - Verification summary:
     - Added `tca/storage/db.py` with typed async read/write engine and session factory helpers.
     - Added `tests/storage/test_engine.py` for DB path wiring, `SELECT 1`, and fixture lifecycle coverage.
@@ -241,7 +241,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/storage/test_sqlite_pragmas.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `TBD`
+  - Commit: `f0646b2`
   - Verification summary:
     - Added SQLite connect-event PRAGMA enforcement in `tca/storage/db.py`.
     - Added `tests/storage/test_sqlite_pragmas.py` covering exact PRAGMA values and repeated-connection regression checks.
@@ -258,7 +258,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/storage/test_begin_immediate.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `TBD`
+  - Commit: `b9075cd`
   - Verification summary:
     - Added writer-engine `BEGIN IMMEDIATE` transaction hook in `tca/storage/db.py`.
     - Expanded `tests/storage/test_begin_immediate.py` to verify writer begin mode, read-path behavior under writer lock, and deterministic lock contention outcomes.
@@ -277,10 +277,11 @@ An item is commit-ready only if all are true:
   - `uv run alembic current`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `TBD`
+  - Commit: `04e19d7`
   - Verification summary:
     - Initialized Alembic project files (`alembic.ini`, `alembic/env.py`, templates) from repository root.
     - Configured `render_as_batch=True` in both offline and online migration contexts.
+    - Linked migration policy requirements to `docs/migration-policy.md`.
     - Added `tests/migrations/test_alembic_setup.py` validating upgrade/current invocations and batch-mode configuration.
 
 ### C011A - Add Migration Policy Note for SQLite Batch Mode
@@ -289,11 +290,18 @@ An item is commit-ready only if all are true:
   - Add `docs/migration-policy.md` explaining why `render_as_batch=True` is mandatory for SQLite and when to use batch migrations.
   - Include a short migration checklist (pre-checks, lock considerations, rollback expectations).
 - Acceptance criteria:
-  - [ ] Policy document explicitly references SQLite `ALTER TABLE` limitations and project batch-mode requirement.
-  - [ ] Checklist is concise and directly usable in migration PRs.
-  - [ ] C011 references this document in implementation notes.
+  - [x] Policy document explicitly references SQLite `ALTER TABLE` limitations and project batch-mode requirement. [Tests: tests/docs/test_migration_policy_doc.py::test_policy_references_sqlite_alter_table_and_batch_requirement]
+  - [x] Checklist is concise and directly usable in migration PRs. [Tests: tests/docs/test_migration_policy_doc.py::test_policy_includes_concise_migration_checklist]
+  - [x] C011 references this document in implementation notes. [Tests: tests/docs/test_migration_policy_doc.py::test_c011_section_references_migration_policy_document]
 - Verification:
   - `rg -n "render_as_batch|SQLite|ALTER TABLE" docs/migration-policy.md docs/implementation-plan.md`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `TBD`
+  - Verification summary:
+    - Added `docs/migration-policy.md` with explicit SQLite `ALTER TABLE` limitations and `render_as_batch=True` policy.
+    - Added concise migration checklist covering pre-checks, lock scope, and rollback expectations.
+    - Added `tests/docs/test_migration_policy_doc.py` enforcing policy-document content and C011 linkage.
 
 ### C012 - Create Base Migration: Accounts, Channels, Groups
 
