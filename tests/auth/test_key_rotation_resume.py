@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import text
 
 from tca.auth import KeyRotationRepository
+from tca.auth.key_rotation import KeyRotationError
 from tca.config.settings import load_settings
 from tca.storage import StorageRuntime, create_storage_runtime, dispose_storage_runtime
 
@@ -148,4 +149,66 @@ async def test_completion_state_only_set_after_all_rows_rotated(
     state = await repository.get_state()
 
     if not completed or state is None or state.completed_at is None:
+        raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_begin_rotation_resets_after_completion(
+    rotation_runtime: tuple[KeyRotationRepository, StorageRuntime],
+) -> None:
+    """Allow fresh rotations after a completed rotation."""
+    repository, _ = rotation_runtime
+    _ = await repository.begin_rotation(target_key_version=DEFAULT_TARGET_VERSION)
+    await repository.mark_account_rotated(account_id=1)
+    await repository.mark_account_rotated(account_id=2)
+    await repository.mark_account_rotated(account_id=3)
+    _ = await repository.complete_if_finished()
+
+    next_state = await repository.begin_rotation(target_key_version=3)
+
+    if (
+        next_state.target_key_version != 3
+        or next_state.last_rotated_account_id != 0
+        or next_state.completed_at is not None
+    ):
+        raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_begin_rotation_rejects_conflicting_in_progress_target(
+    rotation_runtime: tuple[KeyRotationRepository, StorageRuntime],
+) -> None:
+    """Reject starting a different target while rotation is in progress."""
+    repository, _ = rotation_runtime
+    _ = await repository.begin_rotation(target_key_version=DEFAULT_TARGET_VERSION)
+
+    with pytest.raises(KeyRotationError):
+        _ = await repository.begin_rotation(target_key_version=3)
+
+
+@pytest.mark.asyncio
+async def test_mark_account_rotated_is_idempotent(
+    rotation_runtime: tuple[KeyRotationRepository, StorageRuntime],
+) -> None:
+    """Allow re-marking an account that already hit the target key version."""
+    repository, runtime = rotation_runtime
+    _ = await repository.begin_rotation(target_key_version=DEFAULT_TARGET_VERSION)
+
+    async with runtime.write_session_factory() as session:
+        _ = await session.execute(
+            text(
+                """
+                UPDATE telegram_accounts
+                SET key_version = :target_key_version
+                WHERE id = :account_id
+                """,
+            ),
+            {"target_key_version": DEFAULT_TARGET_VERSION, "account_id": 2},
+        )
+        await session.commit()
+
+    await repository.mark_account_rotated(account_id=2)
+    state = await repository.get_state()
+
+    if state is None or state.last_rotated_account_id != 2:
         raise AssertionError

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -68,7 +69,39 @@ class KeyRotationRepository:
         _validate_target_version(target_key_version=target_key_version)
         existing = await self.get_state()
         if existing is not None:
-            return existing
+            if existing.target_key_version == target_key_version:
+                return existing
+            if existing.completed_at is None:
+                raise KeyRotationError(
+                    "Key rotation already in progress for target version "
+                    f"{existing.target_key_version}.",
+                )
+            if target_key_version <= existing.target_key_version:
+                raise KeyRotationError(
+                    "Key rotation target version must be greater than the "
+                    "completed target version.",
+                )
+            reset_statement = text(
+                """
+                UPDATE auth_key_rotation
+                SET target_key_version = :target_key_version,
+                    last_rotated_account_id = 0,
+                    started_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP,
+                    completed_at = NULL
+                WHERE id = 1
+                """,
+            )
+            async with self._write_session_factory() as session:
+                await session.execute(
+                    reset_statement,
+                    {"target_key_version": target_key_version},
+                )
+                await session.commit()
+            state = await self.get_state()
+            if state is None:
+                raise KeyRotationStateMissingError.default()
+            return state
 
         statement = text(
             """
@@ -83,11 +116,18 @@ class KeyRotationRepository:
             """,
         )
         async with self._write_session_factory() as session:
-            await session.execute(
-                statement,
-                {"target_key_version": target_key_version},
-            )
-            await session.commit()
+            try:
+                await session.execute(
+                    statement,
+                    {"target_key_version": target_key_version},
+                )
+                await session.commit()
+            except IntegrityError as exc:
+                await session.rollback()
+                state = await self.get_state()
+                if state is not None:
+                    return state
+                raise exc
         state = await self.get_state()
         if state is None:
             raise KeyRotationStateMissingError.default()
@@ -156,14 +196,20 @@ class KeyRotationRepository:
         state = await self.get_state()
         if state is None:
             raise KeyRotationStateMissingError.default()
-        statement = text(
+        lookup_statement = text(
+            """
+            SELECT key_version
+            FROM telegram_accounts
+            WHERE id = :account_id
+            """,
+        )
+        update_statement = text(
             """
             UPDATE telegram_accounts
             SET key_version = :target_key_version,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = :account_id
               AND key_version < :target_key_version
-            RETURNING id
             """,
         )
         progress_statement = text(
@@ -176,17 +222,32 @@ class KeyRotationRepository:
         )
         async with self._write_session_factory() as session:
             result = await session.execute(
-                statement,
-                {
-                    "account_id": account_id,
-                    "target_key_version": state.target_key_version,
-                },
+                lookup_statement,
+                {"account_id": account_id},
             )
             row = result.mappings().one_or_none()
             if row is None:
                 await session.rollback()
                 raise KeyRotationAccountNotFoundError.for_account_id(account_id)
-            await session.execute(progress_statement, {"account_id": account_id})
+            row_map = cast("Mapping[str, object]", cast("object", row))
+            key_version = _coerce_int(
+                value=row_map.get("key_version"),
+                field_name="key_version",
+            )
+            if key_version < state.target_key_version:
+                await session.execute(
+                    update_statement,
+                    {
+                        "account_id": account_id,
+                        "target_key_version": state.target_key_version,
+                    },
+                )
+            new_last = max(state.last_rotated_account_id, account_id)
+            if new_last != state.last_rotated_account_id:
+                await session.execute(
+                    progress_statement,
+                    {"account_id": new_last},
+                )
             await session.commit()
 
     async def complete_if_finished(self) -> bool:
