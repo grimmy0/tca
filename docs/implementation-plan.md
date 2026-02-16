@@ -603,7 +603,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/api/test_openapi_snapshot.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `TBD`
+  - Commit: `de708e868673ac66721a6b5315d925e6cbdfa216`
   - Verification summary:
     - Added `tests/api/test_openapi_snapshot.py`, which extracts the `/settings/{key}` and `/channel-groups*` OpenAPI subset plus referenced component schemas and compares it against a committed snapshot, failing with a diff on unreviewed contract drift.
     - Added snapshot artifact `tests/api/snapshots/config_groups_openapi_snapshot.json` covering settings and channel-group endpoints with their request/response payload schemas.
