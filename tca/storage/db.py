@@ -27,6 +27,9 @@ if TYPE_CHECKING:
     class _DBAPIConnection(Protocol):
         def cursor(self) -> _DBAPICursor: ...
 
+    class _ConnectionProxy(Protocol):
+        def exec_driver_sql(self, statement: str) -> object: ...
+
 
 SQLITE_PRAGMA_STATEMENTS: tuple[str, ...] = (
     "PRAGMA journal_mode=WAL;",
@@ -56,12 +59,12 @@ def build_sqlite_url(db_path: Path) -> str:
 
 def create_read_engine(settings: AppSettings) -> AsyncEngine:
     """Create async engine for read-only query sessions."""
-    return _create_engine(settings)
+    return _create_engine(settings, begin_immediate=False)
 
 
 def create_write_engine(settings: AppSettings) -> AsyncEngine:
     """Create async engine for write-path query sessions."""
-    return _create_engine(settings)
+    return _create_engine(settings, begin_immediate=True)
 
 
 def create_session_factory(engine: AsyncEngine) -> SessionFactory:
@@ -91,7 +94,7 @@ async def dispose_storage_runtime(runtime: StorageRuntime) -> None:
     await runtime.write_engine.dispose()
 
 
-def _create_engine(settings: AppSettings) -> AsyncEngine:
+def _create_engine(settings: AppSettings, *, begin_immediate: bool) -> AsyncEngine:
     """Create async SQLite engine bound to configured DB path."""
     sqlite_url = build_sqlite_url(settings.db_path)
     engine = create_async_engine(
@@ -100,6 +103,8 @@ def _create_engine(settings: AppSettings) -> AsyncEngine:
         future=True,
     )
     _install_sqlite_pragma_handler(engine)
+    if begin_immediate:
+        _install_begin_immediate_handler(engine)
     return engine
 
 
@@ -120,3 +125,13 @@ def _install_sqlite_pragma_handler(engine: AsyncEngine) -> None:
             cursor.close()
 
     event.listen(engine.sync_engine, "connect", _set_sqlite_pragmas)
+
+
+def _install_begin_immediate_handler(engine: AsyncEngine) -> None:
+    """Ensure writer transactions acquire lock eagerly using BEGIN IMMEDIATE."""
+
+    def _begin_immediate(connection: object) -> None:
+        connection_proxy = cast("_ConnectionProxy", connection)
+        _ = connection_proxy.exec_driver_sql("BEGIN IMMEDIATE")
+
+    event.listen(engine.sync_engine, "begin", _begin_immediate)

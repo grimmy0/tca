@@ -251,11 +251,17 @@ An item is commit-ready only if all are true:
 - Change:
   - Add SQLAlchemy begin event hook for writer connections to issue `BEGIN IMMEDIATE`.
 - Acceptance criteria:
-  - [ ] Writer transaction begins in `IMMEDIATE` mode.
-  - [ ] Read transactions remain non-writing and unaffected.
-  - [ ] Test demonstrates writer lock acquisition behavior deterministically.
+  - [x] Writer transaction begins in `IMMEDIATE` mode. [Tests: tests/storage/test_begin_immediate.py::test_writer_transactions_emit_begin_immediate]
+  - [x] Read transactions remain non-writing and unaffected. [Tests: tests/storage/test_begin_immediate.py::test_read_transactions_remain_unaffected_by_begin_immediate]
+  - [x] Test demonstrates writer lock acquisition behavior deterministically. [Tests: tests/storage/test_begin_immediate.py::test_writer_lock_acquisition_is_deterministic_with_begin_immediate, tests/storage/test_begin_immediate.py::test_begin_immediate_surfaces_sqlite_busy_with_second_writer]
 - Verification:
   - `uv run pytest -q tests/storage/test_begin_immediate.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `TBD`
+  - Verification summary:
+    - Added writer-engine `BEGIN IMMEDIATE` transaction hook in `tca/storage/db.py`.
+    - Expanded `tests/storage/test_begin_immediate.py` to verify writer begin mode, read-path behavior under writer lock, and deterministic lock contention outcomes.
 
 ### C011 - Initialize Alembic with SQLite Batch Mode
 
