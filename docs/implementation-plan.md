@@ -10,6 +10,9 @@ Rules used in this plan:
 - Every item has binary acceptance criteria (pass/fail).
 - Acceptance criteria are written so they can be validated by command output, API response, or DB state.
 - Order is intentional; do not reorder unless dependencies are explicitly adjusted.
+- This file is a live tracker during execution:
+  - mark completed acceptance criteria as `[x]`,
+  - add `Execution record` with date, commit hash, and verification summary.
 
 ## Global Quality Gate (applies to every item)
 
@@ -30,12 +33,18 @@ An item is commit-ready only if all are true:
   - Create top-level package layout matching design module boundaries: `tca/api`, `tca/ui`, `tca/auth`, `tca/ingest`, `tca/normalize`, `tca/dedupe`, `tca/storage`, `tca/scheduler`, `tca/ops`.
   - Add minimal `__init__.py` files.
 - Acceptance criteria:
-  - [ ] All listed directories exist and are importable Python packages.
-  - [ ] `uv run python -c "import tca"` exits `0`.
-  - [ ] No runtime behavior beyond importability is introduced.
+  - [x] All listed directories exist and are importable Python packages.
+  - [x] `uv run python -c "import tca"` exits `0`.
+  - [x] No runtime behavior beyond importability is introduced.
 - Verification:
   - `find tca -maxdepth 2 -type f | sort`
   - `uv run python -c "import tca"`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `2b144a7`
+  - Verification summary:
+    - `find tca -maxdepth 2 -type f | sort` returned all required package files.
+    - `uv run python -c "import tca"` completed successfully (exit `0`).
 
 ### C002 - Add Baseline Dependencies and Extras
 
@@ -43,12 +52,19 @@ An item is commit-ready only if all are true:
   - Update `pyproject.toml` dependencies for Phase 1 stack: FastAPI, Uvicorn, SQLAlchemy, aiosqlite, Alembic, Telethon (1.42.x), Jinja2, RapidFuzz, argon2-cffi, cryptography.
   - Add `dev` extras (pytest, httpx, ruff, mypy).
 - Acceptance criteria:
-  - [ ] `pyproject.toml` contains all required runtime dependencies.
-  - [ ] Telethon pin is constrained to `1.42.*`.
-  - [ ] `uv lock` completes successfully.
+  - [x] `pyproject.toml` contains all required runtime dependencies.
+  - [x] Telethon pin is constrained to `1.42.*`.
+  - [x] `uv lock` completes successfully.
 - Verification:
   - `cat pyproject.toml`
   - `uv lock`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `6e43a20`
+  - Verification summary:
+    - `pyproject.toml` includes planned runtime dependencies and `dev` extra group.
+    - Telethon constraint is `>=1.42,<1.43` (1.42.x line).
+    - `uv lock` succeeded (`Resolved 51 packages in 1.10s`).
 
 ### C003 - Add Tooling Configuration
 
