@@ -417,11 +417,18 @@ An item is commit-ready only if all are true:
 - Change:
   - Ensure startup executes `alembic upgrade head` before serving API.
 - Acceptance criteria:
-  - [ ] On empty DB, app starts and schema is current.
-  - [ ] On current DB, startup is idempotent.
-  - [ ] API does not accept requests before migration success.
+  - [x] On empty DB, app starts and schema is current. [Tests: tests/app/test_startup_migrations.py::test_startup_migrations_upgrade_empty_db_to_head]
+  - [x] On current DB, startup is idempotent. [Tests: tests/app/test_startup_migrations.py::test_startup_migrations_are_idempotent_on_current_db]
+  - [x] API does not accept requests before migration success. [Tests: tests/app/test_startup_migrations.py::test_startup_migration_failure_blocks_api_startup]
 - Verification:
   - `uv run pytest -q tests/app/test_startup_migrations.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `c018`
+  - Verification summary:
+    - Added `tca/storage/migrations.py` and wired `create_app()` default DB dependency to run `alembic -c alembic.ini upgrade head` during startup before API serving.
+    - Added `tests/app/test_startup_migrations.py` to validate empty DB upgrade to head, startup idempotency on current DB, and fail-fast startup behavior when migration execution errors.
+    - Verified with `uv run pytest -q tests/app/test_startup_migrations.py` (3 passed) and regression check `uv run pytest -q tests/app/test_lifespan.py` (4 passed).
 
 ---
 

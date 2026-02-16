@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from tca.api.routes.health import router as health_router
 from tca.config.logging import init_logging
 from tca.config.settings import load_settings
+from tca.storage import MigrationRunnerDependency
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -85,7 +86,7 @@ class NoopDependency:
 def _default_dependencies() -> StartupDependencies:
     """Create default startup dependency stubs for local app startup."""
     return StartupDependencies(
-        db=NoopDependency("db"),
+        db=MigrationRunnerDependency(),
         telethon_manager=NoopDependency("telethon_manager"),
         scheduler=NoopDependency("scheduler"),
     )
