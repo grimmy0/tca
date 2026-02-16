@@ -698,11 +698,18 @@ An item is commit-ready only if all are true:
 - Change:
   - Implement passphrase KDF using Argon2id with design parameters.
 - Acceptance criteria:
-  - [ ] KDF parameters match design values exactly.
-  - [ ] Same passphrase+salt yields deterministic key.
-  - [ ] Different salt yields different key.
+  - [x] KDF parameters match design values exactly. [Tests: tests/auth/test_kdf.py::test_kdf_parameters_match_design_values_exactly]
+  - [x] Same passphrase+salt yields deterministic key. [Tests: tests/auth/test_kdf.py::test_same_passphrase_and_salt_yield_deterministic_key]
+  - [x] Different salt yields different key. [Tests: tests/auth/test_kdf.py::test_different_salt_yields_different_derived_key]
 - Verification:
   - `uv run pytest -q tests/auth/test_kdf.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `PENDING`
+  - Verification summary:
+    - Added `tca/auth/kdf.py` with Argon2id KEK derivation using the design baseline parameters: memory 64 MiB (`65536` KiB), iterations `3`, parallelism `1`, and salt length `16` bytes.
+    - Added `tests/auth/test_kdf.py` covering exact Argon2id parameter wiring, deterministic same passphrase+salt derivation, and different-salt output divergence.
+    - Verified with `uv run pytest -q tests/auth/test_kdf.py`.
 
 ### C032 - Implement Startup Unlock Modes
 
