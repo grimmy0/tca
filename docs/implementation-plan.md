@@ -390,7 +390,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/migrations/test_fts_table.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `c016`
+  - Commit: `0805fee1db06b84b20b5854a2e9ab47306d4fe09`
   - Verification summary:
     - Added Alembic revision `8f3a7b0c1d2e` creating `items_fts` as an FTS5 external-content virtual table over `items(title, body)`.
     - Added migration tests verifying `MATCH` queryability, downgrade removal back to `c2f9c1e5a7b3`, and SQLite `alembic upgrade head` execution.
