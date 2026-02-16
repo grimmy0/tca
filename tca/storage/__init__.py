@@ -38,6 +38,11 @@ from .settings_seed import (
     SettingsSeedDependency,
     seed_default_dynamic_settings,
 )
+from .writer_queue import (
+    WriterQueue,
+    WriterQueueClosedError,
+    WriterQueueProtocol,
+)
 
 __all__ = [
     "DYNAMIC_SETTINGS_DEFAULTS",
@@ -58,6 +63,9 @@ __all__ = [
     "SettingsRepository",
     "SettingsSeedDependency",
     "StorageRuntime",
+    "WriterQueue",
+    "WriterQueueClosedError",
+    "WriterQueueProtocol",
     "build_sqlite_url",
     "create_read_engine",
     "create_session_factory",

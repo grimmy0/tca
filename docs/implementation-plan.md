@@ -515,13 +515,21 @@ An item is commit-ready only if all are true:
   - Add `tca/storage/writer_queue.py` to serialize write operations through one in-process async queue.
   - Add API and scheduler integration points to route all mutating DB operations through the queue abstraction.
 - Acceptance criteria:
-  - [ ] Only one queued write job is executed at a time (verified by concurrency test).
-  - [ ] Concurrent write submissions are processed FIFO and all produce deterministic completion/error results.
-  - [ ] At least one API write path and one ingest write path are switched to writer-queue execution.
+  - [x] Only one queued write job is executed at a time (verified by concurrency test). [Tests: tests/storage/test_writer_queue.py::test_writer_queue_executes_only_one_job_at_a_time]
+  - [x] Concurrent write submissions are processed FIFO and all produce deterministic completion/error results. [Tests: tests/storage/test_writer_queue.py::test_writer_queue_processes_fifo_and_preserves_result_error_outcomes]
+  - [x] At least one API write path and one ingest write path are switched to writer-queue execution. [Tests: tests/api/test_settings_api.py::test_put_settings_writes_execute_through_app_writer_queue, tests/ingest/test_raw_upsert.py::test_raw_upsert_uses_writer_queue_for_ingest_write_serialization]
 - Verification:
   - `uv run pytest -q tests/storage/test_writer_queue.py`
   - `uv run pytest -q tests/api/test_settings_api.py`
   - `uv run pytest -q tests/ingest/test_raw_upsert.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `COMMIT_SHA_PLACEHOLDER`
+  - Verification summary:
+    - Added `tests/storage/test_writer_queue.py` to verify single in-flight writer execution under concurrent submissions plus FIFO deterministic success/error completion behavior.
+    - Added queue-backed settings API write coverage in `tests/api/test_settings_api.py`, asserting `/settings/{key}` mutations execute via app writer queue and preserve deterministic update results.
+    - Added ingest write-queue integration helper `upsert_raw_message(...)` in `tca/ingest/service.py` and exported it via `tca/ingest/__init__.py`, with coverage in `tests/ingest/test_raw_upsert.py`.
+    - Verified with `uv run pytest -q tests/storage/test_writer_queue.py` (`2 passed in 0.37s`), `uv run pytest -q tests/api/test_settings_api.py` (`1 passed in 0.80s`), and `uv run pytest -q tests/ingest/test_raw_upsert.py` (`2 passed in 0.19s`).
 
 ### C023 - Add Config Resolution Service
 
