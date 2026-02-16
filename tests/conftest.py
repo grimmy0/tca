@@ -1,9 +1,15 @@
+"""Shared pytest fixtures for local storage and concurrency tests."""
+
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import aiosqlite
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+    from pathlib import Path
 
 
 async def _configure_sqlite_connection(conn: aiosqlite.Connection) -> None:
@@ -17,13 +23,14 @@ async def _configure_sqlite_connection(conn: aiosqlite.Connection) -> None:
 
 @pytest.fixture
 def sqlite_db_path(tmp_path: Path) -> Path:
+    """Provide a per-test SQLite file path for storage tests."""
     return tmp_path / "storage-concurrency.sqlite3"
 
 
 @pytest.fixture
 async def sqlite_writer_pair(
     sqlite_db_path: Path,
-) -> tuple[aiosqlite.Connection, aiosqlite.Connection]:
+) -> AsyncIterator[tuple[aiosqlite.Connection, aiosqlite.Connection]]:
     """Two local SQLite connections for deterministic write-lock tests."""
     first = await aiosqlite.connect(sqlite_db_path.as_posix(), timeout=0)
     second = await aiosqlite.connect(sqlite_db_path.as_posix(), timeout=0)
@@ -37,7 +44,7 @@ async def sqlite_writer_pair(
             id INTEGER PRIMARY KEY,
             note TEXT NOT NULL
         )
-        """
+        """,
     )
     await first.commit()
 
@@ -46,4 +53,3 @@ async def sqlite_writer_pair(
     finally:
         await first.close()
         await second.close()
-

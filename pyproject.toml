@@ -31,7 +31,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "ASYNC", "S", "B", "T20", "RET", "ARG", "ERA", "RUF"]
-ignore = ["S101"] # Allow assert in tests
+ignore = ["D203", "D213"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
