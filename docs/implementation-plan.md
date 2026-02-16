@@ -154,11 +154,18 @@ An item is commit-ready only if all are true:
   - Add logging initializer used by app startup.
   - Include request correlation ID field placeholder.
 - Acceptance criteria:
-  - [ ] App startup emits structured logs at configured level.
-  - [ ] Log level changes with `TCA_LOG_LEVEL`.
-  - [ ] Unit test asserts logger configuration behavior.
+  - [x] App startup emits structured logs at configured level.
+  - [x] Log level changes with `TCA_LOG_LEVEL`.
+  - [x] Unit test asserts logger configuration behavior.
 - Verification:
   - `uv run pytest -q tests/logging`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `06b482d`
+  - Verification summary:
+    - Implemented `tca/config/logging.py` with `JSONFormatter` for structured logging.
+    - Added `correlation_id` ContextVar for async tracing.
+    - Added unit tests in `tests/logging/test_logging_init.py` covering level setting, JSON output, correlation ID inclusion, and extra field merging.
 
 ### C006 - Add App Factory and Lifespan Hooks
 
