@@ -476,11 +476,19 @@ An item is commit-ready only if all are true:
 - Change:
   - Add data access layer for group CRUD and membership operations.
 - Acceptance criteria:
-  - [ ] Group create/update/delete works.
-  - [ ] Channel cannot be assigned to multiple groups.
-  - [ ] Removing group cleans memberships.
+  - [x] Group create/update/delete works. [Tests: tests/storage/test_channel_groups_repo.py::test_group_create_update_delete_works]
+  - [x] Channel cannot be assigned to multiple groups. [Tests: tests/storage/test_channel_groups_repo.py::test_channel_cannot_be_assigned_to_multiple_groups]
+  - [x] Removing group cleans memberships. [Tests: tests/storage/test_channel_groups_repo.py::test_removing_group_cleans_memberships]
 - Verification:
   - `uv run pytest -q tests/storage/test_channel_groups_repo.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `3902a58b7c73802a22be4dc18c18dd3e369ee393`
+  - Verification summary:
+    - Added `tca/storage/channel_groups_repo.py` with typed channel-group CRUD and membership helpers, including deterministic one-group-per-channel enforcement via `ChannelAlreadyAssignedToGroupError`.
+    - Exported repository symbols via `tca/storage/__init__.py` for downstream API/service integration.
+    - Added `tests/storage/test_channel_groups_repo.py` validating group create/update/delete flows, duplicate channel assignment rejection, and membership cleanup when deleting a group.
+    - Verified with `uv run pytest -q tests/storage/test_channel_groups_repo.py` (`3 passed in 0.17s`).
 
 ### C022 - Implement Channels Repository with Soft-Delete Fields
 

@@ -1,5 +1,12 @@
 """Storage module for TCA."""
 
+from .channel_groups_repo import (
+    ChannelAlreadyAssignedToGroupError,
+    ChannelGroupMembershipRecord,
+    ChannelGroupRecord,
+    ChannelGroupsRepository,
+    ChannelGroupsRepositoryError,
+)
 from .db import (
     StorageRuntime,
     build_sqlite_url,
@@ -28,6 +35,11 @@ from .settings_seed import (
 
 __all__ = [
     "DYNAMIC_SETTINGS_DEFAULTS",
+    "ChannelAlreadyAssignedToGroupError",
+    "ChannelGroupMembershipRecord",
+    "ChannelGroupRecord",
+    "ChannelGroupsRepository",
+    "ChannelGroupsRepositoryError",
     "JSONValue",
     "MigrationRunnerDependency",
     "MigrationStartupError",
