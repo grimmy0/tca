@@ -735,11 +735,19 @@ An item is commit-ready only if all are true:
 - Change:
   - Add persistence logic for encrypted session blob in `telegram_accounts`.
 - Acceptance criteria:
-  - [ ] Stored session data is encrypted (not plaintext StringSession).
-  - [ ] Session round-trip through DB decrypts correctly.
-  - [ ] Incorrect KEK prevents session load.
+  - [x] Stored session data is encrypted (not plaintext StringSession). [Tests: tests/auth/test_session_storage.py::test_stored_session_data_is_encrypted_not_plaintext_stringsession]
+  - [x] Session round-trip through DB decrypts correctly. [Tests: tests/auth/test_session_storage.py::test_session_round_trip_through_db_decrypts_correctly]
+  - [x] Incorrect KEK prevents session load. [Tests: tests/auth/test_session_storage.py::test_incorrect_kek_prevents_session_load]
 - Verification:
   - `uv run pytest -q tests/auth/test_session_storage.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `PENDING`
+  - Verification summary:
+    - Added `tca/auth/session_storage.py` with `TelegramSessionStorage` methods that encrypt `StringSession` data using the existing envelope helper before writing `telegram_accounts.session_encrypted`, and decrypt on read.
+    - Added deterministic account-missing and payload-shape error handling for session persistence/load paths to keep failures explicit for repository callers.
+    - Added `tests/auth/test_session_storage.py` covering ciphertext-at-rest assertions, DB round-trip decrypt fidelity, and wrong-KEK failure via `EnvelopeDecryptionError`.
+    - Verified with `uv run pytest -q tests/auth/test_session_storage.py`.
 
 ### C034 - Implement Crash-Safe Key Rotation Metadata
 

@@ -27,6 +27,11 @@ from .kdf import (
     derive_key_encryption_key,
 )
 from .service import request_login_code
+from .session_storage import (
+    TelegramAccountNotFoundError,
+    TelegramSessionStorage,
+    TelegramSessionStorageError,
+)
 from .unlock_modes import (
     SENSITIVE_OPERATION_LOCKED_MESSAGE,
     AuthStartupDependency,
@@ -58,6 +63,9 @@ __all__ = [
     "SensitiveOperationLockedError",
     "StartupUnlockDependency",
     "StartupUnlockModeError",
+    "TelegramAccountNotFoundError",
+    "TelegramSessionStorage",
+    "TelegramSessionStorageError",
     "UnlockState",
     "compute_token_sha256_digest",
     "decrypt_with_envelope",
