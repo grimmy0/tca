@@ -108,6 +108,29 @@ def test_startup_migration_failure_blocks_api_startup(
             pass
 
 
+def test_startup_migration_path_prepare_failure_raises_domain_error(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Ensure filesystem prep failures surface as startup migration errors."""
+    db_path = tmp_path / "startup-path-prepare-failure.sqlite3"
+    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+
+    with patch(
+        "tca.storage.migrations.Path.mkdir",
+        side_effect=PermissionError("forced-path-permission-denied"),
+    ):
+        app = create_app()
+        with (
+            pytest.raises(
+                MigrationStartupError,
+                match=r"Failed to prepare database path.*forced-path-permission-denied",
+            ),
+            TestClient(app),
+        ):
+            pass
+
+
 def _read_alembic_versions(db_path: Path) -> list[str]:
     """Read current alembic version table values from SQLite file."""
     with sqlite3.connect(db_path.as_posix()) as connection:

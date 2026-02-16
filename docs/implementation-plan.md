@@ -424,7 +424,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/app/test_startup_migrations.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `c018`
+  - Commit: `d99e7e5c111f5a87a05623f9d7b952eceb023ce2`
   - Verification summary:
     - Added `tca/storage/migrations.py` and wired `create_app()` default DB dependency to run `alembic -c alembic.ini upgrade head` during startup before API serving.
     - Added `tests/app/test_startup_migrations.py` to validate empty DB upgrade to head, startup idempotency on current DB, and fail-fast startup behavior when migration execution errors.

@@ -22,6 +22,20 @@ class MigrationStartupError(RuntimeError):
     """Raised when startup migrations fail before API availability."""
 
     @classmethod
+    def for_db_path_prepare_failure(
+        cls,
+        db_path: Path,
+        *,
+        details: str,
+    ) -> MigrationStartupError:
+        """Build error for DB path preparation failures before migration run."""
+        message = (
+            "Failed to prepare database path for startup migrations "
+            f"(db={db_path.as_posix()}): {details}"
+        )
+        return cls(message)
+
+    @classmethod
     def for_upgrade_failure(
         cls,
         db_path: Path,
@@ -46,7 +60,13 @@ def run_startup_migrations() -> None:
     """Upgrade database schema to Alembic head for current settings DB path."""
     settings = load_settings()
     db_path = settings.db_path.expanduser()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise MigrationStartupError.for_db_path_prepare_failure(
+            db_path,
+            details=str(exc),
+        ) from exc
 
     if not ALEMBIC_EXECUTABLE.exists():
         raise MigrationStartupError.for_missing_executable(ALEMBIC_EXECUTABLE)
@@ -55,20 +75,26 @@ def run_startup_migrations() -> None:
     env = os.environ.copy()
     env["TCA_DB_PATH"] = db_path.as_posix()
 
-    result = subprocess.run(  # noqa: S603
-        [
-            ALEMBIC_EXECUTABLE.as_posix(),
-            "-c",
-            ALEMBIC_CONFIG_PATH.as_posix(),
-            "upgrade",
-            "head",
-        ],
-        cwd=PROJECT_ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-        env=env,
-    )
+    try:
+        result = subprocess.run(  # noqa: S603
+            [
+                ALEMBIC_EXECUTABLE.as_posix(),
+                "-c",
+                ALEMBIC_CONFIG_PATH.as_posix(),
+                "upgrade",
+                "head",
+            ],
+            cwd=PROJECT_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+    except OSError as exc:
+        raise MigrationStartupError.for_upgrade_failure(
+            db_path,
+            details=str(exc),
+        ) from exc
     if result.returncode != 0:
         output = result.stderr.strip() or result.stdout.strip() or "unknown error"
         raise MigrationStartupError.for_upgrade_failure(db_path, details=output)

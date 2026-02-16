@@ -2,15 +2,24 @@
 
 from __future__ import annotations
 
-from typing import cast
+from typing import TYPE_CHECKING, Protocol, cast, runtime_checkable
 
 from fastapi.testclient import TestClient
 
 from tca.api.app import create_app
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-def test_health_openapi_contract_uses_component_schema() -> None:
+
+def test_health_openapi_contract_uses_component_schema(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
     """Ensure /health response links to explicit HealthResponse schema."""
+    db_path = tmp_path / "api-contract-openapi.sqlite3"
+    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+
     app = create_app()
     with TestClient(app) as client:
         openapi = cast("dict[str, object]", client.get("/openapi.json").json())
@@ -28,8 +37,14 @@ def test_health_openapi_contract_uses_component_schema() -> None:
         raise AssertionError
 
 
-def test_health_component_schema_has_required_properties() -> None:
+def test_health_component_schema_has_required_properties(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
     """Ensure HealthResponse schema is explicit and non-generic."""
+    db_path = tmp_path / "api-contract-component.sqlite3"
+    _as_monkeypatch(monkeypatch).setenv("TCA_DB_PATH", db_path.as_posix())
+
     app = create_app()
     with TestClient(app) as client:
         openapi = cast("dict[str, object]", client.get("/openapi.json").json())
@@ -49,3 +64,18 @@ def test_health_component_schema_has_required_properties() -> None:
     status_const = status_schema.get("const")
     if status_enum != ["ok"] and status_const != "ok":
         raise AssertionError
+
+
+def _as_monkeypatch(value: object) -> MonkeyPatchLike:
+    """Narrow monkeypatch fixture object to setenv-capable helper."""
+    if not isinstance(value, MonkeyPatchLike):
+        raise TypeError
+    return value
+
+
+@runtime_checkable
+class MonkeyPatchLike(Protocol):
+    """Runtime-checkable subset of pytest monkeypatch fixture behavior."""
+
+    def setenv(self, name: str, value: str) -> None:
+        """Set environment variable for duration of current test."""
