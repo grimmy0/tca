@@ -73,6 +73,28 @@ def test_ingest_errors_has_required_stage_and_timestamp_fields(
         raise AssertionError
 
 
+def test_ingest_errors_stage_constraint_rejects_unknown_stage(
+    tmp_path: Path,
+) -> None:
+    """Ensure `ingest_errors.stage` enforces allowed ingest stage values."""
+    db_path = tmp_path / "c014-ingest-errors-stage-check.sqlite3"
+    _upgrade_to_head(db_path)
+
+    insert_sql = """INSERT INTO ingest_errors (stage, error_code, error_message)
+VALUES (?, ?, ?)"""
+
+    with sqlite3.connect(db_path.as_posix()) as connection:
+        try:
+            _ = connection.execute(
+                insert_sql,
+                ("invalid", "TEST_CODE", "bad stage"),
+            )
+        except sqlite3.IntegrityError:
+            return
+
+    raise AssertionError
+
+
 def test_ops_config_tables_are_removed_on_downgrade_to_base(tmp_path: Path) -> None:
     """Ensure C014 tables are removed when downgrading back to base revision."""
     db_path = tmp_path / "c014-downgrade.sqlite3"

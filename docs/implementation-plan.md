@@ -349,12 +349,12 @@ An item is commit-ready only if all are true:
 - Acceptance criteria:
   - [x] All ops/config tables exist. [Tests: tests/migrations/test_ops_schema.py::test_ops_config_tables_exist_after_migration]
   - [x] `settings.key` is unique. [Tests: tests/migrations/test_ops_schema.py::test_settings_key_uniqueness_exists]
-  - [x] `ingest_errors` has required stage and timestamp fields. [Tests: tests/migrations/test_ops_schema.py::test_ingest_errors_has_required_stage_and_timestamp_fields]
+  - [x] `ingest_errors` has required stage and timestamp fields. [Tests: tests/migrations/test_ops_schema.py::test_ingest_errors_has_required_stage_and_timestamp_fields, tests/migrations/test_ops_schema.py::test_ingest_errors_stage_constraint_rejects_unknown_stage]
 - Verification:
   - `uv run pytest -q tests/migrations/test_ops_schema.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `058`
+  - Commit: `0588d64`
   - Verification summary:
     - Added Alembic revision `9c2a8f6d0f7b` creating `ingest_errors`, `notifications`, and `settings`.
     - Enforced uniqueness on `settings.key`.
