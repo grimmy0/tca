@@ -162,6 +162,26 @@ class SettingsRepository:
             return None
         return _decode_row(row)
 
+    async def delete_if_value_matches(self, *, key: str, value: JSONValue) -> bool:
+        """Delete key only when current stored JSON value matches expected."""
+        encoded_value = _encode_value_json(key=key, value=value)
+        statement = text(
+            """
+            DELETE FROM settings
+            WHERE key = :key
+              AND value_json = :value_json
+            RETURNING key
+            """,
+        )
+        async with self._write_session_factory() as session:
+            result = await session.execute(
+                statement,
+                {"key": key, "value_json": encoded_value},
+            )
+            row = result.mappings().one_or_none()
+            await session.commit()
+        return row is not None
+
 
 def _decode_row(row: object) -> SettingRecord:
     """Decode a row mapping into SettingRecord with JSON fidelity checks."""

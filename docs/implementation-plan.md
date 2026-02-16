@@ -627,7 +627,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/auth/test_bootstrap_token.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `TBD`
+  - Commit: `86649394c085a96e0cc54cb1d98c7acf1152352d`
   - Verification summary:
     - Added `tca/auth/bootstrap_token.py` with startup bootstrap flow that generates a first-run bearer token via `secrets.token_urlsafe(32)`, persists only its SHA-256 digest in `settings`, and writes the plain token once to a bootstrap output file path.
     - Wired bootstrap token initialization into app lifespan startup via `StartupDependencies.auth` in `tca/api/app.py`, keeping token generation independent from later auth middleware enforcement work.

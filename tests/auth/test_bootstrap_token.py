@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import stat
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Protocol, cast, runtime_checkable
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from tca.api.app import create_app
@@ -15,6 +17,8 @@ from tca.auth import BOOTSTRAP_BEARER_TOKEN_DIGEST_KEY, compute_token_sha256_dig
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+OWNER_ONLY_FILE_MODE = 0o600
 
 
 def test_bootstrap_token_plain_value_is_never_persisted_to_db(
@@ -108,6 +112,70 @@ def test_restart_does_not_rotate_bootstrap_token_automatically(
         raise AssertionError
 
 
+def test_bootstrap_token_output_file_is_owner_only(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Ensure bootstrap token output file permissions are set to 0600."""
+    _, output_path = _configure_bootstrap_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+    )
+
+    with patch(
+        "tca.auth.bootstrap_token.secrets.token_urlsafe",
+        return_value="plain-bootstrap-value",
+    ):
+        _start_app_once()
+
+    file_mode = stat.S_IMODE(output_path.stat().st_mode)
+    if file_mode != OWNER_ONLY_FILE_MODE:
+        raise AssertionError
+
+
+def test_bootstrap_digest_is_rolled_back_when_output_write_fails(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Ensure write failures do not leave unrecoverable digest-only state."""
+    db_path, output_path = _configure_bootstrap_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+    )
+    first_value = "first-bootstrap-value"
+    second_value = "second-bootstrap-value"
+
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=first_value,
+        ),
+        patch(
+            "tca.auth.bootstrap_token._write_bootstrap_token",
+            side_effect=OSError("forced-output-write-failure"),
+        ),
+        pytest.raises(OSError, match="forced-output-write-failure"),
+    ):
+        _start_app_once()
+
+    if _bootstrap_digest_exists(db_path=db_path):
+        raise AssertionError
+    if output_path.exists():
+        raise AssertionError
+
+    with patch(
+        "tca.auth.bootstrap_token.secrets.token_urlsafe",
+        return_value=second_value,
+    ):
+        _start_app_once()
+
+    stored_digest = _read_stored_digest(db_path=db_path)
+    if stored_digest != compute_token_sha256_digest(token=second_value):
+        raise AssertionError
+    if output_path.read_text(encoding="utf-8") != f"{second_value}\n":
+        raise AssertionError
+
+
 def _configure_bootstrap_env(
     *,
     tmp_path: Path,
@@ -157,6 +225,23 @@ def _read_stored_digest(*, db_path: Path) -> str:
     if not isinstance(decoded_obj, str):
         raise TypeError
     return decoded_obj
+
+
+def _bootstrap_digest_exists(*, db_path: Path) -> bool:
+    """Return True when bootstrap token digest row exists in settings table."""
+    with sqlite3.connect(db_path.as_posix()) as connection:
+        row = cast(
+            "tuple[object] | None",
+            connection.execute(
+                """
+                SELECT value_json
+                FROM settings
+                WHERE key = ?
+                """,
+                (BOOTSTRAP_BEARER_TOKEN_DIGEST_KEY,),
+            ).fetchone(),
+        )
+    return row is not None
 
 
 def _as_monkeypatch(value: object) -> MonkeyPatchLike:

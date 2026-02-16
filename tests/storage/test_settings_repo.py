@@ -87,6 +87,33 @@ async def test_create_read_and_update_by_key(
 
 
 @pytest.mark.asyncio
+async def test_delete_if_value_matches_is_value_sensitive(
+    settings_repository: SettingsRepository,
+) -> None:
+    """Ensure conditional delete removes row only when expected value matches."""
+    key = "scheduler.max_pages_per_poll"
+    _ = await settings_repository.create(key=key, value=INITIAL_MAX_PAGES)
+
+    wrong_value_deleted = await settings_repository.delete_if_value_matches(
+        key=key,
+        value=UPDATED_MAX_PAGES,
+    )
+    if wrong_value_deleted:
+        raise AssertionError
+    if await settings_repository.get_by_key(key=key) is None:
+        raise AssertionError
+
+    matched_deleted = await settings_repository.delete_if_value_matches(
+        key=key,
+        value=INITIAL_MAX_PAGES,
+    )
+    if not matched_deleted:
+        raise AssertionError
+    if await settings_repository.get_by_key(key=key) is not None:
+        raise AssertionError
+
+
+@pytest.mark.asyncio
 async def test_duplicate_key_insert_fails_deterministically(
     settings_repository: SettingsRepository,
 ) -> None:

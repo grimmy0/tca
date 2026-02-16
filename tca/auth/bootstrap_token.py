@@ -64,7 +64,22 @@ async def ensure_bootstrap_bearer_token(
     except SettingAlreadyExistsError:
         return False
 
-    _write_bootstrap_token(output_path=output_path, token=plain_token)
+    try:
+        _write_bootstrap_token(output_path=output_path, token=plain_token)
+    except OSError:
+        rolled_back = await repository.delete_if_value_matches(
+            key=BOOTSTRAP_BEARER_TOKEN_DIGEST_KEY,
+            value=digest,
+        )
+        if not rolled_back:
+            logger.exception(
+                (
+                    "Failed to roll back bootstrap bearer token digest after "
+                    "output write failure (path=%s)"
+                ),
+                output_path,
+            )
+        raise
     logger.info(
         "Generated bootstrap bearer token and wrote one-time output to %s",
         output_path,
@@ -103,3 +118,4 @@ def _write_bootstrap_token(*, output_path: Path, token: str) -> None:
     """Write bootstrap token as single-line output for first-run retrieval."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     _ = output_path.write_text(f"{token}\n", encoding="utf-8")
+    output_path.chmod(0o600)
