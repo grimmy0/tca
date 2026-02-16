@@ -778,11 +778,19 @@ An item is commit-ready only if all are true:
   - Implement shared Telethon client manager in app state.
   - Lifecycle hooks connect/disconnect clients.
 - Acceptance criteria:
-  - [ ] Client manager initializes during app startup.
-  - [ ] Clients disconnect on app shutdown.
-  - [ ] No per-request client creation occurs.
+  - [x] Client manager initializes during app startup. [Tests: tests/telegram/test_client_manager.py::test_client_manager_connects_on_startup]
+  - [x] Clients disconnect on app shutdown. [Tests: tests/telegram/test_client_manager.py::test_client_manager_disconnects_on_shutdown]
+  - [x] No per-request client creation occurs. [Tests: tests/telegram/test_client_manager.py::test_client_manager_does_not_create_client_on_get]
 - Verification:
   - `uv run pytest -q tests/telegram/test_client_manager.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `PENDING`
+  - Verification summary:
+    - Added Telethon client manager with explicit startup/shutdown hooks and a registry that avoids implicit per-request creation.
+    - Wired the manager into FastAPI startup dependencies and exported Telegram client management types.
+    - Added client manager lifecycle tests covering startup connect, shutdown disconnect, and missing-client access behavior.
+    - Verified with `uv run pytest -q tests/telegram/test_client_manager.py`.
 
 ### C036 - Add Auth Session State Storage for Login Wizard
 

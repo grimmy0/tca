@@ -27,6 +27,7 @@ from tca.storage import (
     create_storage_runtime,
     dispose_storage_runtime,
 )
+from tca.telegram import TelethonClientManager
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -143,7 +144,7 @@ def _default_dependencies() -> StartupDependencies:
         db=MigrationRunnerDependency(),
         settings=SettingsSeedDependency(),
         auth=AuthStartupDependency(),
-        telethon_manager=NoopDependency("telethon_manager"),
+        telethon_manager=TelethonClientManager(),
         scheduler=NoopDependency("scheduler"),
     )
 
