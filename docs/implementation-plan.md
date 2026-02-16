@@ -72,13 +72,20 @@ An item is commit-ready only if all are true:
   - Add lint/type/test configuration (`ruff`, `pytest`, `mypy`) in `pyproject.toml`.
   - Add minimal `tests/` package bootstrap.
 - Acceptance criteria:
-  - [ ] `uv run ruff check .` exits `0` on initial scaffold.
-  - [ ] `uv run pytest -q` exits `0` with zero or baseline tests.
-  - [ ] `uv run mypy tca` exits `0` for current code.
+  - [x] `uv run ruff check .` exits `0` on initial scaffold.
+  - [x] `uv run pytest -q` exits `0` with zero or baseline tests.
+  - [x] `uv run mypy tca` exits `0` for current code.
 - Verification:
   - `uv run ruff check .`
   - `uv run pytest -q`
   - `uv run mypy tca`
+- Execution record:
+  - Date: 2026-02-15
+  - Commit: `37f9b32`
+  - Verification summary:
+    - `ruff` passed (after removing print in `main.py`).
+    - `pytest` passed (with `pytest-asyncio` added to handle `asyncio_mode` warning).
+    - `mypy` passed with `Success: no issues found in 10 source files`.
 
 ### C003A - Add Shared Testing Harness and SQLite Concurrency Guide
 
