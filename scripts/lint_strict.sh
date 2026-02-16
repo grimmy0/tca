@@ -15,3 +15,12 @@ uv run pyright --warnings
 
 echo "Running BasedPyright (strict)..."
 uv run basedpyright --warnings --project basedpyrightconfig.json
+
+echo "Validating plan criteria test mappings..."
+uv run python scripts/validate_plan_criteria.py
+
+echo "Checking API route response model discipline..."
+uv run python scripts/check_api_response_models.py
+
+echo "Checking TestClient context-manager conventions..."
+uv run python scripts/check_testclient_context.py

@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  lint-strict:
+    name: lint-strict
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Install dependencies
+        run: uv sync --extra dev --frozen
+      - name: Run strict lint/type/policy gate
+        run: ./scripts/lint_strict.sh
+
+  test-suite:
+    name: test-suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Install dependencies
+        run: uv sync --extra dev --frozen
+      - name: Run full test suite
+        run: uv run pytest -q
+
+  contract-gates:
+    name: contract-gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Install dependencies
+        run: uv sync --extra dev --frozen
+      - name: Validate completed plan criteria mappings and execute mapped tests
+        run: uv run python scripts/validate_plan_criteria.py --run-tests
+      - name: Enforce API response model discipline
+        run: uv run python scripts/check_api_response_models.py
+      - name: Enforce TestClient context-manager usage
+        run: uv run python scripts/check_testclient_context.py
+      - name: Run targeted contract suites
+        run: uv run pytest -q tests/contracts tests/app tests/api tests/logging

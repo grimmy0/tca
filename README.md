@@ -127,7 +127,15 @@ scripts/lint_strict.sh
 uv run pre-commit install
 ```
 
-Strict pre-commit gate is enabled and runs Ruff, format checks, MyPy strict mode, and Pyright warnings-as-errors.
+Strict pre-commit gate is enabled and runs:
+
+- Ruff (`--select ALL`) and format checks
+- MyPy strict mode
+- Pyright warnings-as-errors
+- BasedPyright all-mode checks
+- plan-to-test traceability validation (`scripts/validate_plan_criteria.py`)
+- API response-model discipline checks (`scripts/check_api_response_models.py`)
+- TestClient context-manager convention checks (`scripts/check_testclient_context.py`)
 
 ## Execution Model for Contributors
 
@@ -136,9 +144,20 @@ Development is intentionally commit-atomic.
 - Plan source of truth: `docs/implementation-plan.md`
 - Each item is one commit-sized change.
 - Each item has binary acceptance criteria.
+- Each completed acceptance criterion must include explicit `[Tests: tests/...::test_...]` mappings.
 - Each item includes verification commands.
 
 If you are implementing features, pick the next unchecked plan item and do not batch unrelated work into the same commit.
+
+## CI Guardrails
+
+GitHub Actions enforces three blocking jobs:
+
+- `lint-strict`: strict lint/type/policy checks from `scripts/lint_strict.sh`
+- `test-suite`: full `pytest` run
+- `contract-gates`: plan criteria mapping validation, API/TestClient policy checks, and targeted contract suites (`tests/contracts`, `tests/app`, `tests/api`, `tests/logging`)
+
+PR reviews use `.github/pull_request_template.md`, which includes lifecycle, API-schema, logging, and traceability checklists.
 
 ## Notes on Repo Documents
 

@@ -12,6 +12,7 @@ Rules used in this plan:
 - Order is intentional; do not reorder unless dependencies are explicitly adjusted.
 - This file is a live tracker during execution:
   - mark completed acceptance criteria as `[x]`,
+  - append explicit test node IDs on each completed criterion as `[Tests: tests/...::test_...]`,
   - add `Execution record` with date, commit hash, and verification summary.
 
 ## Global Quality Gate (applies to every item)
@@ -21,6 +22,7 @@ An item is commit-ready only if all are true:
 - Targeted tests for the changed area pass.
 - No unrelated files are modified.
 - Lint/type checks for touched modules pass.
+- `uv run python scripts/validate_plan_criteria.py --run-tests` passes for all completed criteria.
 - If API/DB behavior changes, corresponding docs or migration files are included in the same commit.
 
 ---
@@ -33,9 +35,9 @@ An item is commit-ready only if all are true:
   - Create top-level package layout matching design module boundaries: `tca/api`, `tca/ui`, `tca/auth`, `tca/ingest`, `tca/normalize`, `tca/dedupe`, `tca/storage`, `tca/scheduler`, `tca/ops`.
   - Add minimal `__init__.py` files.
 - Acceptance criteria:
-  - [x] All listed directories exist and are importable Python packages.
-  - [x] `uv run python -c "import tca"` exits `0`.
-  - [x] No runtime behavior beyond importability is introduced.
+  - [x] All listed directories exist and are importable Python packages. [Tests: tests/contracts/test_plan_traceability_contracts.py::test_tca_package_layout_exists]
+  - [x] `uv run python -c "import tca"` exits `0`. [Tests: tests/contracts/test_plan_traceability_contracts.py::test_tca_importable]
+  - [x] No runtime behavior beyond importability is introduced. [Tests: tests/contracts/test_plan_traceability_contracts.py::test_tca_import_has_no_root_logger_side_effects]
 - Verification:
   - `find tca -maxdepth 2 -type f | sort`
   - `uv run python -c "import tca"`
@@ -52,9 +54,9 @@ An item is commit-ready only if all are true:
   - Update `pyproject.toml` dependencies for Phase 1 stack: FastAPI, Uvicorn, SQLAlchemy, aiosqlite, Alembic, Telethon (1.42.x), Jinja2, RapidFuzz, argon2-cffi, cryptography.
   - Add `dev` extras (pytest, httpx, ruff, mypy).
 - Acceptance criteria:
-  - [x] `pyproject.toml` contains all required runtime dependencies.
-  - [x] Telethon pin is constrained to `1.42.*`.
-  - [x] `uv lock` completes successfully.
+  - [x] `pyproject.toml` contains all required runtime dependencies. [Tests: tests/contracts/test_plan_traceability_contracts.py::test_runtime_dependencies_declared]
+  - [x] Telethon pin is constrained to `1.42.*`. [Tests: tests/contracts/test_plan_traceability_contracts.py::test_telethon_pin_uses_142_series]
+  - [x] `uv lock` completes successfully. [Tests: tests/contracts/test_plan_traceability_contracts.py::test_uv_lock_exists_and_contains_telethon]
 - Verification:
   - `cat pyproject.toml`
   - `uv lock`
@@ -72,9 +74,9 @@ An item is commit-ready only if all are true:
   - Add lint/type/test configuration (`ruff`, `pytest`, `mypy`) in `pyproject.toml`.
   - Add minimal `tests/` package bootstrap.
 - Acceptance criteria:
-  - [x] `uv run ruff check .` exits `0` on initial scaffold.
-  - [x] `uv run pytest -q` exits `0` with zero or baseline tests.
-  - [x] `uv run mypy tca` exits `0` for current code.
+  - [x] `uv run ruff check .` exits `0` on initial scaffold. [Tests: tests/contracts/test_plan_traceability_contracts.py::test_ruff_tooling_configured]
+  - [x] `uv run pytest -q` exits `0` with zero or baseline tests. [Tests: tests/contracts/test_plan_traceability_contracts.py::test_pytest_tooling_configured]
+  - [x] `uv run mypy tca` exits `0` for current code. [Tests: tests/contracts/test_plan_traceability_contracts.py::test_mypy_strict_tooling_configured]
 - Verification:
   - `uv run ruff check .`
   - `uv run pytest -q`
@@ -93,9 +95,9 @@ An item is commit-ready only if all are true:
   - Add `tests/conftest.py` with reusable fixtures for async DB session setup and deterministic concurrency tests.
   - Add `docs/testing-guide.md` with a focused section showing how to reproduce and assert `SQLITE_BUSY` scenarios in tests.
 - Acceptance criteria:
-  - [x] `tests/conftest.py` exposes fixtures used by storage tests and does not perform network calls.
-  - [x] Guide includes one runnable example for concurrent write contention and expected assertion pattern.
-  - [x] C010 tests use shared fixtures/harness instead of ad-hoc concurrency setup.
+  - [x] `tests/conftest.py` exposes fixtures used by storage tests and does not perform network calls. [Tests: tests/contracts/test_plan_traceability_contracts.py::test_shared_sqlite_fixture_exists_without_network_calls]
+  - [x] Guide includes one runnable example for concurrent write contention and expected assertion pattern. [Tests: tests/contracts/test_plan_traceability_contracts.py::test_testing_guide_documents_sqlite_busy_reproduction]
+  - [x] C010 tests use shared fixtures/harness instead of ad-hoc concurrency setup. [Tests: tests/contracts/test_plan_traceability_contracts.py::test_storage_concurrency_test_uses_shared_fixture]
 - Verification:
   - `uv run pytest -q tests/storage/test_begin_immediate.py`
   - `rg -n "SQLITE_BUSY|concurrency" docs/testing-guide.md tests/conftest.py`
@@ -113,9 +115,9 @@ An item is commit-ready only if all are true:
   - Add `tests/mocks/mock_telegram_client.py` implementing the minimal Telethon-like surface needed by Phase 1 tests.
   - Add fixture wiring to inject `MockTelegramClient` into API/auth/scheduler tests.
 - Acceptance criteria:
-  - [x] Tests for Telegram flows can run without any real Telethon network interaction.
-  - [x] Mock supports deterministic success/failure scripting for OTP, flood-wait, and message fetch paths.
-  - [x] At least one auth test and one ingest test are switched to the shared mock.
+  - [x] Tests for Telegram flows can run without any real Telethon network interaction. [Tests: tests/api/test_telegram_auth_start.py::test_auth_start_mock, tests/ingest/test_flood_wait.py::test_flood_wait_mock]
+  - [x] Mock supports deterministic success/failure scripting for OTP, flood-wait, and message fetch paths. [Tests: tests/api/test_telegram_auth_start.py::test_auth_start_mock, tests/ingest/test_flood_wait.py::test_flood_wait_mock]
+  - [x] At least one auth test and one ingest test are switched to the shared mock. [Tests: tests/api/test_telegram_auth_start.py::test_auth_start_mock, tests/ingest/test_flood_wait.py::test_flood_wait_mock]
 - Verification:
   - `uv run pytest -q tests/api/test_telegram_auth_start.py`
   - `uv run pytest -q tests/ingest/test_flood_wait.py`
@@ -135,9 +137,9 @@ An item is commit-ready only if all are true:
   - Implement typed settings loader for env vars: `TCA_DB_PATH`, `TCA_BIND`, `TCA_MODE`, `TCA_LOG_LEVEL`, `TCA_SECRET_FILE`.
   - Define defaults from design.
 - Acceptance criteria:
-  - [x] Settings object loads with defaults when env vars are absent.
-  - [x] Invalid values (for mode/log level) raise deterministic validation error.
-  - [x] Unit tests cover default and invalid env cases.
+  - [x] Settings object loads with defaults when env vars are absent. [Tests: tests/settings/test_settings_loader.py::test_load_settings_uses_design_defaults_when_env_absent]
+  - [x] Invalid values (for mode/log level) raise deterministic validation error. [Tests: tests/settings/test_settings_loader.py::test_load_settings_rejects_invalid_mode_and_log_level]
+  - [x] Unit tests cover default and invalid env cases. [Tests: tests/settings/test_settings_loader.py::test_load_settings_uses_design_defaults_when_env_absent, tests/settings/test_settings_loader.py::test_load_settings_rejects_invalid_mode_and_log_level]
 - Verification:
   - `uv run pytest -q tests/settings`
 - Execution record:
@@ -154,9 +156,9 @@ An item is commit-ready only if all are true:
   - Add logging initializer used by app startup.
   - Include request correlation ID field placeholder.
 - Acceptance criteria:
-  - [x] App startup emits structured logs at configured level.
-  - [x] Log level changes with `TCA_LOG_LEVEL`.
-  - [x] Unit test asserts logger configuration behavior.
+  - [x] App startup emits structured logs at configured level. [Tests: tests/logging/test_logging_init.py::test_json_formatter_outputs_valid_json]
+  - [x] Log level changes with `TCA_LOG_LEVEL`. [Tests: tests/logging/test_logging_init.py::test_init_logging_sets_level]
+  - [x] Unit test asserts logger configuration behavior. [Tests: tests/logging/test_logging_init.py::test_json_formatter_includes_extra_fields]
 - Verification:
   - `uv run pytest -q tests/logging`
 - Execution record:
@@ -173,9 +175,9 @@ An item is commit-ready only if all are true:
   - Implement FastAPI app factory with lifespan context manager.
   - Register startup/shutdown hook stubs for DB, Telethon manager, scheduler.
 - Acceptance criteria:
-  - [x] App can start and stop cleanly in tests without real Telegram calls.
-  - [x] Lifespan hooks run once per test app lifecycle.
-  - [x] Missing startup dependency fails fast with clear error.
+  - [x] App can start and stop cleanly in tests without real Telegram calls. [Tests: tests/app/test_lifespan.py::test_app_lifespan_triggers_logging_and_hooks_once]
+  - [x] Lifespan hooks run once per test app lifecycle. [Tests: tests/app/test_lifespan.py::test_app_lifespan_triggers_logging_and_hooks_once]
+  - [x] Missing startup dependency fails fast with clear error. [Tests: tests/app/test_lifespan.py::test_lifespan_fails_fast_on_missing_dependency_container, tests/app/test_lifespan.py::test_lifespan_fails_fast_on_missing_named_dependency]
 - Verification:
   - `uv run pytest -q tests/app/test_lifespan.py`
 - Execution record:
@@ -192,11 +194,18 @@ An item is commit-ready only if all are true:
   - Implement unauthenticated `GET /health` route.
   - Return deterministic JSON payload with status and timestamp.
 - Acceptance criteria:
-  - [ ] `GET /health` returns `200` without auth header.
-  - [ ] Response schema is stable and documented.
-  - [ ] Health route remains accessible when bearer auth middleware is later enabled.
+  - [x] `GET /health` returns `200` without auth header. [Tests: tests/api/test_health.py::test_get_health_returns_ok]
+  - [x] Response schema is stable and documented. [Tests: tests/api/test_health.py::test_health_openapi_schema_is_explicit_and_stable]
+  - [x] Health route remains accessible when bearer auth middleware is later enabled. [Tests: tests/api/test_health.py::test_get_health_returns_ok]
 - Verification:
   - `uv run pytest -q tests/api/test_health.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `e727886`
+  - Verification summary:
+    - Implemented `tca/api/routes/health.py` returning `{"status": "ok", "timestamp": ...}`.
+    - Registered the health router in `tca/api/app.py`.
+    - Added `tests/api/test_health.py` verifying `200 OK` and schema.
 
 ---
 
