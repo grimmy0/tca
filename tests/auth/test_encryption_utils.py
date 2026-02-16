@@ -75,3 +75,59 @@ def test_ciphertext_payload_includes_version_metadata() -> None:
         raise AssertionError
     if decoded["version"] != ENVELOPE_VERSION:
         raise AssertionError
+
+
+def test_decrypt_rejects_boolean_version_metadata() -> None:
+    """Ensure boolean version values are rejected (bool is not valid schema int)."""
+    key_encryption_key = secrets.token_bytes(DATA_ENCRYPTION_KEY_BYTES)
+    ciphertext_payload = encrypt_with_envelope(
+        plaintext=b"strict-version-type-check",
+        key_encryption_key=key_encryption_key,
+    )
+    decoded = cast(
+        "dict[str, object]",
+        json.loads(ciphertext_payload.decode("utf-8")),
+    )
+    decoded["version"] = True
+    tampered_payload = json.dumps(
+        decoded,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+
+    with pytest.raises(
+        EnvelopeDecryptionError,
+        match="unable to decrypt payload with provided key-encryption key",
+    ):
+        _ = decrypt_with_envelope(
+            ciphertext_payload=tampered_payload,
+            key_encryption_key=key_encryption_key,
+        )
+
+
+def test_decrypt_rejects_invalid_nonce_length_with_deterministic_error() -> None:
+    """Ensure malformed nonce length is normalized to EnvelopeDecryptionError."""
+    key_encryption_key = secrets.token_bytes(DATA_ENCRYPTION_KEY_BYTES)
+    ciphertext_payload = encrypt_with_envelope(
+        plaintext=b"nonce-length-validation",
+        key_encryption_key=key_encryption_key,
+    )
+    decoded = cast(
+        "dict[str, object]",
+        json.loads(ciphertext_payload.decode("utf-8")),
+    )
+    decoded["nonce"] = ""
+    tampered_payload = json.dumps(
+        decoded,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+
+    with pytest.raises(
+        EnvelopeDecryptionError,
+        match="unable to decrypt payload with provided key-encryption key",
+    ):
+        _ = decrypt_with_envelope(
+            ciphertext_payload=tampered_payload,
+            key_encryption_key=key_encryption_key,
+        )

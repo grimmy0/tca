@@ -96,7 +96,11 @@ def decrypt_with_envelope(
     payload = _decode_payload(ciphertext_payload=ciphertext_payload)
 
     version_obj = payload.get("version")
-    if version_obj != ENVELOPE_VERSION:
+    if (
+        not isinstance(version_obj, int)
+        or isinstance(version_obj, bool)
+        or version_obj != ENVELOPE_VERSION
+    ):
         raise EnvelopeDecryptionError(_DECRYPTION_ERROR_MESSAGE)
 
     wrapped_dek = _decode_bytes(
@@ -104,6 +108,8 @@ def decrypt_with_envelope(
     )
     nonce = _decode_bytes(encoded=payload.get("nonce"))
     ciphertext = _decode_bytes(encoded=payload.get("ciphertext"))
+    if len(nonce) != AES_GCM_NONCE_BYTES:
+        raise EnvelopeDecryptionError(_DECRYPTION_ERROR_MESSAGE)
 
     data_encryption_key = unwrap_data_encryption_key(
         wrapped_data_encryption_key=wrapped_dek,
@@ -112,7 +118,7 @@ def decrypt_with_envelope(
 
     try:
         return AESGCM(data_encryption_key).decrypt(nonce, ciphertext, None)
-    except InvalidTag as exc:
+    except (InvalidTag, ValueError) as exc:
         raise EnvelopeDecryptionError(_DECRYPTION_ERROR_MESSAGE) from exc
 
 
