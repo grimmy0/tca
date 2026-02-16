@@ -705,7 +705,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/auth/test_kdf.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `PENDING`
+  - Commit: `4279257526265848002ddf6032927fbfca08d1b6`
   - Verification summary:
     - Added `tca/auth/kdf.py` with Argon2id KEK derivation using the design baseline parameters: memory 64 MiB (`65536` KiB), iterations `3`, parallelism `1`, and salt length `16` bytes.
     - Added `tests/auth/test_kdf.py` covering exact Argon2id parameter wiring, deterministic same passphrase+salt derivation, and different-salt output divergence.

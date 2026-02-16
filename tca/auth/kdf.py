@@ -10,6 +10,7 @@ ARGON2ID_MEMORY_COST_KIB = 64 * 1024
 ARGON2ID_TIME_COST = 3
 ARGON2ID_PARALLELISM = 1
 ARGON2ID_SALT_BYTES = 16
+ARGON2ID_VERSION = 19
 KEY_ENCRYPTION_KEY_BYTES = DATA_ENCRYPTION_KEY_BYTES
 
 
@@ -24,6 +25,7 @@ def derive_key_encryption_key(*, passphrase: str, salt: bytes) -> bytes:
         parallelism=ARGON2ID_PARALLELISM,
         hash_len=KEY_ENCRYPTION_KEY_BYTES,
         type=Type.ID,
+        version=ARGON2ID_VERSION,
     )
 
 

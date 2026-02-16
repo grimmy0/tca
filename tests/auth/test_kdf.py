@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import cast
 from unittest.mock import patch
 
+import pytest
 from argon2.low_level import Type
 
 from tca.auth.kdf import (
@@ -12,6 +13,7 @@ from tca.auth.kdf import (
     ARGON2ID_PARALLELISM,
     ARGON2ID_SALT_BYTES,
     ARGON2ID_TIME_COST,
+    ARGON2ID_VERSION,
     KEY_ENCRYPTION_KEY_BYTES,
     derive_key_encryption_key,
 )
@@ -20,6 +22,7 @@ EXPECTED_MEMORY_COST_KIB = 64 * 1024
 EXPECTED_TIME_COST = 3
 EXPECTED_PARALLELISM = 1
 EXPECTED_SALT_BYTES = 16
+EXPECTED_ARGON2_VERSION = 19
 
 
 def test_kdf_parameters_match_design_values_exactly() -> None:
@@ -31,6 +34,8 @@ def test_kdf_parameters_match_design_values_exactly() -> None:
     if ARGON2ID_PARALLELISM != EXPECTED_PARALLELISM:
         raise AssertionError
     if ARGON2ID_SALT_BYTES != EXPECTED_SALT_BYTES:
+        raise AssertionError
+    if ARGON2ID_VERSION != EXPECTED_ARGON2_VERSION:
         raise AssertionError
 
     secret_input = "correct horse battery staple"  # noqa: S105
@@ -54,6 +59,7 @@ def test_kdf_parameters_match_design_values_exactly() -> None:
         "parallelism": ARGON2ID_PARALLELISM,
         "hash_len": KEY_ENCRYPTION_KEY_BYTES,
         "type": Type.ID,
+        "version": ARGON2ID_VERSION,
     }
     if call_kwargs != expected_kwargs:
         raise AssertionError
@@ -84,3 +90,13 @@ def test_different_salt_yields_different_derived_key() -> None:
 
     if first_key == second_key:
         raise AssertionError
+
+
+def test_invalid_salt_length_raises_value_error() -> None:
+    """Ensure non-design salt lengths fail fast with deterministic error text."""
+    passphrase = "salt-length-check"  # noqa: S105
+    with pytest.raises(ValueError, match="salt must be exactly 16 bytes"):
+        _ = derive_key_encryption_key(
+            passphrase=passphrase,
+            salt=b"short-salt",
+        )
