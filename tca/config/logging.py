@@ -87,8 +87,10 @@ def init_logging(level: LogLevel) -> None:
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
 
-    # Remove any existing handlers to avoid double logging
+    # Remove any existing handlers to avoid double logging,
+    # but preserve pytest handlers if they exist.
     for h in root_logger.handlers[:]:
-        root_logger.removeHandler(h)
+        if type(h).__name__ != "LogCaptureHandler":
+            root_logger.removeHandler(h)
 
     root_logger.addHandler(handler)
