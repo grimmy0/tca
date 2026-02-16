@@ -68,7 +68,8 @@ def _resolve_writer_queue(request: Request) -> WriterQueueProtocol:
     """Load app writer queue from FastAPI state with explicit failure mode."""
     state_obj = _resolve_app_state(request)
     queue_obj = cast("object | None", getattr(state_obj, "writer_queue", None))
-    if queue_obj is None or not hasattr(queue_obj, "submit"):
+    submit_obj = getattr(queue_obj, "submit", None)
+    if queue_obj is None or not callable(submit_obj):
         message = "Missing app writer queue: app.state.writer_queue."
         raise RuntimeError(message)
     return cast("WriterQueueProtocol", queue_obj)

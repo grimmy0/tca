@@ -524,7 +524,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/ingest/test_raw_upsert.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `COMMIT_SHA_PLACEHOLDER`
+  - Commit: `f9786a44c84212705006cab0e014c5c889157a16`
   - Verification summary:
     - Added `tests/storage/test_writer_queue.py` to verify single in-flight writer execution under concurrent submissions plus FIFO deterministic success/error completion behavior.
     - Added queue-backed settings API write coverage in `tests/api/test_settings_api.py`, asserting `/settings/{key}` mutations execute via app writer queue and preserve deterministic update results.

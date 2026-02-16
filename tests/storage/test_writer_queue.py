@@ -20,6 +20,7 @@ FIRST_FAILURE_INDEX = 1
 SECOND_FAILURE_INDEX = 3
 FIRST_FAILURE_MESSAGE = "boom-1"
 SECOND_FAILURE_MESSAGE = "boom-3"
+CANCELLED_ERROR_MESSAGE = "forced-cancelled-error"
 
 
 @pytest.mark.asyncio
@@ -100,6 +101,28 @@ async def test_writer_queue_processes_fifo_and_preserves_result_error_outcomes()
         raise AssertionError
     _assert_runtime_error(results[1], expected_message=FIRST_FAILURE_MESSAGE)
     _assert_runtime_error(results[3], expected_message=SECOND_FAILURE_MESSAGE)
+
+
+@pytest.mark.asyncio
+async def test_writer_queue_propagates_cancelled_error_and_keeps_processing() -> None:
+    """Ensure operation-level cancellation is surfaced and does not kill the worker."""
+    queue = WriterQueue()
+
+    async def _cancelled_job() -> object:
+        raise asyncio.CancelledError(CANCELLED_ERROR_MESSAGE)
+
+    async def _success_job() -> str:
+        return "ok"
+
+    try:
+        with pytest.raises(asyncio.CancelledError, match=CANCELLED_ERROR_MESSAGE):
+            _ = await asyncio.wait_for(queue.submit(_cancelled_job), timeout=0.2)
+        result = await asyncio.wait_for(queue.submit(_success_job), timeout=0.2)
+    finally:
+        await queue.close()
+
+    if result != "ok":
+        raise AssertionError
 
 
 def _assert_runtime_error(result: object, *, expected_message: str) -> None:

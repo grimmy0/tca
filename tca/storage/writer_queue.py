@@ -105,7 +105,9 @@ class WriterQueue:
         """Resolve queued completion future with operation result or error."""
         try:
             result = await queued_job.operation()
-        except Exception as exc:  # noqa: BLE001
+        except BaseException as exc:
+            if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+                raise
             if queued_job.completion.cancelled():
                 return
             queued_job.completion.set_exception(exc)

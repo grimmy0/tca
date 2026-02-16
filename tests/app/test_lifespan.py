@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -48,6 +49,14 @@ class FailingStartupDependency:
     async def shutdown(self) -> None:
         """Record shutdown invocation."""
         self.shutdown_calls += 1
+
+
+@dataclass(slots=True)
+class InvalidWriterQueueRuntime:
+    """Queue-like object with non-callable lifecycle attributes."""
+
+    submit: int = 1
+    close: int = 2
 
 
 def test_app_lifespan_triggers_logging_and_hooks_once(
@@ -175,3 +184,85 @@ def test_lifespan_shuts_down_started_dependencies_on_startup_failure() -> None:
         raise AssertionError
     if scheduler.shutdown_calls != 0:
         raise AssertionError
+
+
+def test_lifespan_disposes_runtime_when_writer_queue_factory_is_invalid() -> None:
+    """Ensure runtime teardown still runs when queue factory object is invalid."""
+    app = create_app()
+    app.state.writer_queue_factory = object()
+    runtime = object()
+
+    with (
+        patch(
+            "tca.api.app.create_storage_runtime",
+            return_value=runtime,
+        ),
+        patch(
+            "tca.api.app.dispose_storage_runtime",
+            new_callable=AsyncMock,
+        ) as dispose_runtime,
+        pytest.raises(
+            RuntimeError,
+            match=r"Invalid writer queue factory: expected callable on app\.state\.",
+        ),
+        TestClient(app),
+    ):
+        pass
+
+    _assert_dispose_runtime_called_once(
+        dispose_runtime=dispose_runtime,
+        runtime=runtime,
+    )
+
+
+def test_lifespan_disposes_runtime_when_writer_queue_runtime_is_invalid() -> None:
+    """Ensure runtime teardown still runs when queue object has invalid methods."""
+    app = create_app()
+    app.state.writer_queue_factory = _build_invalid_writer_queue_runtime
+    runtime = object()
+
+    with (
+        patch(
+            "tca.api.app.create_storage_runtime",
+            return_value=runtime,
+        ),
+        patch(
+            "tca.api.app.dispose_storage_runtime",
+            new_callable=AsyncMock,
+        ) as dispose_runtime,
+        pytest.raises(
+            RuntimeError,
+            match=(
+                r"Invalid writer queue: expected submit\(\.\.\.\) "
+                r"and close\(\) methods\."
+            ),
+        ),
+        TestClient(app),
+    ):
+        pass
+
+    _assert_dispose_runtime_called_once(
+        dispose_runtime=dispose_runtime,
+        runtime=runtime,
+    )
+
+
+def _assert_dispose_runtime_called_once(
+    *,
+    dispose_runtime: AsyncMock,
+    runtime: object,
+) -> None:
+    """Assert runtime teardown hook is awaited exactly once with expected runtime."""
+    if dispose_runtime.await_count != 1:
+        raise AssertionError
+
+    await_args = dispose_runtime.await_args
+    if await_args is None:
+        raise AssertionError
+    if await_args.args != (runtime,):
+        raise AssertionError
+
+
+def _build_invalid_writer_queue_runtime() -> InvalidWriterQueueRuntime:
+    """Build invalid queue runtime object for startup validation tests."""
+    return InvalidWriterQueueRuntime()

@@ -16,6 +16,7 @@ from tca.config.settings import load_settings
 from tca.storage import (
     MigrationRunnerDependency,
     SettingsSeedDependency,
+    StorageRuntime,
     WriterQueue,
     WriterQueueProtocol,
     create_storage_runtime,
@@ -149,10 +150,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Manage application startup and shutdown events."""
     dependencies = _resolve_startup_dependencies(app)
     settings = load_settings()
-    storage_runtime = create_storage_runtime(settings)
-    writer_queue = _build_writer_queue(app)
-    app.state.storage_runtime = storage_runtime
-    app.state.writer_queue = writer_queue
+    storage_runtime: StorageRuntime | None = None
+    writer_queue: WriterQueueLifecycle | None = None
     startup_order: tuple[LifecycleDependency, ...] = (
         dependencies.db,
         dependencies.settings,
@@ -168,6 +167,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.db_path,
     )
     try:
+        storage_runtime = create_storage_runtime(settings)
+        writer_queue = _build_writer_queue(app)
+        app.state.storage_runtime = storage_runtime
+        app.state.writer_queue = writer_queue
         for dependency in startup_order:
             await dependency.startup()
             started_dependencies.append(dependency)
@@ -175,8 +178,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         for dependency in reversed(started_dependencies):
             await dependency.shutdown()
-        await writer_queue.close()
-        await dispose_storage_runtime(storage_runtime)
+        if writer_queue is not None:
+            await writer_queue.close()
+        if storage_runtime is not None:
+            await dispose_storage_runtime(storage_runtime)
         _clear_runtime_state(app)
         logger.info("Shutting down TCA")
 
@@ -212,7 +217,9 @@ def _build_writer_queue(app: FastAPI) -> WriterQueueLifecycle:
         raise StartupWriterQueueError.invalid_factory()
 
     queue_obj = cast("object", factory_obj())
-    if not hasattr(queue_obj, "submit") or not hasattr(queue_obj, "close"):
+    submit_obj = getattr(queue_obj, "submit", None)
+    close_obj = getattr(queue_obj, "close", None)
+    if not callable(submit_obj) or not callable(close_obj):
         raise StartupWriterQueueError.invalid_queue()
     return cast("WriterQueueLifecycle", queue_obj)
 
