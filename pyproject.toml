@@ -4,4 +4,23 @@ version = "0.1.0"
 description = "Threaded channel aggregator with cross-source deduplication"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.30,<1.0",
+    "sqlalchemy>=2.0,<3.0",
+    "aiosqlite>=0.20,<1.0",
+    "alembic>=1.13,<2.0",
+    "telethon>=1.42,<1.43",
+    "jinja2>=3.1,<4.0",
+    "rapidfuzz>=3.9,<4.0",
+    "argon2-cffi>=23.1,<24.0",
+    "cryptography>=43,<45",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9.0",
+    "httpx>=0.27,<1.0",
+    "ruff>=0.6,<1.0",
+    "mypy>=1.11,<2.0",
+]
