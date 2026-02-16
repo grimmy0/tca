@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from tca.auth import (
+    AuthStartupDependency,
+    BootstrapBearerTokenDependency,
     SensitiveOperationLockedError,
+    StartupUnlockDependency,
     StartupUnlockModeError,
     UnlockState,
     get_sensitive_operation_secret,
@@ -102,6 +106,89 @@ def test_auto_unlock_mode_missing_secret_fails_startup_with_actionable_error(
             secret_file=settings.secret_file,
             unlock_state=unlock_state,
         )
+
+
+def test_auto_unlock_mode_unreadable_secret_fails_startup_with_actionable_error(
+    tmp_path: Path,
+) -> None:
+    """Ensure unreadable auto-unlock secret aborts startup with clear guidance."""
+    unreadable_secret_file = tmp_path / "mounted-unlock.secret"
+    _ = unreadable_secret_file.write_text("mounted-secret-value\n", encoding="utf-8")
+    unlock_state = UnlockState()
+    settings = _build_settings(
+        tmp_path=tmp_path,
+        mode="auto-unlock",
+        secret_file=unreadable_secret_file,
+    )
+
+    with (
+        patch("pathlib.Path.read_text", side_effect=OSError("permission denied")),
+        pytest.raises(
+            StartupUnlockModeError,
+            match="unable to read auto-unlock secret file",
+        ),
+    ):
+        initialize_startup_unlock_mode(
+            mode=settings.mode,
+            secret_file=settings.secret_file,
+            unlock_state=unlock_state,
+        )
+
+
+def test_auto_unlock_mode_empty_secret_fails_startup_with_actionable_error(
+    tmp_path: Path,
+) -> None:
+    """Ensure empty auto-unlock secret file aborts startup with explicit action."""
+    empty_secret_file = tmp_path / "mounted-unlock.secret"
+    _ = empty_secret_file.write_text("\n  \t ", encoding="utf-8")
+    unlock_state = UnlockState()
+    settings = _build_settings(
+        tmp_path=tmp_path,
+        mode="auto-unlock",
+        secret_file=empty_secret_file,
+    )
+
+    with pytest.raises(
+        StartupUnlockModeError,
+        match="is empty",
+    ):
+        initialize_startup_unlock_mode(
+            mode=settings.mode,
+            secret_file=settings.secret_file,
+            unlock_state=unlock_state,
+        )
+
+
+@pytest.mark.asyncio
+async def test_auth_startup_dependency_shutdown_always_clears_unlock_state() -> None:
+    """Ensure unlock state is cleared even if bootstrap shutdown raises."""
+    unlock_state = UnlockState()
+    unlock_state.lock(mode="auto-unlock")
+    mounted_secret_value = "mounted-secret-value"  # noqa: S105
+    unlock_state.unlock_with_passphrase(passphrase=mounted_secret_value)
+    bootstrap = BootstrapBearerTokenDependency()
+    dependency = AuthStartupDependency(
+        unlock=StartupUnlockDependency(unlock_state=unlock_state),
+        bootstrap=bootstrap,
+    )
+
+    with (
+        patch.object(
+            BootstrapBearerTokenDependency,
+            "shutdown",
+            new=AsyncMock(
+                side_effect=RuntimeError("forced-bootstrap-shutdown-failure"),
+            ),
+        ),
+        pytest.raises(
+            RuntimeError,
+            match="forced-bootstrap-shutdown-failure",
+        ),
+    ):
+        await dependency.shutdown()
+
+    if unlock_state.is_unlocked:
+        raise AssertionError
 
 
 def _build_settings(

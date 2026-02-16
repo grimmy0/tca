@@ -209,8 +209,10 @@ class AuthStartupDependency:
 
     async def shutdown(self) -> None:
         """Shut down auth startup dependencies in reverse order."""
-        await self.bootstrap.shutdown()
-        await self.unlock.shutdown()
+        try:
+            await self.bootstrap.shutdown()
+        finally:
+            await self.unlock.shutdown()
 
 
 def _read_auto_unlock_secret_file(*, secret_file: Path) -> str:
