@@ -119,13 +119,15 @@ An item is commit-ready only if all are true:
 - Verification:
   - `uv run pytest -q tests/api/test_telegram_auth_start.py`
   - `uv run pytest -q tests/ingest/test_flood_wait.py`
+  - `uv run pytest -q tests/mocks/test_mock_telegram_client.py`
 - Execution record:
-  - Date: 2026-02-15
-  - Commit: `623dd59`
+  - Date: 2026-02-16
+  - Commit: `623dd59` + current follow-up patch (uncommitted)
   - Verification summary:
-    - Created `MockTelegramClient` with scripting support for common Telethon methods.
+    - Created `MockTelegramClient` with deterministic scripting for OTP (`send_code_request`), flood wait, and message fetch (`iter_messages` / `get_messages`) paths.
     - Added `mock_tg_client` fixture to `tests/conftest.py`.
-    - Implemented `tests/api/test_telegram_auth_start.py` and `tests/ingest/test_flood_wait.py` verifying mock usage and error scripting.
+    - Implemented service-level tests in `tests/api/test_telegram_auth_start.py` and `tests/ingest/test_flood_wait.py` so auth/ingest integration paths are exercised through injected client interfaces.
+    - Added `tests/mocks/test_mock_telegram_client.py` verifying `run_until_disconnected` exits deterministically and does not hang tests.
 
 ### C004 - Introduce Centralized App Settings Model
 
@@ -133,11 +135,18 @@ An item is commit-ready only if all are true:
   - Implement typed settings loader for env vars: `TCA_DB_PATH`, `TCA_BIND`, `TCA_MODE`, `TCA_LOG_LEVEL`, `TCA_SECRET_FILE`.
   - Define defaults from design.
 - Acceptance criteria:
-  - [ ] Settings object loads with defaults when env vars are absent.
-  - [ ] Invalid values (for mode/log level) raise deterministic validation error.
-  - [ ] Unit tests cover default and invalid env cases.
+  - [x] Settings object loads with defaults when env vars are absent.
+  - [x] Invalid values (for mode/log level) raise deterministic validation error.
+  - [x] Unit tests cover default and invalid env cases.
 - Verification:
   - `uv run pytest -q tests/settings`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `674501a`
+  - Verification summary:
+    - Implemented typed static env loader in `tca/config/settings.py` with deterministic validation errors for `TCA_MODE` and `TCA_LOG_LEVEL`.
+    - Added defaults for mode/bind/db path aligned with design and optional `TCA_SECRET_FILE` handling.
+    - Added `tests/settings/test_settings_loader.py` covering default resolution and invalid mode/log-level failures.
 
 ### C005 - Add Structured Logging Bootstrap
 
