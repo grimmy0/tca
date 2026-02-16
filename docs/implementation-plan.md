@@ -804,7 +804,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/auth/test_auth_session_state.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `PENDING`
+  - Commit: `93860eb`
   - Verification summary:
     - Added `auth_session_state` storage table migration with expiry tracking for login wizard state.
     - Implemented auth session state repository with expiry enforcement and session isolation behavior.
