@@ -7,6 +7,12 @@ from .channel_groups_repo import (
     ChannelGroupsRepository,
     ChannelGroupsRepositoryError,
 )
+from .channels_repo import (
+    ChannelDecodeError,
+    ChannelRecord,
+    ChannelsRepository,
+    ChannelsRepositoryError,
+)
 from .db import (
     StorageRuntime,
     build_sqlite_url,
@@ -36,10 +42,14 @@ from .settings_seed import (
 __all__ = [
     "DYNAMIC_SETTINGS_DEFAULTS",
     "ChannelAlreadyAssignedToGroupError",
+    "ChannelDecodeError",
     "ChannelGroupMembershipRecord",
     "ChannelGroupRecord",
     "ChannelGroupsRepository",
     "ChannelGroupsRepositoryError",
+    "ChannelRecord",
+    "ChannelsRepository",
+    "ChannelsRepositoryError",
     "JSONValue",
     "MigrationRunnerDependency",
     "MigrationStartupError",

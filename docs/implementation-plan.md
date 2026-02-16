@@ -495,11 +495,19 @@ An item is commit-ready only if all are true:
 - Change:
   - Add repository for channel create/update/enable/disable operations.
 - Acceptance criteria:
-  - [ ] Channel can be disabled without row deletion.
-  - [ ] Disabled channels are excluded from active query helper.
-  - [ ] Re-enable restores active status.
+  - [x] Channel can be disabled without row deletion. [Tests: tests/storage/test_channels_repo.py::test_disable_channel_soft_delete_without_row_deletion]
+  - [x] Disabled channels are excluded from active query helper. [Tests: tests/storage/test_channels_repo.py::test_list_active_channels_excludes_disabled_channels]
+  - [x] Re-enable restores active status. [Tests: tests/storage/test_channels_repo.py::test_enable_channel_restores_active_status]
 - Verification:
   - `uv run pytest -q tests/storage/test_channels_repo.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `COMMIT_SHA_PLACEHOLDER`
+  - Verification summary:
+    - Added `tca/storage/channels_repo.py` with typed `telegram_channels` create/update/get operations, soft-disable/enable transitions, and an active-only list helper.
+    - Exported `ChannelsRepository`, `ChannelRecord`, and channel decode/error types from `tca/storage/__init__.py` for downstream usage.
+    - Added `tests/storage/test_channels_repo.py` covering create/update behavior plus C022 acceptance paths for non-destructive disable, active-query filtering, and re-enable restoration.
+    - Verified with `uv run pytest -q tests/storage/test_channels_repo.py` (`4 passed in 0.17s`) and regression check `uv run pytest -q tests/storage/test_channel_groups_repo.py` (`5 passed in 0.18s`).
 
 ### C022A - Implement Single Writer Queue Service
 
