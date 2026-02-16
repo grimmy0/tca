@@ -41,6 +41,8 @@ BEGIN
 END
 """.strip(),
     )
+    # Backfill index entries for rows inserted before triggers existed.
+    op.execute("INSERT INTO items_fts(items_fts) VALUES ('rebuild')")
 
 
 def downgrade() -> None:

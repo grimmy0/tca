@@ -407,7 +407,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/migrations/test_fts_triggers.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `c017`
+  - Commit: `d5fc8ad70976eec238b7ea15d333d708eb3e507c`
   - Verification summary:
     - Added Alembic revision `a1f6e7c9d2b4` creating `items_fts_ai`, `items_fts_au`, and `items_fts_ad` triggers to synchronize insert/update/delete changes from `items` into `items_fts`.
     - Added migration tests validating insert visibility in `MATCH` results, update replacement of searchable terms, and delete removal from FTS hits.

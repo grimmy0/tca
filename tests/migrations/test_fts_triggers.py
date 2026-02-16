@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import cast
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+C016_REVISION = "8f3a7b0c1d2e"
+C017_REVISION = "a1f6e7c9d2b4"
 SQLiteRowIdRow = tuple[int]
 
 
@@ -34,6 +36,42 @@ def test_insert_into_items_appears_in_fts_results(tmp_path: Path) -> None:
 
     typed_rows = cast("list[SQLiteRowIdRow]", match_rows)
     if {row[0] for row in typed_rows} != {item_rowid}:
+        raise AssertionError
+
+
+def test_upgrade_from_c016_rebuilds_preexisting_items(tmp_path: Path) -> None:
+    """Ensure upgrading to C017 backfills rows inserted before trigger creation."""
+    db_path = tmp_path / "c017-rebuild.sqlite3"
+    _upgrade_to_revision(db_path, C016_REVISION)
+
+    with sqlite3.connect(db_path.as_posix()) as connection:
+        channel_id = _insert_account_and_channel(connection)
+        item_rowid = _insert_item(
+            connection,
+            channel_id=channel_id,
+            message_id=5004,
+            title="Preexisting row",
+            body="c017preexistingterm is inserted before triggers",
+        )
+        pre_upgrade_rows = connection.execute(
+            "SELECT rowid FROM items_fts WHERE items_fts MATCH ?",
+            ("c017preexistingterm",),
+        ).fetchall()
+
+    typed_pre_upgrade = cast("list[SQLiteRowIdRow]", pre_upgrade_rows)
+    if typed_pre_upgrade:
+        raise AssertionError
+
+    _upgrade_to_revision(db_path, C017_REVISION)
+
+    with sqlite3.connect(db_path.as_posix()) as connection:
+        post_upgrade_rows = connection.execute(
+            "SELECT rowid FROM items_fts WHERE items_fts MATCH ?",
+            ("c017preexistingterm",),
+        ).fetchall()
+
+    typed_post_upgrade = cast("list[SQLiteRowIdRow]", post_upgrade_rows)
+    if {row[0] for row in typed_post_upgrade} != {item_rowid}:
         raise AssertionError
 
 
@@ -149,7 +187,11 @@ VALUES (?, ?, ?, ?)
 
 
 def _upgrade_to_head(db_path: Path) -> None:
-    result = _run_alembic_command(db_path, ("upgrade", "head"))
+    _upgrade_to_revision(db_path, "head")
+
+
+def _upgrade_to_revision(db_path: Path, revision: str) -> None:
+    result = _run_alembic_command(db_path, ("upgrade", revision))
     if result.returncode != 0:
         raise AssertionError(result.stderr or result.stdout)
 
