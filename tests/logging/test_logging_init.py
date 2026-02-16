@@ -73,3 +73,22 @@ def test_json_formatter_includes_extra_fields(
     data = cast("dict[str, object]", json.loads(captured.out.strip()))
     assert data.get("user_id") == user_id  # noqa: S101
     assert data.get("action") == "login"  # noqa: S101
+
+
+def test_json_formatter_prevents_core_field_overwrite(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Ensure extra fields cannot override protected top-level log attributes."""
+    init_logging("INFO")
+    logger = logging.getLogger("test_protected")
+    logger.info(
+        "Protected fields",
+        extra={"level": "OVERRIDE", "correlation_id": "injected"},
+    )
+
+    captured = capsys.readouterr()
+    data = cast("dict[str, object]", json.loads(captured.out.strip()))
+    assert data.get("level") == "INFO"  # noqa: S101
+    assert data.get("correlation_id") is None  # noqa: S101
+    assert data.get("extra_level") == "OVERRIDE"  # noqa: S101
+    assert data.get("extra_correlation_id") == "injected"  # noqa: S101

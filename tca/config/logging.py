@@ -42,6 +42,7 @@ class JSONFormatter(logging.Formatter):
             log_data["stack_trace"] = self.formatStack(record.stack_info)
 
         # Include extra fields from the record
+        protected_attrs = set(log_data.keys())
         standard_attrs = {
             "name",
             "msg",
@@ -63,17 +64,18 @@ class JSONFormatter(logging.Formatter):
             "threadName",
             "processName",
             "process",
+            "taskName",
         }
 
         # record.__dict__ contains Any, cast it to avoid BasedPyright issues
         record_dict = cast("dict[str, object]", record.__dict__)
-        log_data.update(
-            {
-                key: value
-                for key, value in record_dict.items()
-                if key not in standard_attrs and not key.startswith("_")
-            },
-        )
+        for key, value in record_dict.items():
+            if key in standard_attrs or key.startswith("_"):
+                continue
+            if key in protected_attrs:
+                log_data[f"extra_{key}"] = value
+                continue
+            log_data[key] = value
 
         return json.dumps(log_data)
 
