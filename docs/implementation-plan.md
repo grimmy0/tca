@@ -647,7 +647,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/api/test_bearer_auth.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `PENDING`
+  - Commit: `67baced`
   - Verification summary:
     - Added `tca/api/bearer_auth.py` with bearer-token validation that loads the stored bootstrap token digest from `settings`, computes the presented token digest, and verifies using constant-time `secrets.compare_digest`.
     - Wired bearer auth enforcement in `tca/api/app.py` by applying `Depends(require_bearer_auth)` to all non-health routers while leaving `GET /health` unauthenticated.
@@ -686,7 +686,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/auth/test_encryption_utils.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `PENDING`
+  - Commit: `f285f9f`
   - Verification summary:
     - Added `tca/auth/encryption_utils.py` implementing DEK generation, AES key wrap/unwrap helpers for KEK flow, and AES-GCM envelope encrypt/decrypt helpers.
     - Standardized envelope payload serialization as UTF-8 JSON with base64-encoded binary fields and explicit `version` metadata for forward-compatible schema evolution.
@@ -754,11 +754,19 @@ An item is commit-ready only if all are true:
 - Change:
   - Add rotation state tracking table/fields and row-version markers.
 - Acceptance criteria:
-  - [ ] Rotation state persists progress.
-  - [ ] Interrupted rotation can resume at next pending row.
-  - [ ] Completion state only set when all targeted rows rotated.
+  - [x] Rotation state persists progress. [Tests: tests/auth/test_key_rotation_resume.py::test_rotation_state_persists_progress]
+  - [x] Interrupted rotation can resume at next pending row. [Tests: tests/auth/test_key_rotation_resume.py::test_interrupted_rotation_resumes_at_next_pending_row]
+  - [x] Completion state only set when all targeted rows rotated. [Tests: tests/auth/test_key_rotation_resume.py::test_completion_state_only_set_after_all_rows_rotated]
 - Verification:
   - `uv run pytest -q tests/auth/test_key_rotation_resume.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `4b0ca98`
+  - Verification summary:
+    - Added key rotation metadata repository with persisted progress and completion tracking.
+    - Added rotation metadata schema (row-level key version + rotation state table).
+    - Added tests covering progress persistence, resume behavior, and completion gating.
+    - Verified with `uv run pytest -q tests/auth/test_key_rotation_resume.py`.
 
 ---
 

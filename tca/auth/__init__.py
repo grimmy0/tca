@@ -26,6 +26,12 @@ from .kdf import (
     KEY_ENCRYPTION_KEY_BYTES,
     derive_key_encryption_key,
 )
+from .key_rotation import (
+    KeyRotationAccountNotFoundError,
+    KeyRotationRepository,
+    KeyRotationState,
+    KeyRotationStateMissingError,
+)
 from .service import request_login_code
 from .session_storage import (
     TelegramAccountNotFoundError,
@@ -56,6 +62,10 @@ __all__ = [
     "DATA_ENCRYPTION_KEY_BYTES",
     "ENVELOPE_VERSION",
     "KEY_ENCRYPTION_KEY_BYTES",
+    "KeyRotationAccountNotFoundError",
+    "KeyRotationRepository",
+    "KeyRotationState",
+    "KeyRotationStateMissingError",
     "SENSITIVE_OPERATION_LOCKED_MESSAGE",
     "AuthStartupDependency",
     "BootstrapBearerTokenDependency",
