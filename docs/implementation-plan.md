@@ -234,11 +234,17 @@ An item is commit-ready only if all are true:
 - Change:
   - Add engine-connect event handlers enforcing WAL, synchronous, FK, busy_timeout pragmas.
 - Acceptance criteria:
-  - [ ] Runtime PRAGMA values match design on every fresh connection.
-  - [ ] Test verifies each PRAGMA value exactly.
-  - [ ] Regression test fails if any PRAGMA is removed.
+  - [x] Runtime PRAGMA values match design on every fresh connection. [Tests: tests/storage/test_sqlite_pragmas.py::test_runtime_pragmas_match_design_on_fresh_connection]
+  - [x] Test verifies each PRAGMA value exactly. [Tests: tests/storage/test_sqlite_pragmas.py::test_pragmas_match_exact_values_for_writer_connection]
+  - [x] Regression test fails if any PRAGMA is removed. [Tests: tests/storage/test_sqlite_pragmas.py::test_pragmas_are_reapplied_on_each_new_connection]
 - Verification:
   - `uv run pytest -q tests/storage/test_sqlite_pragmas.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `TBD`
+  - Verification summary:
+    - Added SQLite connect-event PRAGMA enforcement in `tca/storage/db.py`.
+    - Added `tests/storage/test_sqlite_pragmas.py` covering exact PRAGMA values and repeated-connection regression checks.
 
 ### C010 - Enforce `BEGIN IMMEDIATE` for Write Transactions
 
