@@ -5,10 +5,11 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol, cast, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, cast, override, runtime_checkable
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import PlainTextResponse, Response
 
 from tca.api.bearer_auth import require_bearer_auth
 from tca.api.routes.channel_groups import router as channel_groups_router
@@ -29,6 +30,8 @@ from tca.storage import (
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+
+    from starlette.datastructures import Headers
 
 
 class StartupWriterQueueError(RuntimeError):
@@ -94,6 +97,18 @@ class WriterQueueLifecycle(WriterQueueProtocol, Protocol):
 
     async def close(self) -> None:
         """Stop queue worker and drain outstanding write jobs."""
+
+
+class AllowlistCORSMiddleware(CORSMiddleware):
+    """CORS middleware that emits no CORS headers for blocked preflight origins."""
+
+    @override
+    def preflight_response(self, request_headers: Headers) -> Response:
+        """Reject non-allowlisted preflight requests without CORS headers."""
+        origin = request_headers.get("origin")
+        if origin is not None and not self.is_allowed_origin(origin=origin):
+            return PlainTextResponse("Disallowed CORS origin", status_code=400)
+        return super().preflight_response(request_headers)
 
 
 @dataclass(slots=True)
@@ -239,7 +254,7 @@ def _configure_cors(*, app: FastAPI, allow_origins: tuple[str, ...]) -> None:
         return
 
     app.add_middleware(
-        CORSMiddleware,
+        AllowlistCORSMiddleware,
         allow_origins=list(allow_origins),
         allow_methods=["*"],
         allow_headers=["*"],

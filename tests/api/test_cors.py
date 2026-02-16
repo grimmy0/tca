@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 HEALTH_ROUTE_PATH = "/health"
 ALLOWED_ORIGIN = "https://ui.allowed.example"
 BLOCKED_ORIGIN = "https://ui.blocked.example"
+PRE_FLIGHT_REQUEST_METHOD = "GET"
 
 
 def test_origin_not_allowlisted_receives_no_cors_headers(
@@ -35,6 +36,33 @@ def test_origin_not_allowlisted_receives_no_cors_headers(
     if response.status_code != HTTPStatus.OK:
         raise AssertionError
 
+    headers = cast("Mapping[str, str]", response.headers)
+    cors_headers = [
+        header for header in headers if header.lower().startswith("access-control-")
+    ]
+    if cors_headers:
+        raise AssertionError
+
+
+def test_preflight_origin_not_allowlisted_receives_no_cors_headers(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Ensure blocked preflight requests do not leak CORS response headers."""
+    _configure_cors_env(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    app = create_app()
+
+    with TestClient(app) as client:
+        response = client.options(
+            HEALTH_ROUTE_PATH,
+            headers={
+                "Origin": BLOCKED_ORIGIN,
+                "Access-Control-Request-Method": PRE_FLIGHT_REQUEST_METHOD,
+            },
+        )
+
+    if response.status_code != HTTPStatus.BAD_REQUEST:
+        raise AssertionError
     headers = cast("Mapping[str, str]", response.headers)
     cors_headers = [
         header for header in headers if header.lower().startswith("access-control-")
@@ -65,6 +93,33 @@ def test_allowlisted_origin_receives_expected_cors_headers(
 
     vary = headers.get("vary")
     if vary is None or "origin" not in vary.lower():
+        raise AssertionError
+
+
+def test_preflight_allowlisted_origin_receives_expected_cors_headers(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Ensure allowlisted preflight requests receive expected CORS headers."""
+    _configure_cors_env(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    app = create_app()
+
+    with TestClient(app) as client:
+        response = client.options(
+            HEALTH_ROUTE_PATH,
+            headers={
+                "Origin": ALLOWED_ORIGIN,
+                "Access-Control-Request-Method": PRE_FLIGHT_REQUEST_METHOD,
+            },
+        )
+
+    if response.status_code != HTTPStatus.OK:
+        raise AssertionError
+    headers = cast("Mapping[str, str]", response.headers)
+    if headers.get("access-control-allow-origin") != ALLOWED_ORIGIN:
+        raise AssertionError
+    allow_methods = headers.get("access-control-allow-methods")
+    if allow_methods is None or PRE_FLIGHT_REQUEST_METHOD not in allow_methods:
         raise AssertionError
 
 
