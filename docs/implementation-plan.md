@@ -113,12 +113,19 @@ An item is commit-ready only if all are true:
   - Add `tests/mocks/mock_telegram_client.py` implementing the minimal Telethon-like surface needed by Phase 1 tests.
   - Add fixture wiring to inject `MockTelegramClient` into API/auth/scheduler tests.
 - Acceptance criteria:
-  - [ ] Tests for Telegram flows can run without any real Telethon network interaction.
-  - [ ] Mock supports deterministic success/failure scripting for OTP, flood-wait, and message fetch paths.
-  - [ ] At least one auth test and one ingest test are switched to the shared mock.
+  - [x] Tests for Telegram flows can run without any real Telethon network interaction.
+  - [x] Mock supports deterministic success/failure scripting for OTP, flood-wait, and message fetch paths.
+  - [x] At least one auth test and one ingest test are switched to the shared mock.
 - Verification:
   - `uv run pytest -q tests/api/test_telegram_auth_start.py`
   - `uv run pytest -q tests/ingest/test_flood_wait.py`
+- Execution record:
+  - Date: 2026-02-15
+  - Commit: `623dd59`
+  - Verification summary:
+    - Created `MockTelegramClient` with scripting support for common Telethon methods.
+    - Added `mock_tg_client` fixture to `tests/conftest.py`.
+    - Implemented `tests/api/test_telegram_auth_start.py` and `tests/ingest/test_flood_wait.py` verifying mock usage and error scripting.
 
 ### C004 - Introduce Centralized App Settings Model
 
