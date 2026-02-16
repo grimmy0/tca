@@ -39,10 +39,12 @@ def test_app_lifespan_triggers_logging_and_hooks_once(
     caplog.set_level(logging.INFO)
     app = create_app()
     db = RecordingDependency()
+    settings = RecordingDependency()
     telethon_manager = RecordingDependency()
     scheduler = RecordingDependency()
     app.state.dependencies = StartupDependencies(
         db=db,
+        settings=settings,
         telethon_manager=telethon_manager,
         scheduler=scheduler,
     )
@@ -54,9 +56,13 @@ def test_app_lifespan_triggers_logging_and_hooks_once(
 
     if db.startup_calls != 1 or telethon_manager.startup_calls != 1:
         raise AssertionError
+    if settings.startup_calls != 1:
+        raise AssertionError
     if scheduler.startup_calls != 1:
         raise AssertionError
     if db.shutdown_calls != 1 or telethon_manager.shutdown_calls != 1:
+        raise AssertionError
+    if settings.shutdown_calls != 1:
         raise AssertionError
     if scheduler.shutdown_calls != 1:
         raise AssertionError

@@ -457,11 +457,19 @@ An item is commit-ready only if all are true:
 - Change:
   - Add bootstrap routine writing default settings only when keys absent.
 - Acceptance criteria:
-  - [ ] First boot inserts all design default keys.
-  - [ ] Second boot does not overwrite modified values.
-  - [ ] Missing single key is backfilled without touching others.
+  - [x] First boot inserts all design default keys. [Tests: tests/settings/test_seed_defaults.py::test_first_boot_inserts_all_design_default_keys]
+  - [x] Second boot does not overwrite modified values. [Tests: tests/settings/test_seed_defaults.py::test_second_boot_does_not_overwrite_modified_values]
+  - [x] Missing single key is backfilled without touching others. [Tests: tests/settings/test_seed_defaults.py::test_missing_single_key_is_backfilled_without_touching_others]
 - Verification:
   - `uv run pytest -q tests/settings/test_seed_defaults.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `615d82c374353f1ba33b4650db9c60a8dfdfeb5f`
+  - Verification summary:
+    - Added `tca/storage/settings_seed.py` with design default dynamic setting keys and an idempotent `seed_default_dynamic_settings` routine that inserts only absent keys.
+    - Wired startup lifecycle to run settings seeding after migrations by extending `StartupDependencies` in `tca/api/app.py` with `SettingsSeedDependency`.
+    - Added `tests/settings/test_seed_defaults.py` to verify first-boot seeding, second-boot non-overwrite behavior, and single-key backfill without mutating other rows.
+    - Verified with `uv run pytest -q tests/settings/test_seed_defaults.py` (`3 passed in 1.59s`) and startup regression checks `uv run pytest -q tests/app/test_lifespan.py tests/app/test_startup_migrations.py` (`8 passed in 1.54s`).
 
 ### C021 - Implement Channel Group Repositories
 

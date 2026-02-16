@@ -20,14 +20,21 @@ from .settings_repo import (
     SettingRecord,
     SettingsRepository,
 )
+from .settings_seed import (
+    DYNAMIC_SETTINGS_DEFAULTS,
+    SettingsSeedDependency,
+    seed_default_dynamic_settings,
+)
 
 __all__ = [
+    "DYNAMIC_SETTINGS_DEFAULTS",
     "JSONValue",
     "MigrationRunnerDependency",
     "MigrationStartupError",
     "SettingAlreadyExistsError",
     "SettingRecord",
     "SettingsRepository",
+    "SettingsSeedDependency",
     "StorageRuntime",
     "build_sqlite_url",
     "create_read_engine",
@@ -36,4 +43,5 @@ __all__ = [
     "create_write_engine",
     "dispose_storage_runtime",
     "run_startup_migrations",
+    "seed_default_dynamic_settings",
 ]

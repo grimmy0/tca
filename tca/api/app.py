@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from tca.api.routes.health import router as health_router
 from tca.config.logging import init_logging
 from tca.config.settings import load_settings
-from tca.storage import MigrationRunnerDependency
+from tca.storage import MigrationRunnerDependency, SettingsSeedDependency
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -64,6 +64,7 @@ class StartupDependencies:
     """Container for dependency lifecycle hooks managed by app lifespan."""
 
     db: LifecycleDependency
+    settings: LifecycleDependency
     telethon_manager: LifecycleDependency
     scheduler: LifecycleDependency
 
@@ -87,6 +88,7 @@ def _default_dependencies() -> StartupDependencies:
     """Create default startup dependency stubs for local app startup."""
     return StartupDependencies(
         db=MigrationRunnerDependency(),
+        settings=SettingsSeedDependency(),
         telethon_manager=NoopDependency("telethon_manager"),
         scheduler=NoopDependency("scheduler"),
     )
@@ -100,7 +102,7 @@ def _resolve_startup_dependencies(app: FastAPI) -> StartupDependencies:
         raise StartupDependencyError.missing_container()
 
     dependency_container = cast("object", raw_dependencies)
-    for name in ("db", "telethon_manager", "scheduler"):
+    for name in ("db", "settings", "telethon_manager", "scheduler"):
         dependency = getattr(dependency_container, name, None)
         if dependency is None:
             raise StartupDependencyError.missing_named_dependency(name)
@@ -124,6 +126,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
 
     await dependencies.db.startup()
+    await dependencies.settings.startup()
     await dependencies.telethon_manager.startup()
     await dependencies.scheduler.startup()
 
@@ -132,6 +135,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         await dependencies.scheduler.shutdown()
         await dependencies.telethon_manager.shutdown()
+        await dependencies.settings.shutdown()
         await dependencies.db.shutdown()
         logger.info("Shutting down TCA")
 
