@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, cast, runtime_checkable
 
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from tca.api.bearer_auth import require_bearer_auth
 from tca.api.routes.channel_groups import router as channel_groups_router
@@ -210,6 +211,7 @@ def create_app() -> FastAPI:
     protected_route_dependencies = [Depends(require_bearer_auth)]
     app.state.dependencies = _default_dependencies()
     app.state.writer_queue_factory = WriterQueue
+    _configure_cors(app=app, allow_origins=settings.cors_allow_origins)
     app.include_router(health_router)
     app.include_router(
         channel_groups_router,
@@ -229,6 +231,20 @@ def create_app() -> FastAPI:
     )
 
     return app
+
+
+def _configure_cors(*, app: FastAPI, allow_origins: tuple[str, ...]) -> None:
+    """Attach default-deny CORS policy with explicit allowlisted origins."""
+    if not allow_origins:
+        return
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=list(allow_origins),
+        allow_methods=["*"],
+        allow_headers=["*"],
+        allow_credentials=False,
+    )
 
 
 def _build_writer_queue(app: FastAPI) -> WriterQueueLifecycle:

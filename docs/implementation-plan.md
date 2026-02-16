@@ -659,11 +659,19 @@ An item is commit-ready only if all are true:
 - Change:
   - Implement default-deny CORS with explicit allowlist config.
 - Acceptance criteria:
-  - [ ] No CORS headers when origin not allowlisted.
-  - [ ] Allowlisted origin receives expected CORS headers.
-  - [ ] Behavior is covered by API tests.
+  - [x] No CORS headers when origin not allowlisted. [Tests: tests/api/test_cors.py::test_origin_not_allowlisted_receives_no_cors_headers]
+  - [x] Allowlisted origin receives expected CORS headers. [Tests: tests/api/test_cors.py::test_allowlisted_origin_receives_expected_cors_headers]
+  - [x] Behavior is covered by API tests. [Tests: tests/api/test_cors.py::test_origin_not_allowlisted_receives_no_cors_headers, tests/api/test_cors.py::test_allowlisted_origin_receives_expected_cors_headers]
 - Verification:
   - `uv run pytest -q tests/api/test_cors.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `TBD`
+  - Verification summary:
+    - Added `TCA_CORS_ALLOW_ORIGINS` static settings support in `tca/config/settings.py` with tuple parsing and empty-by-default behavior to enforce default-deny CORS.
+    - Wired CORS middleware setup in `tca/api/app.py` so headers are emitted only for configured allowlisted origins.
+    - Added `tests/api/test_cors.py` validating no CORS headers for non-allowlisted origins and expected CORS headers for allowlisted origins.
+    - Verified with `uv run pytest -q tests/api/test_cors.py` (`2 passed in 0.95s`), `uv run pytest -q tests/settings/test_settings_loader.py` (`4 passed in 0.12s`), `uv run ruff check tca/config/settings.py tca/api/app.py tests/api/test_cors.py tests/settings/test_settings_loader.py`, and `uv run mypy tca/config/settings.py tca/api/app.py tests/api/test_cors.py tests/settings/test_settings_loader.py`.
 
 ### C030 - Implement Envelope Encryption Utilities
 

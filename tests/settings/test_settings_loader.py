@@ -23,6 +23,21 @@ def test_load_settings_uses_design_defaults_when_env_absent() -> None:
         raise AssertionError
     if settings.secret_file is not None:
         raise AssertionError
+    if settings.cors_allow_origins != ():
+        raise AssertionError
+
+
+def test_load_settings_parses_cors_allowlist_origins_from_env() -> None:
+    """Ensure CORS allowlist env var resolves to ordered origin tuple."""
+    settings = load_settings(
+        {"TCA_CORS_ALLOW_ORIGINS": "https://ui.local, http://localhost:3000"},
+    )
+
+    if settings.cors_allow_origins != (
+        "https://ui.local",
+        "http://localhost:3000",
+    ):
+        raise AssertionError
 
 
 @pytest.mark.parametrize(

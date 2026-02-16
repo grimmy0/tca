@@ -18,12 +18,14 @@ ENV_BIND = "TCA_BIND"
 ENV_MODE = "TCA_MODE"
 ENV_LOG_LEVEL = "TCA_LOG_LEVEL"
 ENV_SECRET_FILE = "TCA_SECRET_FILE"  # noqa: S105
+ENV_CORS_ALLOW_ORIGINS = "TCA_CORS_ALLOW_ORIGINS"
 
 DEFAULT_DB_PATH = Path("/data/tca.db")
 DEFAULT_BIND = "127.0.0.1"
 DEFAULT_MODE: Mode = "secure-interactive"
 DEFAULT_LOG_LEVEL: LogLevel = "INFO"
 DEFAULT_SECRET_FILE: Path | None = None
+DEFAULT_CORS_ALLOW_ORIGINS: tuple[str, ...] = ()
 
 VALID_MODES: frozenset[Mode] = frozenset({"secure-interactive", "auto-unlock"})
 VALID_LOG_LEVELS: frozenset[LogLevel] = frozenset(
@@ -61,6 +63,7 @@ class AppSettings:
     mode: Mode
     log_level: LogLevel
     secret_file: Path | None
+    cors_allow_origins: tuple[str, ...]
 
 
 def load_settings(environ: Mapping[str, str] | None = None) -> AppSettings:
@@ -72,6 +75,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> AppSettings:
     mode = _read_mode(env)
     log_level = _read_log_level(env)
     secret_file = _read_secret_file(env)
+    cors_allow_origins = _read_cors_allow_origins(env)
 
     return AppSettings(
         db_path=db_path,
@@ -79,6 +83,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> AppSettings:
         mode=mode,
         log_level=log_level,
         secret_file=secret_file,
+        cors_allow_origins=cors_allow_origins,
     )
 
 
@@ -132,3 +137,15 @@ def _read_secret_file(environ: Mapping[str, str]) -> Path | None:
     if not value:
         return DEFAULT_SECRET_FILE
     return Path(value).expanduser()
+
+
+def _read_cors_allow_origins(environ: Mapping[str, str]) -> tuple[str, ...]:
+    raw = environ.get(ENV_CORS_ALLOW_ORIGINS)
+    if raw is None:
+        return DEFAULT_CORS_ALLOW_ORIGINS
+
+    values = [value.strip() for value in raw.split(",")]
+    filtered = [value for value in values if value]
+    if not filtered:
+        return DEFAULT_CORS_ALLOW_ORIGINS
+    return tuple(filtered)
