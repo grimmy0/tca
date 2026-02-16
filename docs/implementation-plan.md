@@ -309,11 +309,18 @@ An item is commit-ready only if all are true:
   - Add tables: `telegram_accounts`, `telegram_channels`, `channel_groups`, `channel_group_members`, `channel_state`.
   - Include group membership uniqueness (single group per channel).
 - Acceptance criteria:
-  - [ ] All tables exist after migration.
-  - [ ] `channel_group_members.channel_id` unique constraint exists.
-  - [ ] FK relationships resolve correctly.
+  - [x] All tables exist after migration. [Tests: tests/migrations/test_base_schema_groups.py::test_base_group_tables_exist_after_migration]
+  - [x] `channel_group_members.channel_id` unique constraint exists. [Tests: tests/migrations/test_base_schema_groups.py::test_channel_group_members_channel_id_has_unique_constraint]
+  - [x] FK relationships resolve correctly. [Tests: tests/migrations/test_base_schema_groups.py::test_group_schema_foreign_keys_resolve_correctly]
 - Verification:
   - `uv run pytest -q tests/migrations/test_base_schema_groups.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `TO_FILL_AFTER_COMMIT`
+  - Verification summary:
+    - Added Alembic revision `70bbc5b6d2f1` creating `telegram_accounts`, `telegram_channels`, `channel_groups`, `channel_group_members`, and `channel_state`.
+    - Enforced one-group-per-channel membership with unique constraint on `channel_group_members.channel_id`.
+    - Added migration tests validating table creation, membership uniqueness, and foreign-key relationships.
 
 ### C013 - Create Base Migration: Content and Dedupe Tables
 
