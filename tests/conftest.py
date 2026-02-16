@@ -14,10 +14,10 @@ if TYPE_CHECKING:
 
 async def _configure_sqlite_connection(conn: aiosqlite.Connection) -> None:
     # Keep lock behavior deterministic for concurrency tests.
-    await conn.execute("PRAGMA journal_mode=WAL;")
-    await conn.execute("PRAGMA synchronous=NORMAL;")
-    await conn.execute("PRAGMA foreign_keys=ON;")
-    await conn.execute("PRAGMA busy_timeout=0;")
+    _ = await conn.execute("PRAGMA journal_mode=WAL;")
+    _ = await conn.execute("PRAGMA synchronous=NORMAL;")
+    _ = await conn.execute("PRAGMA foreign_keys=ON;")
+    _ = await conn.execute("PRAGMA busy_timeout=0;")
     await conn.commit()
 
 
@@ -38,7 +38,7 @@ async def sqlite_writer_pair(
     await _configure_sqlite_connection(first)
     await _configure_sqlite_connection(second)
 
-    await first.execute(
+    _ = await first.execute(
         """
         CREATE TABLE IF NOT EXISTS lock_probe (
             id INTEGER PRIMARY KEY,

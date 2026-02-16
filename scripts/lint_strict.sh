@@ -12,3 +12,6 @@ uv run mypy . --strict
 
 echo "Running Pyright (strict, warnings as errors)..."
 uv run pyright --warnings
+
+echo "Running BasedPyright (strict)..."
+uv run basedpyright --warnings --project basedpyrightconfig.json
