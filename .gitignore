@@ -11,3 +11,21 @@ wheels/
 
 # Local automation logs
 logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment Variables
+.env
+.env.*
+
+# IDE & Editor
+.idea/
+.vscode/
+.DS_Store
+.claude/
+
+# Logs (Catch-all)
+*.log
