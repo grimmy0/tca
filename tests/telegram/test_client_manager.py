@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 
 from tca.api.app import StartupDependencies, create_app, lifespan
 from tca.telegram import (
@@ -45,7 +47,16 @@ class CountingFactory:
         return self.client
 
 
-def _build_app_with_manager(manager: TelethonClientManager):
+@pytest.fixture(autouse=True)
+def _configure_test_settings(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "tca.sqlite3"
+    monkeypatch.setenv("TCA_DB_PATH", db_path.as_posix())
+
+
+def _build_app_with_manager(manager: TelethonClientManager) -> FastAPI:
     app = create_app()
     app.state.dependencies = StartupDependencies(
         db=RecordingDependency(),
@@ -65,9 +76,12 @@ async def test_client_manager_connects_on_startup() -> None:
     async def load_accounts() -> list[TelegramAccount]:
         return [TelegramAccount(account_id=1, api_id=123, api_hash="hash")]
 
+    def _build_client(_: TelegramAccount) -> MockTelegramClient:
+        return client
+
     manager = TelethonClientManager(
         account_loader=load_accounts,
-        client_factory=lambda account: client,
+        client_factory=_build_client,
     )
 
     app = _build_app_with_manager(manager)
@@ -86,9 +100,12 @@ async def test_client_manager_disconnects_on_shutdown() -> None:
     async def load_accounts() -> list[TelegramAccount]:
         return [TelegramAccount(account_id=1, api_id=123, api_hash="hash")]
 
+    def _build_client(_: TelegramAccount) -> MockTelegramClient:
+        return client
+
     manager = TelethonClientManager(
         account_loader=load_accounts,
-        client_factory=lambda account: client,
+        client_factory=_build_client,
     )
 
     app = _build_app_with_manager(manager)

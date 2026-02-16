@@ -785,7 +785,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/telegram/test_client_manager.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `PENDING`
+  - Commit: `7541452`
   - Verification summary:
     - Added Telethon client manager with explicit startup/shutdown hooks and a registry that avoids implicit per-request creation.
     - Wired the manager into FastAPI startup dependencies and exported Telegram client management types.
