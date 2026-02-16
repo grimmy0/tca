@@ -596,11 +596,19 @@ An item is commit-ready only if all are true:
 - Change:
   - Freeze and version endpoint schema snapshot for settings and group endpoints.
 - Acceptance criteria:
-  - [ ] Schema snapshot includes all new endpoints and payload fields.
-  - [ ] CI test fails on unreviewed API contract drift.
-  - [ ] Snapshot update process documented.
+  - [x] Schema snapshot includes all new endpoints and payload fields. [Tests: tests/api/test_openapi_snapshot.py::test_openapi_snapshot_includes_config_and_group_endpoints_and_fields]
+  - [x] CI test fails on unreviewed API contract drift. [Tests: tests/api/test_openapi_snapshot.py::test_openapi_snapshot_matches_committed_contract]
+  - [x] Snapshot update process documented. [Tests: tests/docs/test_openapi_snapshot_doc.py::test_testing_guide_documents_openapi_snapshot_update_process]
 - Verification:
   - `uv run pytest -q tests/api/test_openapi_snapshot.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `TBD`
+  - Verification summary:
+    - Added `tests/api/test_openapi_snapshot.py`, which extracts the `/settings/{key}` and `/channel-groups*` OpenAPI subset plus referenced component schemas and compares it against a committed snapshot, failing with a diff on unreviewed contract drift.
+    - Added snapshot artifact `tests/api/snapshots/config_groups_openapi_snapshot.json` covering settings and channel-group endpoints with their request/response payload schemas.
+    - Documented the snapshot refresh workflow in `docs/testing-guide.md` and added `tests/docs/test_openapi_snapshot_doc.py` to enforce presence of the documented update commands.
+    - Verified with `uv run pytest -q tests/api/test_openapi_snapshot.py` (`2 passed in 1.11s`) and `uv run pytest -q tests/docs/test_openapi_snapshot_doc.py` (`1 passed in 0.02s`).
 
 ---
 
