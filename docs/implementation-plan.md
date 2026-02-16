@@ -347,11 +347,18 @@ An item is commit-ready only if all are true:
   - Add tables: `ingest_errors`, `notifications`, `settings`.
   - Add `settings.key` unique constraint.
 - Acceptance criteria:
-  - [ ] All ops/config tables exist.
-  - [ ] `settings.key` is unique.
-  - [ ] `ingest_errors` has required stage and timestamp fields.
+  - [x] All ops/config tables exist. [Tests: tests/migrations/test_ops_schema.py::test_ops_config_tables_exist_after_migration]
+  - [x] `settings.key` is unique. [Tests: tests/migrations/test_ops_schema.py::test_settings_key_uniqueness_exists]
+  - [x] `ingest_errors` has required stage and timestamp fields. [Tests: tests/migrations/test_ops_schema.py::test_ingest_errors_has_required_stage_and_timestamp_fields]
 - Verification:
   - `uv run pytest -q tests/migrations/test_ops_schema.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `058`
+  - Verification summary:
+    - Added Alembic revision `9c2a8f6d0f7b` creating `ingest_errors`, `notifications`, and `settings`.
+    - Enforced uniqueness on `settings.key`.
+    - Added migration tests validating ops/config table creation, `settings.key` uniqueness, and required `ingest_errors` stage/timestamp columns.
 
 ### C015 - Add Required Secondary Indexes
 
