@@ -120,13 +120,6 @@ An item is commit-ready only if all are true:
   - [x] At least one auth test and one ingest test are switched to the shared mock. [Tests: tests/api/test_telegram_auth_start.py::test_auth_start_mock, tests/ingest/test_flood_wait.py::test_flood_wait_mock]
 - Verification:
   - `uv run pytest -q tests/api/test_telegram_auth_start.py`
-- Execution record:
-  - Date: 2026-02-16
-  - Commit: `b6ee4b7`
-  - Verification summary:
-    - Added `POST /auth/telegram/start` to request OTP and create auth session state.
-    - Added API tests for success responses, invalid credentials, and log redaction.
-    - Verified with `uv run pytest -q tests/api/test_telegram_auth_start.py`.
   - `uv run pytest -q tests/ingest/test_flood_wait.py`
   - `uv run pytest -q tests/mocks/test_mock_telegram_client.py`
 - Execution record:
@@ -828,6 +821,13 @@ An item is commit-ready only if all are true:
   - [x] No OTP or credential secrets are logged. [Tests: tests/api/test_telegram_auth_start.py::test_auth_start_does_not_log_secrets]
 - Verification:
   - `uv run pytest -q tests/api/test_telegram_auth_start.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `b6ee4b7`
+  - Verification summary:
+    - Added `POST /auth/telegram/start` to request OTP and create auth session state.
+    - Added API tests for success responses, invalid credentials, and log redaction.
+    - Verified with `uv run pytest -q tests/api/test_telegram_auth_start.py`.
 
 ### C038 - Implement `POST /auth/telegram/verify-code`
 
