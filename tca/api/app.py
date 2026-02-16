@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 
+from tca.api.routes.health import router as health_router
 from tca.config.logging import init_logging
 from tca.config.settings import load_settings
 
@@ -40,9 +41,13 @@ def create_app() -> FastAPI:
     settings = load_settings()
     init_logging(settings.log_level)
 
-    return FastAPI(
+    app = FastAPI(
         title="TCA",
         description="Threaded Channel Aggregator",
         version="0.1.0",
         lifespan=lifespan,
     )
+
+    app.include_router(health_router)
+
+    return app
