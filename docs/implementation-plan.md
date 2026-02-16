@@ -328,11 +328,18 @@ An item is commit-ready only if all are true:
   - Add tables: `raw_messages`, `items`, `dedupe_clusters`, `dedupe_members`, `dedupe_decisions`.
   - Include `items.raw_message_id` nullable FK with `ON DELETE SET NULL`.
 - Acceptance criteria:
-  - [ ] `items.raw_message_id` FK delete action is `SET NULL`.
-  - [ ] `items(channel_id, message_id)` uniqueness exists.
-  - [ ] `dedupe_members` uniqueness exists for `(cluster_id, item_id)`.
+  - [x] `items.raw_message_id` FK delete action is `SET NULL`. [Tests: tests/migrations/test_content_dedupe_schema.py::test_items_raw_message_id_fk_uses_set_null_on_delete]
+  - [x] `items(channel_id, message_id)` uniqueness exists. [Tests: tests/migrations/test_content_dedupe_schema.py::test_items_channel_message_uniqueness_exists]
+  - [x] `dedupe_members` uniqueness exists for `(cluster_id, item_id)`. [Tests: tests/migrations/test_content_dedupe_schema.py::test_dedupe_members_cluster_item_uniqueness_exists]
 - Verification:
   - `uv run pytest -q tests/migrations/test_content_dedupe_schema.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `TBD`
+  - Verification summary:
+    - Added Alembic revision `5f8b0d1e2a44` creating `raw_messages`, `items`, `dedupe_clusters`, `dedupe_members`, and `dedupe_decisions`.
+    - Implemented `items.raw_message_id` foreign key with `ON DELETE SET NULL` and `items(channel_id, message_id)` uniqueness.
+    - Added migration tests validating FK delete behavior and uniqueness constraints for `items` and `dedupe_members`.
 
 ### C014 - Create Base Migration: Ops Tables
 
