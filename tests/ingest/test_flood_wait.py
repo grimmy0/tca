@@ -11,11 +11,14 @@ from telethon.errors import FloodWaitError  # pyright: ignore[reportMissingTypeS
 
 from tca.config.settings import load_settings
 from tca.ingest import fetch_recent_messages, handle_flood_wait
+from tca.ingest.account_risk import ACCOUNT_RISK_PAUSE_REASON, ACCOUNT_RISK_THRESHOLD
 from tca.ingest.flood_wait import SIGNIFICANT_FLOOD_WAIT_SECONDS
 from tca.storage import (
+    AccountPauseRepository,
     ChannelStateRepository,
     ChannelsRepository,
     NotificationsRepository,
+    SettingsRepository,
     StorageRuntime,
     create_storage_runtime,
     dispose_storage_runtime,
@@ -45,7 +48,14 @@ class RecordingWriterQueue:
 async def flood_wait_runtime(
     tmp_path: Path,
 ) -> AsyncIterator[
-    tuple[ChannelStateRepository, ChannelsRepository, NotificationsRepository, StorageRuntime]
+    tuple[
+        ChannelStateRepository,
+        ChannelsRepository,
+        NotificationsRepository,
+        SettingsRepository,
+        AccountPauseRepository,
+        StorageRuntime,
+    ]
 ]:
     """Create repositories and schema fixture for flood wait tests."""
     db_path = tmp_path / "flood-wait.sqlite3"
@@ -58,7 +68,10 @@ async def flood_wait_runtime(
             CREATE TABLE IF NOT EXISTS telegram_accounts (
                 id INTEGER PRIMARY KEY,
                 api_id INTEGER NOT NULL,
-                api_hash_encrypted BLOB NOT NULL
+                api_hash_encrypted BLOB NOT NULL,
+                paused_at DATETIME NULL,
+                pause_reason TEXT NULL,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             """,
         )
@@ -112,6 +125,17 @@ async def flood_wait_runtime(
             )
             """,
         )
+        _ = await connection.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS settings (
+                id INTEGER PRIMARY KEY,
+                key VARCHAR(255) NOT NULL,
+                value_json TEXT NOT NULL,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT uq_settings_key UNIQUE (key)
+            )
+            """,
+        )
 
     try:
         yield (
@@ -124,6 +148,14 @@ async def flood_wait_runtime(
                 write_session_factory=runtime.write_session_factory,
             ),
             NotificationsRepository(
+                read_session_factory=runtime.read_session_factory,
+                write_session_factory=runtime.write_session_factory,
+            ),
+            SettingsRepository(
+                read_session_factory=runtime.read_session_factory,
+                write_session_factory=runtime.write_session_factory,
+            ),
+            AccountPauseRepository(
                 read_session_factory=runtime.read_session_factory,
                 write_session_factory=runtime.write_session_factory,
             ),
@@ -190,11 +222,20 @@ async def test_flood_wait_marks_channel_paused_until_resume_time(
         ChannelStateRepository,
         ChannelsRepository,
         NotificationsRepository,
+        SettingsRepository,
+        AccountPauseRepository,
         StorageRuntime,
     ],
 ) -> None:
     """Ensure flood wait pauses channel until exact resume timestamp."""
-    state_repo, channels_repo, notifications_repo, runtime = flood_wait_runtime
+    (
+        state_repo,
+        channels_repo,
+        notifications_repo,
+        _,
+        _,
+        runtime,
+    ) = flood_wait_runtime
     await _seed_account(runtime, account_id=1)
     channel = await channels_repo.create_channel(
         account_id=1,
@@ -237,11 +278,20 @@ async def test_flood_wait_emits_notification_for_significant_pause(
         ChannelStateRepository,
         ChannelsRepository,
         NotificationsRepository,
+        SettingsRepository,
+        AccountPauseRepository,
         StorageRuntime,
     ],
 ) -> None:
     """Ensure significant flood waits emit a notification."""
-    state_repo, channels_repo, notifications_repo, runtime = flood_wait_runtime
+    (
+        state_repo,
+        channels_repo,
+        notifications_repo,
+        _,
+        _,
+        runtime,
+    ) = flood_wait_runtime
     await _seed_account(runtime, account_id=2)
     channel = await channels_repo.create_channel(
         account_id=2,
@@ -274,4 +324,61 @@ async def test_flood_wait_emits_notification_for_significant_pause(
     if record.payload.get("channel_id") != channel.id:
         raise AssertionError
     if record.payload.get("wait_seconds") != wait_seconds:
+        raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_flood_wait_records_account_risk_breach(
+    flood_wait_runtime: tuple[
+        ChannelStateRepository,
+        ChannelsRepository,
+        NotificationsRepository,
+        SettingsRepository,
+        AccountPauseRepository,
+        StorageRuntime,
+    ],
+) -> None:
+    """Ensure repeated flood waits trigger account risk escalation."""
+    (
+        state_repo,
+        channels_repo,
+        notifications_repo,
+        settings_repo,
+        pause_repo,
+        runtime,
+    ) = flood_wait_runtime
+    await _seed_account(runtime, account_id=3)
+    channel = await channels_repo.create_channel(
+        account_id=3,
+        telegram_channel_id=2000,
+        name="risk-channel",
+        username=None,
+    )
+
+    queue = RecordingWriterQueue()
+    now = datetime(2026, 2, 20, 11, 0, tzinfo=timezone.utc)
+    exc = FloodWaitError(None)
+    exc.seconds = 30
+
+    for idx in range(ACCOUNT_RISK_THRESHOLD):
+        _ = await handle_flood_wait(
+            writer_queue=queue,
+            state_repository=state_repo,
+            notifications_repository=notifications_repo,
+            settings_repository=settings_repo,
+            pause_repository=pause_repo,
+            account_id=channel.account_id,
+            channel_id=channel.id,
+            error=exc,
+            time_provider=lambda offset=idx: now + timedelta(minutes=offset),
+        )
+
+    pause_state = await pause_repo.get_pause_state(account_id=channel.account_id)
+    if pause_state is None or pause_state.paused_at is None:
+        raise AssertionError
+    if pause_state.pause_reason != ACCOUNT_RISK_PAUSE_REASON:
+        raise AssertionError
+
+    notifications = await notifications_repo.list_notifications()
+    if len(notifications) != 1:
         raise AssertionError

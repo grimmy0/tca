@@ -136,6 +136,30 @@ class TelegramAccountStorage:
             for row in rows
         ]
 
+    async def get_account_id_by_phone_number(
+        self,
+        *,
+        phone_number: str,
+    ) -> int | None:
+        """Return account id for the phone number or None if missing."""
+        statement = text(
+            """
+            SELECT id
+            FROM telegram_accounts
+            WHERE phone_number = :phone_number
+            """,
+        )
+        async with self._read_session_factory() as session:
+            result = await session.execute(
+                statement,
+                {"phone_number": phone_number},
+            )
+            row = result.mappings().one_or_none()
+        if row is None:
+            return None
+        row_map = cast("Mapping[str, object]", cast("object", row))
+        return _coerce_int(value=row_map.get("id"), field_name="id")
+
 
 def _decode_account_row(
     row: object,

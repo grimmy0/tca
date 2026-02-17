@@ -80,6 +80,8 @@ async def record_account_risk_breach(
 
     async def _persist() -> AccountPauseRecord | None:
         pause_state = await pause_repository.get_pause_state(account_id=account_id)
+        if pause_state is None:
+            return None
         if pause_state is not None and pause_state.paused_at is not None:
             return pause_state
 

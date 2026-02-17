@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import secrets
 from typing import Protocol, cast
 
@@ -35,11 +36,14 @@ from tca.auth import (
     request_login_code,
     resolve_key_encryption_key,
 )
-from tca.storage import StorageRuntime, WriterQueueProtocol
+from tca.ingest import record_account_risk_breach
+from tca.storage import AccountPauseRepository, StorageRuntime, WriterQueueProtocol
 from tca.storage.notifications_repo import NotificationsRepository
 from tca.storage.settings_repo import SettingsRepository
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 _AUTH_STATUS_CODE_SENT = "code_sent"
 _AUTH_STATUS_AUTHENTICATED = "authenticated"
@@ -180,6 +184,7 @@ async def start_telegram_auth(
             request=request,
             writer_queue=writer_queue,
             error=exc,
+            phone_number=payload.phone_number,
         )
         raise _auth_failure_http_error(
             error=exc,
@@ -280,6 +285,7 @@ async def verify_telegram_code(
             request=request,
             writer_queue=writer_queue,
             error=exc,
+            phone_number=session_state.phone_number,
         )
         raise _auth_failure_http_error(
             error=exc,
@@ -372,6 +378,7 @@ async def verify_telegram_password(
             request=request,
             writer_queue=writer_queue,
             error=exc,
+            phone_number=session_state.phone_number,
         )
         raise _auth_failure_http_error(
             error=exc,
@@ -781,6 +788,7 @@ async def _record_auth_failure_notification(
     request: Request,
     writer_queue: WriterQueueProtocol,
     error: BaseException,
+    phone_number: str | None,
 ) -> str:
     """Persist a notification for registration/login failures."""
     runtime = _resolve_storage_runtime(request)
@@ -801,7 +809,71 @@ async def _record_auth_failure_notification(
         )
 
     await writer_queue.submit(_persist)
+    if phone_number:
+        await _record_auth_failure_risk_breach(
+            request=request,
+            writer_queue=writer_queue,
+            phone_number=phone_number,
+        )
     return notification_type
+
+
+async def _record_auth_failure_risk_breach(
+    *,
+    request: Request,
+    writer_queue: WriterQueueProtocol,
+    phone_number: str,
+) -> None:
+    """Record account risk breach for existing accounts tied to a phone number."""
+    account_id = await _resolve_account_id_for_phone_number(
+        request=request,
+        phone_number=phone_number,
+    )
+    if account_id is None:
+        return
+    runtime = _resolve_storage_runtime(request)
+    pause_repository = AccountPauseRepository(
+        read_session_factory=runtime.read_session_factory,
+        write_session_factory=runtime.write_session_factory,
+    )
+    settings_repository = SettingsRepository(
+        read_session_factory=runtime.read_session_factory,
+        write_session_factory=runtime.write_session_factory,
+    )
+    notifications_repository = NotificationsRepository(
+        read_session_factory=runtime.read_session_factory,
+        write_session_factory=runtime.write_session_factory,
+    )
+    try:
+        await record_account_risk_breach(
+            writer_queue=writer_queue,
+            settings_repository=settings_repository,
+            pause_repository=pause_repository,
+            notifications_repository=notifications_repository,
+            account_id=account_id,
+            breach_reason="auth-failure",
+        )
+    except Exception:
+        logger.exception(
+            "Failed to record account risk breach for phone number %s",
+            phone_number,
+        )
+
+
+async def _resolve_account_id_for_phone_number(
+    *,
+    request: Request,
+    phone_number: str,
+) -> int | None:
+    """Resolve account id for a phone number when a persisted account exists."""
+    runtime = _resolve_storage_runtime(request)
+    account_storage = TelegramAccountStorage(
+        read_session_factory=runtime.read_session_factory,
+        write_session_factory=runtime.write_session_factory,
+    )
+    return await account_storage.get_account_id_by_phone_number(
+        phone_number=phone_number,
+    )
 
 
 def _auth_failure_http_error(

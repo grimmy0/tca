@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from telethon.errors import PhoneNumberBannedError, PhoneNumberInvalidError
 
 from tca.api.app import create_app
+from tca.ingest.account_risk import ACCOUNT_RISK_PAUSE_REASON, ACCOUNT_RISK_THRESHOLD
 
 BOOTSTRAP_TOKEN = "auth-notifications-token"  # noqa: S105
 
@@ -145,6 +146,67 @@ def test_auth_verify_code_failed_login_creates_notification(
         raise AssertionError
 
 
+def test_auth_failures_pause_existing_account(
+    tmp_path: object,
+    monkeypatch: object,
+    mock_tg_client: object,
+) -> None:
+    """Ensure repeated auth failures pause an existing account."""
+    db_path = _configure_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="auth-notification-risk.sqlite3",
+        output_file_name="auth-notification-risk-token.txt",
+    )
+    api_id = 6060
+    api_hash = "auth-risk"
+    account_id = 42
+    phone_number = "+15550006666"
+    mock_tg_client.responses["send_code_request"] = PhoneNumberInvalidError(request=None)
+
+    app = create_app()
+    app.state.telegram_auth_client_factory = _build_factory(
+        mock_tg_client=mock_tg_client,
+        expected_api_id=api_id,
+        expected_api_hash=api_hash,
+    )
+
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
+        _seed_account(
+            db_path=db_path,
+            account_id=account_id,
+            api_id=api_id,
+            phone_number=phone_number,
+        )
+        for _ in range(ACCOUNT_RISK_THRESHOLD):
+            response = client.post(
+                "/auth/telegram/start",
+                json={
+                    "api_id": api_id,
+                    "api_hash": api_hash,
+                    "phone_number": phone_number,
+                },
+                headers=_auth_headers(),
+            )
+            if response.status_code != HTTPStatus.BAD_REQUEST:
+                raise AssertionError
+
+    pause_state = _fetch_account_pause_state(
+        db_path=db_path,
+        account_id=account_id,
+    )
+    if pause_state["paused_at"] is None:
+        raise AssertionError
+    if pause_state["pause_reason"] != ACCOUNT_RISK_PAUSE_REASON:
+        raise AssertionError
+
+
 def _fetch_notifications(*, db_path: object) -> list[dict[str, object]]:
     """Fetch notification rows from sqlite storage."""
     connection = sqlite3.connect(_as_path(db_path).as_posix())
@@ -167,6 +229,52 @@ def _fetch_notifications(*, db_path: object) -> list[dict[str, object]]:
             },
         )
     return notifications
+
+
+def _seed_account(
+    *,
+    db_path: object,
+    account_id: int,
+    api_id: int,
+    phone_number: str,
+) -> None:
+    """Insert a persisted account row for auth risk escalation tests."""
+    connection = sqlite3.connect(_as_path(db_path).as_posix())
+    with connection:
+        connection.execute(
+            """
+            INSERT INTO telegram_accounts (id, api_id, api_hash_encrypted, phone_number)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                account_id,
+                api_id,
+                sqlite3.Binary(b"encrypted-api-hash"),
+                phone_number,
+            ),
+        )
+
+
+def _fetch_account_pause_state(
+    *,
+    db_path: object,
+    account_id: int,
+) -> dict[str, object]:
+    """Fetch pause state for a Telegram account."""
+    connection = sqlite3.connect(_as_path(db_path).as_posix())
+    connection.row_factory = sqlite3.Row
+    with connection:
+        cursor = connection.execute(
+            "SELECT paused_at, pause_reason FROM telegram_accounts WHERE id = ?",
+            (account_id,),
+        )
+        row = cursor.fetchone()
+    if row is None:
+        raise AssertionError
+    return {
+        "paused_at": row["paused_at"],
+        "pause_reason": row["pause_reason"],
+    }
 
 
 def _start_auth_session(

@@ -2,21 +2,27 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Callable
 
 from tca.storage import (
+    AccountPauseRepository,
     ChannelStateRecord,
     ChannelStateRepository,
     NotificationsRepository,
+    SettingsRepository,
     WriterQueueProtocol,
 )
+from tca.ingest.account_risk import record_account_risk_breach
 
 TimeProvider = Callable[[], datetime]
 
 SIGNIFICANT_FLOOD_WAIT_SECONDS = 300
 FLOOD_WAIT_NOTIFICATION_TYPE = "ingest.flood_wait"
 FLOOD_WAIT_NOTIFICATION_SEVERITY = "medium"
+
+logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> datetime:
@@ -43,6 +49,9 @@ async def handle_flood_wait(
     notifications_repository: NotificationsRepository,
     channel_id: int,
     error: BaseException,
+    account_id: int | None = None,
+    settings_repository: SettingsRepository | None = None,
+    pause_repository: AccountPauseRepository | None = None,
     time_provider: TimeProvider | None = None,
 ) -> ChannelStateRecord:
     """Pause channel and optionally emit notification for flood wait errors."""
@@ -74,4 +83,25 @@ async def handle_flood_wait(
             )
         return record
 
-    return await writer_queue.submit(_persist)
+    record = await writer_queue.submit(_persist)
+    if (
+        account_id is not None
+        and settings_repository is not None
+        and pause_repository is not None
+    ):
+        try:
+            await record_account_risk_breach(
+                writer_queue=writer_queue,
+                settings_repository=settings_repository,
+                pause_repository=pause_repository,
+                notifications_repository=notifications_repository,
+                account_id=account_id,
+                breach_reason="flood-wait",
+                time_provider=time_provider,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to record account risk breach after flood wait for account %s",
+                account_id,
+            )
+    return record
