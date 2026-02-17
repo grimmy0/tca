@@ -122,7 +122,7 @@ async def fetch_bounded_messages(
         batch_max = max(batch_ids)
         if most_recent_id is None or batch_max > most_recent_id:
             most_recent_id = batch_max
-        offset_id = batch_ids[-1]
+        offset_id = min(batch_ids)
         if len(batch) < page_limit:
             exhausted = True
             offset_id = None

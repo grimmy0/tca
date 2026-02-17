@@ -1094,7 +1094,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/ingest/test_pagination_bounds.py`
 - Execution record:
   - Date: 2026-02-17
-  - Commit: `a22acad`
+  - Commit: `cd4108c`
   - Verification summary:
     - `uv run pytest -q tests/ingest/test_pagination_bounds.py` passed (`3 passed`).
     - `uv run python scripts/validate_plan_criteria.py --run-tests` failed in `tests/api/test_poll_now.py::test_poll_now_rejects_paused_channel` (expected `409`, got `202`).

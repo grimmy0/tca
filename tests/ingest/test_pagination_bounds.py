@@ -131,3 +131,24 @@ async def test_pagination_resumes_from_stored_offset() -> None:
         raise AssertionError
     if result.cursor.last_message_id != 300:
         raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_pagination_uses_lowest_id_for_offset() -> None:
+    """Ensure offset uses the lowest id even if batch order is unexpected."""
+    client = ScriptedPageClient(
+        pages=[[FakeMessage(5), FakeMessage(7), FakeMessage(6)]],
+    )
+
+    result = await fetch_bounded_messages(
+        client,
+        channel=object(),
+        cursor=None,
+        max_pages_per_poll=1,
+        max_messages_per_poll=10,
+        page_size=3,
+        time_provider=_fixed_time,
+    )
+
+    if result.cursor.next_offset_id != 5:
+        raise AssertionError
