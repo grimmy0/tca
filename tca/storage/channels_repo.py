@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 if TYPE_CHECKING:
     from tca.storage.db import SessionFactory
@@ -183,6 +184,177 @@ class ChannelsRepository:
     ) -> ChannelRecord | None:
         """Re-enable a previously disabled channel row."""
         return await self._set_enabled_state(channel_id=channel_id, is_enabled=True)
+
+    async def purge_channel(
+        self,
+        *,
+        channel_id: int,
+    ) -> ChannelRecord | None:
+        """Hard-delete a channel and cleanup related dedupe state."""
+        fetch_statement = text(
+            """
+            SELECT
+                id,
+                account_id,
+                telegram_channel_id,
+                name,
+                username,
+                is_enabled
+            FROM telegram_channels
+            WHERE id = :channel_id
+            """,
+        )
+        cluster_statement = text(
+            """
+            SELECT DISTINCT members.cluster_id
+            FROM dedupe_members AS members
+            INNER JOIN items
+                ON items.id = members.item_id
+            WHERE items.channel_id = :channel_id
+            """,
+        )
+        item_count_statement = text(
+            """
+            SELECT COUNT(*)
+            FROM items
+            WHERE channel_id = :channel_id
+            """,
+        )
+        raw_count_statement = text(
+            """
+            SELECT COUNT(*)
+            FROM raw_messages
+            WHERE channel_id = :channel_id
+            """,
+        )
+        delete_statement = text(
+            """
+            DELETE FROM telegram_channels
+            WHERE id = :channel_id
+            """,
+        )
+        recompute_statement = text(
+            """
+            WITH ranked AS (
+                SELECT
+                    members.cluster_id AS cluster_id,
+                    items.id AS item_id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY members.cluster_id
+                        ORDER BY
+                            CASE
+                                WHEN items.canonical_url IS NOT NULL THEN 0
+                                ELSE 1
+                            END,
+                            (
+                                COALESCE(LENGTH(items.title), 0)
+                                + COALESCE(LENGTH(items.body), 0)
+                            ) DESC,
+                            CASE
+                                WHEN items.published_at IS NULL THEN 1
+                                ELSE 0
+                            END,
+                            items.published_at ASC,
+                            items.id ASC
+                    ) AS row_rank
+                FROM dedupe_members AS members
+                INNER JOIN items
+                    ON items.id = members.item_id
+                WHERE members.cluster_id IN :cluster_ids
+            )
+            UPDATE dedupe_clusters
+            SET representative_item_id = (
+                SELECT ranked.item_id
+                FROM ranked
+                WHERE ranked.cluster_id = dedupe_clusters.id
+                  AND ranked.row_rank = 1
+            )
+            WHERE id IN :cluster_ids
+            """,
+        ).bindparams(bindparam("cluster_ids", expanding=True))
+        delete_empty_statement = text(
+            """
+            DELETE FROM dedupe_clusters
+            WHERE id IN :cluster_ids
+              AND NOT EXISTS (
+                    SELECT 1
+                    FROM dedupe_members
+                    WHERE dedupe_members.cluster_id = dedupe_clusters.id
+              )
+            """,
+        ).bindparams(bindparam("cluster_ids", expanding=True))
+        audit_statement = text(
+            """
+            INSERT INTO notifications (type, severity, message, payload_json)
+            VALUES (:type, :severity, :message, :payload_json)
+            """,
+        )
+        async with self._write_session_factory() as session:
+            result = await session.execute(
+                fetch_statement,
+                {"channel_id": channel_id},
+            )
+            row = result.mappings().one_or_none()
+            if row is None:
+                await session.rollback()
+                return None
+            channel = _decode_channel_row(row)
+
+            cluster_result = await session.execute(
+                cluster_statement,
+                {"channel_id": channel_id},
+            )
+            cluster_ids = [int(value) for value in cluster_result.scalars().all()]
+
+            item_result = await session.execute(
+                item_count_statement,
+                {"channel_id": channel_id},
+            )
+            item_count = int(item_result.scalar_one())
+
+            raw_result = await session.execute(
+                raw_count_statement,
+                {"channel_id": channel_id},
+            )
+            raw_count = int(raw_result.scalar_one())
+
+            await session.execute(
+                delete_statement,
+                {"channel_id": channel_id},
+            )
+
+            if cluster_ids:
+                await session.execute(
+                    recompute_statement,
+                    {"cluster_ids": cluster_ids},
+                )
+                await session.execute(
+                    delete_empty_statement,
+                    {"cluster_ids": cluster_ids},
+                )
+
+            payload = json.dumps(
+                {
+                    "channel_id": channel_id,
+                    "channel_name": channel.name,
+                    "deleted_items": item_count,
+                    "deleted_raw_messages": raw_count,
+                    "affected_cluster_ids": cluster_ids,
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            await session.execute(
+                audit_statement,
+                {
+                    "type": "channel_purged",
+                    "severity": "low",
+                    "message": f"Channel {channel_id} purged.",
+                    "payload_json": payload,
+                },
+            )
+            await session.commit()
+        return channel
 
     async def list_active_channels(
         self,

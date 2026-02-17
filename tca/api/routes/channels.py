@@ -178,13 +178,20 @@ async def patch_channel(
 async def delete_channel(
     channel_id: int,
     request: Request,
+    purge: bool = False,
 ) -> ChannelResponse:
-    """Disable one channel by id without removing historical data."""
+    """Disable or purge one channel by id depending on query flag."""
     repository = _build_channels_repository(request)
     state_repository = _build_channel_state_repository(request)
     writer_queue = _resolve_writer_queue(request)
 
     async def _delete() -> ChannelResponse:
+        if purge:
+            purged = await repository.purge_channel(channel_id=channel_id)
+            if purged is None:
+                raise _channel_not_found(channel_id=channel_id)
+            return _to_channel_response(channel=purged, state=None)
+
         disabled = await repository.disable_channel(channel_id=channel_id)
         if disabled is None:
             raise _channel_not_found(channel_id=channel_id)

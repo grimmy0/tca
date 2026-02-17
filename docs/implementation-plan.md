@@ -964,11 +964,18 @@ An item is commit-ready only if all are true:
 - Change:
   - Add hard delete flow with cascade recomputation hooks.
 - Acceptance criteria:
-  - [ ] Raw/items rows for channel are removed.
-  - [ ] Affected clusters are recomputed and empty clusters removed.
-  - [ ] Audit record is stored.
+  - [x] Raw/items rows for channel are removed. [Tests: tests/api/test_channel_purge_delete.py::test_purge_delete_removes_channel_items_and_raw_messages_and_records_audit]
+  - [x] Affected clusters are recomputed and empty clusters removed. [Tests: tests/api/test_channel_purge_delete.py::test_purge_delete_recomputes_clusters_and_removes_empty]
+  - [x] Audit record is stored. [Tests: tests/api/test_channel_purge_delete.py::test_purge_delete_removes_channel_items_and_raw_messages_and_records_audit]
 - Verification:
   - `uv run pytest -q tests/api/test_channel_purge_delete.py`
+ - Execution record:
+  - Date: 2026-02-16
+  - Commit: `8ec8556`
+  - Verification summary:
+    - Added purge delete path that removes channel rows, recomputes affected clusters, and logs an audit notification.
+    - Added purge delete tests covering data removal, cluster recompute, and audit logging.
+    - Verified with `uv run pytest -q tests/api/test_channel_purge_delete.py`.
 
 ### C046 - Add Manual Poll Trigger Endpoint
 
