@@ -45,6 +45,11 @@ from .notifications_repo import (
     NotificationsRepository,
     NotificationsRepositoryError,
 )
+from .poll_jobs_repo import (
+    PollJobRecord,
+    PollJobsRepository,
+    PollJobsRepositoryError,
+)
 from .settings_repo import (
     JSONValue,
     SettingAlreadyExistsError,
@@ -88,6 +93,9 @@ __all__ = [
     "NotificationRecord",
     "NotificationsRepository",
     "NotificationsRepositoryError",
+    "PollJobRecord",
+    "PollJobsRepository",
+    "PollJobsRepositoryError",
     "SettingAlreadyExistsError",
     "SettingRecord",
     "SettingsRepository",

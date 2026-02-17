@@ -15,6 +15,7 @@ from tca.api.bearer_auth import require_bearer_auth
 from tca.api.routes.channels import router as channels_router
 from tca.api.routes.channel_groups import router as channel_groups_router
 from tca.api.routes.health import router as health_router
+from tca.api.routes.jobs import router as jobs_router
 from tca.api.routes.settings import router as settings_router
 from tca.api.routes.telegram_auth import router as telegram_auth_router
 from tca.auth import AuthStartupDependency
@@ -241,6 +242,10 @@ def create_app() -> FastAPI:
     )
     app.include_router(
         settings_router,
+        dependencies=protected_route_dependencies,
+    )
+    app.include_router(
+        jobs_router,
         dependencies=protected_route_dependencies,
     )
     app.include_router(

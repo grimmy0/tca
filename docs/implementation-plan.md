@@ -982,11 +982,18 @@ An item is commit-ready only if all are true:
 - Change:
   - Implement `POST /jobs/poll-now/{channel_id}`.
 - Acceptance criteria:
-  - [ ] Trigger enqueues poll job for active channel.
-  - [ ] Disabled/paused channel returns deterministic rejection.
-  - [ ] Endpoint response includes job correlation ID.
+  - [x] Trigger enqueues poll job for active channel. [Tests: tests/api/test_poll_now.py::test_poll_now_enqueues_job_for_active_channel]
+  - [x] Disabled/paused channel returns deterministic rejection. [Tests: tests/api/test_poll_now.py::test_poll_now_rejects_disabled_channel, tests/api/test_poll_now.py::test_poll_now_rejects_paused_channel]
+  - [x] Endpoint response includes job correlation ID. [Tests: tests/api/test_poll_now.py::test_poll_now_enqueues_job_for_active_channel]
 - Verification:
   - `uv run pytest -q tests/api/test_poll_now.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: ``
+  - Verification summary:
+    - Added poll-now API endpoint that enqueues poll jobs and rejects disabled/paused channels.
+    - Added poll jobs queue table and repository plus manual poll tests.
+    - Verified with `uv run pytest -q tests/api/test_poll_now.py`.
 
 ### C047 - Add API Endpoint to Read Notifications
 
