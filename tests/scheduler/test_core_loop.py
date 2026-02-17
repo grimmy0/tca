@@ -232,6 +232,50 @@ async def test_disabled_channels_are_excluded_from_scheduler(
 
 
 @pytest.mark.asyncio
+async def test_paused_channels_are_skipped_by_scheduler(
+    scheduler_runtime: StorageRuntime,
+) -> None:
+    """Ensure paused channels are skipped by scheduler selection."""
+    await _seed_account(scheduler_runtime, account_id=3)
+    await _seed_channel(
+        scheduler_runtime,
+        channel_id=20,
+        account_id=3,
+        telegram_channel_id=2001,
+        name="paused",
+        is_enabled=True,
+    )
+    await _seed_channel(
+        scheduler_runtime,
+        channel_id=21,
+        account_id=3,
+        telegram_channel_id=2002,
+        name="active",
+        is_enabled=True,
+    )
+
+    now = datetime(2026, 2, 18, 12, 45, 0, tzinfo=timezone.utc)
+    await _seed_state(
+        scheduler_runtime,
+        channel_id=20,
+        last_success_at=now - timedelta(seconds=400),
+        paused_until=now + timedelta(seconds=600),
+    )
+    await _seed_state(
+        scheduler_runtime,
+        channel_id=21,
+        last_success_at=now - timedelta(seconds=400),
+        paused_until=None,
+    )
+
+    core_loop = _build_core_loop(scheduler_runtime, now=now)
+    await core_loop.run_once()
+
+    if await _read_poll_job_channel_ids(scheduler_runtime) != [21]:
+        raise AssertionError
+
+
+@pytest.mark.asyncio
 async def test_scheduler_service_starts_and_stops_cleanly(
     scheduler_runtime: StorageRuntime,
 ) -> None:
@@ -331,18 +375,20 @@ async def _seed_state(
     *,
     channel_id: int,
     last_success_at: datetime,
+    paused_until: datetime | None = None,
 ) -> None:
     async with runtime.write_session_factory() as session:
         await session.execute(
             text(
                 """
-                INSERT INTO channel_state (channel_id, last_success_at)
-                VALUES (:channel_id, :last_success_at)
+                INSERT INTO channel_state (channel_id, last_success_at, paused_until)
+                VALUES (:channel_id, :last_success_at, :paused_until)
                 """,
             ),
             {
                 "channel_id": channel_id,
                 "last_success_at": last_success_at,
+                "paused_until": paused_until,
             },
         )
         await session.commit()

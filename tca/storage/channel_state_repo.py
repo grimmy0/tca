@@ -140,6 +140,35 @@ class ChannelStateRepository:
             await session.commit()
         return _decode_state_row(row)
 
+    async def update_pause(
+        self,
+        *,
+        channel_id: int,
+        paused_until: datetime | None,
+    ) -> ChannelStateRecord:
+        """Insert or update channel pause timestamp only."""
+        statement = text(
+            """
+            INSERT INTO channel_state (channel_id, paused_until)
+            VALUES (:channel_id, :paused_until)
+            ON CONFLICT(channel_id) DO UPDATE SET
+                paused_until = :paused_until,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING channel_id, cursor_json, paused_until, last_success_at
+            """,
+        )
+        async with self._write_session_factory() as session:
+            result = await session.execute(
+                statement,
+                {
+                    "channel_id": channel_id,
+                    "paused_until": paused_until,
+                },
+            )
+            row = result.mappings().one()
+            await session.commit()
+        return _decode_state_row(row)
+
     async def update_cursor(
         self,
         *,

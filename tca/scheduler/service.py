@@ -78,9 +78,24 @@ class SchedulerCoreLoop:
         eligible: list[int] = []
         for channel_id in channel_ids:
             state = state_map.get(channel_id)
+            if self._is_paused(
+                paused_until=state.paused_until if state else None,
+                now=now,
+            ):
+                continue
             if self._is_due(state_last_success=state.last_success_at if state else None, now=now):
                 eligible.append(channel_id)
         return eligible
+
+    def _is_paused(
+        self,
+        *,
+        paused_until: datetime | None,
+        now: datetime,
+    ) -> bool:
+        if paused_until is None:
+            return False
+        return _normalize_datetime(paused_until) > now
 
     def _is_due(
         self,

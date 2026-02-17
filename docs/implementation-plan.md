@@ -1104,11 +1104,17 @@ An item is commit-ready only if all are true:
 - Change:
   - Parse FloodWait, pause channel until resume timestamp, store event.
 - Acceptance criteria:
-  - [ ] Flood wait exception marks channel paused with exact resume time.
-  - [ ] Paused channels are skipped by scheduler.
-  - [ ] Notification emitted for significant pause durations.
+  - [x] Flood wait exception marks channel paused with exact resume time. [Tests: tests/ingest/test_flood_wait.py::test_flood_wait_marks_channel_paused_until_resume_time]
+  - [x] Paused channels are skipped by scheduler. [Tests: tests/scheduler/test_core_loop.py::test_paused_channels_are_skipped_by_scheduler]
+  - [x] Notification emitted for significant pause durations. [Tests: tests/ingest/test_flood_wait.py::test_flood_wait_emits_notification_for_significant_pause]
 - Verification:
   - `uv run pytest -q tests/ingest/test_flood_wait.py`
+- Execution record:
+  - Date: 2026-02-17
+  - Commit: `57c6b77`
+  - Verification summary:
+    - `uv run pytest -q tests/ingest/test_flood_wait.py` passed (`4 passed`).
+    - `uv run pytest -q tests/scheduler/test_core_loop.py` passed (`5 passed`).
 
 ### C054 - Implement Account Risk Escalation
 
