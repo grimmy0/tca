@@ -1025,7 +1025,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/api/test_notifications_ack.py`
 - Execution record:
   - Date: 2026-02-17
-  - Commit: `54eeac1`
+  - Commit: `00bcb3e`
   - Verification summary:
     - Added acknowledge endpoint and repository update for notifications.
     - Responses now return acknowledged state on repeated calls.
