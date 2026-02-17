@@ -1087,11 +1087,17 @@ An item is commit-ready only if all are true:
 - Change:
   - Enforce `max_pages_per_poll` and `max_messages_per_poll`.
 - Acceptance criteria:
-  - [ ] Poll stops when either limit is reached.
-  - [ ] Unfinished pagination stores `next_offset_id`.
-  - [ ] Next run continues from stored offset.
+  - [x] Poll stops when either limit is reached. [Tests: tests/ingest/test_pagination_bounds.py::test_pagination_stops_on_page_limit, tests/ingest/test_pagination_bounds.py::test_pagination_stops_on_message_limit_and_sets_offset]
+  - [x] Unfinished pagination stores `next_offset_id`. [Tests: tests/ingest/test_pagination_bounds.py::test_pagination_stops_on_message_limit_and_sets_offset]
+  - [x] Next run continues from stored offset. [Tests: tests/ingest/test_pagination_bounds.py::test_pagination_resumes_from_stored_offset]
 - Verification:
   - `uv run pytest -q tests/ingest/test_pagination_bounds.py`
+- Execution record:
+  - Date: 2026-02-17
+  - Commit: `a22acad`
+  - Verification summary:
+    - `uv run pytest -q tests/ingest/test_pagination_bounds.py` passed (`3 passed`).
+    - `uv run python scripts/validate_plan_criteria.py --run-tests` failed in `tests/api/test_poll_now.py::test_poll_now_rejects_paused_channel` (expected `409`, got `202`).
 
 ### C053 - Implement Flood-Wait Handling
 

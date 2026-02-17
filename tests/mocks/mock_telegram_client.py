@@ -121,9 +121,10 @@ class MockTelegramClient:
         entity: object,
         *,
         limit: int | None = None,
+        offset_id: int | None = None,
     ) -> AsyncIterator[object]:
         """Simulate iterating over channel messages."""
-        _ = (entity, limit)
+        _ = (entity, limit, offset_id)
         self._mark_call("iter_messages")
         scripted = self._scripted_response("iter_messages")
         if scripted is _UNSET_RESPONSE:
@@ -142,14 +143,22 @@ class MockTelegramClient:
         self,
         entity: object,
         limit: int | None = None,
+        offset_id: int | None = None,
     ) -> list[object]:
         """Simulate fetching a batch of channel messages."""
-        _ = (entity, limit)
+        _ = (entity, limit, offset_id)
         self._mark_call("get_messages")
         scripted = self._scripted_response("get_messages")
         if scripted is not _UNSET_RESPONSE:
             return self._normalize_message_batch(scripted)
-        return [message async for message in self.iter_messages(entity, limit=limit)]
+        return [
+            message
+            async for message in self.iter_messages(
+                entity,
+                limit=limit,
+                offset_id=offset_id,
+            )
+        ]
 
     async def start(self, *args: object, **kwargs: object) -> None:
         """Simulate starting the client."""
