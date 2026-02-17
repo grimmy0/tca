@@ -1065,7 +1065,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/scheduler/test_jitter.py`
 - Execution record:
   - Date: 2026-02-17
-  - Commit: `31c7c88`
+  - Commit: `f4d35a8`
   - Verification summary:
     - Added jittered next-run computation with deterministic RNG handling.
     - Resolved scheduler poll interval from dynamic settings.
@@ -1076,9 +1076,9 @@ An item is commit-ready only if all are true:
 - Change:
   - Persist and read cursor JSON (`last_message_id`, `next_offset_id`, `last_polled_at`).
 - Acceptance criteria:
-  - [ ] Cursor updates after successful poll.
-  - [ ] Cursor read on next run resumes from previous state.
-  - [ ] Cursor schema validation rejects malformed payload.
+  - [x] Cursor updates after successful poll. [Tests: tests/ingest/test_cursor_state.py::test_cursor_updates_after_successful_poll]
+  - [x] Cursor read on next run resumes from previous state. [Tests: tests/ingest/test_cursor_state.py::test_cursor_read_resumes_from_previous_state]
+  - [x] Cursor schema validation rejects malformed payload. [Tests: tests/ingest/test_cursor_state.py::test_cursor_schema_validation_rejects_malformed_payload]
 - Verification:
   - `uv run pytest -q tests/ingest/test_cursor_state.py`
 

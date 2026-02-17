@@ -21,6 +21,7 @@ from .channels_repo import (
 )
 from .channel_state_repo import (
     ChannelStateDecodeError,
+    ChannelCursor,
     ChannelStateRecord,
     ChannelStateRepository,
     ChannelStateRepositoryError,
@@ -83,6 +84,7 @@ __all__ = [
     "ChannelRecord",
     "ChannelsRepository",
     "ChannelsRepositoryError",
+    "ChannelCursor",
     "ChannelStateDecodeError",
     "ChannelStateRecord",
     "ChannelStateRepository",

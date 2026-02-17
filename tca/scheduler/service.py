@@ -225,5 +225,6 @@ async def _resolve_poll_interval_seconds(
     if isinstance(value, float):
         if value <= 0:
             return default_value
-        return int(value)
+        resolved = int(value)
+        return resolved if resolved > 0 else default_value
     return default_value
