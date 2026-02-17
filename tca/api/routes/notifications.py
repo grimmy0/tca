@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import cast
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel
 
 from tca.storage import (
@@ -13,6 +13,7 @@ from tca.storage import (
     NotificationListRecord,
     NotificationsRepository,
     StorageRuntime,
+    WriterQueueProtocol,
 )
 
 router = APIRouter()
@@ -50,6 +51,31 @@ async def list_notifications(
     return [_to_notification_response(record=record) for record in records]
 
 
+@router.put(
+    "/notifications/{notification_id}/ack",
+    tags=["notifications"],
+    response_model=NotificationResponse,
+)
+async def acknowledge_notification(
+    notification_id: int,
+    request: Request,
+) -> NotificationResponse:
+    """Acknowledge one notification and return the updated state."""
+    repository = _build_notifications_repository(request)
+    writer_queue = _resolve_writer_queue(request)
+
+    async def _acknowledge() -> NotificationResponse:
+        record = await repository.acknowledge(notification_id=notification_id)
+        if record is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Notification not found.",
+            )
+        return _to_notification_response(record=record)
+
+    return await writer_queue.submit(_acknowledge)
+
+
 def _build_notifications_repository(request: Request) -> NotificationsRepository:
     """Create notifications repository bound to app runtime read/write sessions."""
     runtime = _resolve_storage_runtime(request)
@@ -84,6 +110,17 @@ def _resolve_storage_runtime(request: Request) -> StorageRuntime:
         message = "Missing app storage runtime: app.state.storage_runtime."
         raise TypeError(message)
     return runtime_obj
+
+
+def _resolve_writer_queue(request: Request) -> WriterQueueProtocol:
+    """Load app writer queue from FastAPI state with explicit failure mode."""
+    state_obj = _resolve_app_state(request)
+    queue_obj = cast("object | None", getattr(state_obj, "writer_queue", None))
+    submit_obj = getattr(queue_obj, "submit", None)
+    if queue_obj is None or not callable(submit_obj):
+        message = "Missing app writer queue: app.state.writer_queue."
+        raise RuntimeError(message)
+    return cast("WriterQueueProtocol", queue_obj)
 
 
 def _resolve_app_state(request: Request) -> object:

@@ -1018,11 +1018,18 @@ An item is commit-ready only if all are true:
 - Change:
   - Implement acknowledge action to mark notification resolved/read.
 - Acceptance criteria:
-  - [ ] Notification acknowledge updates state atomically.
-  - [ ] Re-acknowledging is idempotent.
-  - [ ] Response includes updated notification state.
+  - [x] Notification acknowledge updates state atomically. [Tests: tests/api/test_notifications_ack.py::test_acknowledge_notification_updates_state_atomically]
+  - [x] Re-acknowledging is idempotent. [Tests: tests/api/test_notifications_ack.py::test_acknowledge_notification_is_idempotent]
+  - [x] Response includes updated notification state. [Tests: tests/api/test_notifications_ack.py::test_acknowledge_notification_updates_state_atomically]
 - Verification:
   - `uv run pytest -q tests/api/test_notifications_ack.py`
+- Execution record:
+  - Date: 2026-02-17
+  - Commit: `54eeac1`
+  - Verification summary:
+    - Added acknowledge endpoint and repository update for notifications.
+    - Responses now return acknowledged state on repeated calls.
+    - Verified with `uv run pytest -q tests/api/test_notifications_ack.py`.
 
 ---
 

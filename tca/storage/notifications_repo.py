@@ -155,6 +155,40 @@ class NotificationsRepository:
             rows = result.mappings().all()
         return [_decode_list_row(row) for row in rows]
 
+    async def acknowledge(
+        self,
+        *,
+        notification_id: int,
+    ) -> NotificationListRecord | None:
+        """Mark notification as acknowledged and return updated row."""
+        statement = text(
+            """
+            UPDATE notifications
+            SET is_acknowledged = 1,
+                acknowledged_at = COALESCE(acknowledged_at, CURRENT_TIMESTAMP)
+            WHERE id = :notification_id
+            RETURNING
+                id,
+                type,
+                severity,
+                message,
+                payload_json,
+                is_acknowledged,
+                acknowledged_at,
+                created_at
+            """,
+        )
+        async with self._write_session_factory() as session:
+            result = await session.execute(
+                statement,
+                {"notification_id": notification_id},
+            )
+            row = result.mappings().one_or_none()
+            await session.commit()
+        if row is None:
+            return None
+        return _decode_list_row(row)
+
 
 def _encode_payload_json(
     *,
