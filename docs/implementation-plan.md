@@ -935,7 +935,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/api/test_channels_crud.py`
 - Execution record:
   - Date: 2026-02-17
-  - Commit: `935bcbb`
+  - Commit: `6490536`
   - Verification summary:
     - Added channels CRUD routes with polling state persistence and visibility filtering.
     - Added channel state repository plus merge migration for Alembic heads.

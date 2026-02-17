@@ -33,7 +33,7 @@ class ChannelPatchRequest(BaseModel):
     """Request payload for partial channel updates."""
 
     name: str | None = Field(default=None, min_length=1)
-    username: str | None = None
+    username: str | None = Field(default=None, min_length=1)
     is_enabled: bool | None = None
     paused_until: datetime | None = None
     last_success_at: datetime | None = None

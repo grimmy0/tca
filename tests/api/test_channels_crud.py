@@ -107,6 +107,47 @@ def test_list_channels_returns_only_enabled_rows(
         raise AssertionError
 
 
+def test_patch_channel_rejects_empty_username(
+    tmp_path: object,
+    monkeypatch: object,
+) -> None:
+    """Ensure PATCH rejects empty username payloads."""
+    db_path = _as_path(tmp_path) / "channels-api-patch-username.sqlite3"
+    patcher = _as_monkeypatch(monkeypatch)
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (_as_path(tmp_path) / "channels-username-bootstrap-token.txt").as_posix(),
+    )
+
+    app = create_app()
+    auth_headers = _auth_headers()
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
+        _insert_account_fixture(db_path, account_id=DEFAULT_ACCOUNT_ID)
+        _insert_channel_fixture(
+            db_path,
+            channel_id=DEFAULT_CHANNEL_ID,
+            account_id=DEFAULT_ACCOUNT_ID,
+            telegram_channel_id=DEFAULT_TELEGRAM_CHANNEL_ID,
+            name="alpha",
+            is_enabled=True,
+        )
+        response = client.patch(
+            f"/channels/{DEFAULT_CHANNEL_ID}",
+            json={"username": ""},
+            headers=auth_headers,
+        )
+
+    if response.status_code != EXPECTED_UNPROCESSABLE_ENTITY:
+        raise AssertionError
+
+
 def test_patch_channel_persists_polling_state_updates(
     tmp_path: object,
     monkeypatch: object,
