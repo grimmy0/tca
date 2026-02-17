@@ -1160,7 +1160,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/ingest/test_raw_upsert.py`
 - Execution record:
   - Date: 2026-02-17
-  - Commit: `7c2f861`
+  - Commit: `c2410ba`
   - Verification summary:
     - `uv run pytest -q tests/ingest/test_raw_upsert.py` passed (`5 passed in 0.18s`).
 
