@@ -1040,11 +1040,18 @@ An item is commit-ready only if all are true:
 - Change:
   - Add scheduler service selecting eligible channels by interval.
 - Acceptance criteria:
-  - [ ] Eligible channels are selected by `next_run_at` logic.
-  - [ ] Disabled channels are excluded.
-  - [ ] Scheduler loop can start/stop cleanly.
+  - [x] Eligible channels are selected by `next_run_at` logic. [Tests: tests/scheduler/test_core_loop.py::test_next_run_at_selection_uses_last_success_at]
+  - [x] Disabled channels are excluded. [Tests: tests/scheduler/test_core_loop.py::test_disabled_channels_are_excluded_from_scheduler]
+  - [x] Scheduler loop can start/stop cleanly. [Tests: tests/scheduler/test_core_loop.py::test_scheduler_service_starts_and_stops_cleanly]
 - Verification:
   - `uv run pytest -q tests/scheduler/test_core_loop.py`
+- Execution record:
+  - Date: 2026-02-17
+  - Commit: `8f41495`
+  - Verification summary:
+    - Added scheduler core loop with next-run selection logic and poll job enqueueing.
+    - Wired scheduler lifecycle dependency into app startup/shutdown.
+    - Added scheduler core loop tests and verified with `uv run pytest -q tests/scheduler/test_core_loop.py`.
 
 ### C050 - Add Polling Interval + Jitter Computation
 

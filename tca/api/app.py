@@ -22,6 +22,7 @@ from tca.api.routes.telegram_auth import router as telegram_auth_router
 from tca.auth import AuthStartupDependency
 from tca.config.logging import init_logging
 from tca.config.settings import load_settings
+from tca.scheduler import SchedulerService
 from tca.storage import (
     MigrationRunnerDependency,
     SettingsSeedDependency,
@@ -142,14 +143,40 @@ class NoopDependency:
         logger.debug("Shutdown stub executed for %s", self.name)
 
 
-def _default_dependencies() -> StartupDependencies:
+def _default_dependencies(app: FastAPI) -> StartupDependencies:
     """Create default startup dependency stubs for local app startup."""
     return StartupDependencies(
         db=MigrationRunnerDependency(),
         settings=SettingsSeedDependency(),
         auth=AuthStartupDependency(),
         telethon_manager=TelethonClientManager(),
-        scheduler=NoopDependency("scheduler"),
+        scheduler=_build_scheduler_dependency(app),
+    )
+
+
+def _build_scheduler_dependency(app: FastAPI) -> SchedulerService:
+    """Create scheduler dependency bound to app runtime storage and queue."""
+
+    def _runtime_provider() -> StorageRuntime:
+        state_obj = cast("object", app.state)
+        runtime_obj = getattr(state_obj, "storage_runtime", None)
+        if not isinstance(runtime_obj, StorageRuntime):
+            message = "Missing app storage runtime: app.state.storage_runtime."
+            raise TypeError(message)
+        return runtime_obj
+
+    def _writer_queue_provider() -> WriterQueueProtocol:
+        state_obj = cast("object", app.state)
+        queue_obj = cast("object | None", getattr(state_obj, "writer_queue", None))
+        submit_obj = getattr(queue_obj, "submit", None)
+        if queue_obj is None or not callable(submit_obj):
+            message = "Missing app writer queue: app.state.writer_queue."
+            raise RuntimeError(message)
+        return cast("WriterQueueProtocol", queue_obj)
+
+    return SchedulerService(
+        runtime_provider=_runtime_provider,
+        writer_queue_provider=_writer_queue_provider,
     )
 
 
@@ -229,7 +256,7 @@ def create_app() -> FastAPI:
     )
 
     protected_route_dependencies = [Depends(require_bearer_auth)]
-    app.state.dependencies = _default_dependencies()
+    app.state.dependencies = _default_dependencies(app)
     app.state.writer_queue_factory = WriterQueue
     _configure_cors(app=app, allow_origins=settings.cors_allow_origins)
     app.include_router(health_router)
