@@ -169,6 +169,31 @@ async def patch_channel(
     return await writer_queue.submit(_update)
 
 
+@router.delete(
+    "/channels/{channel_id}",
+    tags=["channels"],
+    response_model=ChannelResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def delete_channel(
+    channel_id: int,
+    request: Request,
+) -> ChannelResponse:
+    """Disable one channel by id without removing historical data."""
+    repository = _build_channels_repository(request)
+    state_repository = _build_channel_state_repository(request)
+    writer_queue = _resolve_writer_queue(request)
+
+    async def _delete() -> ChannelResponse:
+        disabled = await repository.disable_channel(channel_id=channel_id)
+        if disabled is None:
+            raise _channel_not_found(channel_id=channel_id)
+        state = await state_repository.get_state(channel_id=channel_id)
+        return _to_channel_response(channel=disabled, state=state)
+
+    return await writer_queue.submit(_delete)
+
+
 def _to_channel_response(
     *,
     channel: ChannelRecord,
