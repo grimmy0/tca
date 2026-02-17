@@ -34,10 +34,10 @@ def _default_correlation_id() -> str:
     return str(uuid4())
 
 
-def _normalize_now(now: datetime) -> datetime:
-    if now.tzinfo is None:
-        return now.replace(tzinfo=timezone.utc)
-    return now
+def _normalize_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
 
 
 @dataclass(slots=True)
@@ -54,7 +54,7 @@ class SchedulerCoreLoop:
 
     async def run_once(self) -> list[PollJobRecord]:
         """Run one scheduler tick and enqueue eligible channel jobs."""
-        now = _normalize_now(self.time_provider())
+        now = _normalize_datetime(self.time_provider())
         eligible = await self._select_eligible_channels(now=now)
         jobs: list[PollJobRecord] = []
         for channel_id in eligible:
@@ -82,6 +82,7 @@ class SchedulerCoreLoop:
     ) -> bool:
         if state_last_success is None:
             return True
+        state_last_success = _normalize_datetime(state_last_success)
         next_run_at = state_last_success + timedelta(seconds=self.poll_interval_seconds)
         return next_run_at <= now
 

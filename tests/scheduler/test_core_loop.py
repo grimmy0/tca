@@ -149,6 +149,36 @@ async def test_next_run_at_selection_uses_last_success_at(
 
 
 @pytest.mark.asyncio
+async def test_naive_last_success_at_is_normalized(
+    scheduler_runtime: StorageRuntime,
+) -> None:
+    """Ensure naive last_success_at values are treated as UTC."""
+    await _seed_account(scheduler_runtime, account_id=1)
+    await _seed_channel(
+        scheduler_runtime,
+        channel_id=1,
+        account_id=1,
+        telegram_channel_id=404,
+        name="delta",
+        is_enabled=True,
+    )
+
+    now = datetime(2026, 2, 18, 13, 0, 0, tzinfo=timezone.utc)
+    naive_last_success = datetime(2026, 2, 18, 12, 55, 0)
+    await _seed_state(
+        scheduler_runtime,
+        channel_id=1,
+        last_success_at=naive_last_success,
+    )
+
+    core_loop = _build_core_loop(scheduler_runtime, now=now)
+    await core_loop.run_once()
+
+    if await _read_poll_job_channel_ids(scheduler_runtime) != [1]:
+        raise AssertionError
+
+
+@pytest.mark.asyncio
 async def test_disabled_channels_are_excluded_from_scheduler(
     scheduler_runtime: StorageRuntime,
 ) -> None:
