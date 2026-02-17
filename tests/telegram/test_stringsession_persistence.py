@@ -11,7 +11,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from tca.api.app import create_app
-from tca.auth import resolve_key_encryption_key, unlock_with_passphrase
+from tca.auth import UnlockState, resolve_key_encryption_key
 from tca.config.settings import load_settings
 from tca.storage import WriterQueue, create_storage_runtime, dispose_storage_runtime
 from tca.storage.settings_repo import SettingsRepository
@@ -130,7 +130,8 @@ async def _load_accounts(*, db_path: Path, passphrase: str) -> list[object]:
     settings = load_settings({"TCA_DB_PATH": db_path.as_posix()})
     runtime = create_storage_runtime(settings)
     writer_queue = WriterQueue()
-    unlock_with_passphrase(passphrase=passphrase)
+    unlock_state = UnlockState()
+    unlock_state.unlock_with_passphrase(passphrase=passphrase)
     settings_repo = SettingsRepository(
         read_session_factory=runtime.read_session_factory,
         write_session_factory=runtime.write_session_factory,
@@ -139,6 +140,7 @@ async def _load_accounts(*, db_path: Path, passphrase: str) -> list[object]:
         key_encryption_key = await resolve_key_encryption_key(
             settings_repository=settings_repo,
             writer_queue=writer_queue,
+            unlock_state=unlock_state,
         )
         loader = TelegramAccountLoader(
             read_session_factory=runtime.read_session_factory,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import itertools
 import sqlite3
+import time
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 from unittest.mock import patch
@@ -12,6 +13,7 @@ from fastapi.testclient import TestClient
 from telethon.errors import PasswordHashInvalidError, SessionPasswordNeededError
 
 from tca.api.app import create_app
+from tca.auth import SENSITIVE_OPERATION_LOCKED_MESSAGE
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -248,6 +250,73 @@ def test_verify_password_rejects_when_step_not_required(
         raise AssertionError
 
 
+def test_verify_password_rejects_when_sensitive_operations_locked(
+    tmp_path: Path,
+    monkeypatch: object,
+    mock_tg_client: MockTelegramClient,
+) -> None:
+    """Ensure locked mode blocks password verification before sign-in."""
+    db_path = _configure_locked_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="telegram-auth-locked-password.sqlite3",
+        output_file_name="telegram-auth-locked-password-token.txt",
+    )
+    api_id = 3030
+    api_hash = "hash-for-locked-password"
+    phone_number = "+15550003333"
+    session_id = "telegram-locked-password"
+    telegram_session = "locked-telegram-session"
+
+    app = create_app()
+    app.state.telegram_auth_client_factory = _build_factory(
+        mock_tg_client=mock_tg_client,
+        expected_api_id=api_id,
+        expected_api_hash=api_hash,
+    )
+
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            side_effect=_token_side_effect(),
+        ),
+        TestClient(app) as client,
+    ):
+        _insert_auth_session_state(
+            db_path=db_path,
+            session_id=session_id,
+            phone_number=phone_number,
+            status="password_required",
+            telegram_session=telegram_session,
+        )
+        response = client.post(
+            "/auth/telegram/verify-password",
+            json={
+                "session_id": session_id,
+                "api_id": api_id,
+                "api_hash": api_hash,
+                "password": "locked-password",
+            },
+            headers=_auth_headers(),
+        )
+
+    if response.status_code != HTTPStatus.LOCKED:
+        raise AssertionError
+    payload = response.json()
+    if payload.get("detail") != SENSITIVE_OPERATION_LOCKED_MESSAGE:
+        raise AssertionError
+    if mock_tg_client.call_counts.get("sign_in", 0) != 0:
+        raise AssertionError
+    if (
+        _fetch_session_status(
+            db_path=db_path,
+            session_id=session_id,
+        )
+        != "password_required"
+    ):
+        raise AssertionError
+
+
 def _start_auth_session(
     *,
     client: TestClient,
@@ -302,6 +371,33 @@ def _fetch_session_telegram_session(*, db_path: Path, session_id: str) -> str | 
     if not isinstance(row[0], str):
         raise AssertionError
     return row[0]
+
+
+def _insert_auth_session_state(
+    *,
+    db_path: Path,
+    session_id: str,
+    phone_number: str,
+    status: str,
+    telegram_session: str | None,
+) -> None:
+    """Insert a session row directly for locked-mode verification tests."""
+    expires_at = int(time.time()) + 900
+    with sqlite3.connect(db_path) as connection:
+        _ = connection.execute(
+            """
+            INSERT INTO auth_session_state (
+                session_id,
+                phone_number,
+                status,
+                expires_at,
+                telegram_session
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (session_id, phone_number, status, expires_at, telegram_session),
+        )
+        connection.commit()
 
 
 def _token_side_effect() -> object:
@@ -361,6 +457,26 @@ def _configure_auth_env(
     )
     patcher.setenv("TCA_MODE", "auto-unlock")
     patcher.setenv("TCA_SECRET_FILE", secret_file.as_posix())
+    return db_path
+
+
+def _configure_locked_auth_env(
+    *,
+    tmp_path: Path,
+    monkeypatch: object,
+    db_name: str,
+    output_file_name: str,
+) -> Path:
+    """Set DB/token-output env vars for locked-mode API tests."""
+    patcher = _as_monkeypatch(monkeypatch)
+    db_path = tmp_path / db_name
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (tmp_path / output_file_name).as_posix(),
+    )
+    patcher.setenv("TCA_MODE", "secure-interactive")
+    patcher.setenv("TCA_SECRET_FILE", "")
     return db_path
 
 

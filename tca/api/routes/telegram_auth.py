@@ -27,6 +27,7 @@ from tca.auth import (
     SensitiveOperationLockedError,
     TelegramAccountStorage,
     TelegramSessionStorage,
+    require_sensitive_operation_unlock,
     request_login_code,
     resolve_key_encryption_key,
 )
@@ -197,6 +198,11 @@ async def verify_telegram_code(
     if session_state.status != _AUTH_STATUS_CODE_SENT:
         raise _auth_session_status_conflict_error(current_status=session_state.status)
 
+    try:
+        require_sensitive_operation_unlock()
+    except SensitiveOperationLockedError as exc:
+        raise _sensitive_operation_locked_error() from exc
+
     client = _build_auth_client(
         request=request,
         api_id=payload.api_id,
@@ -291,6 +297,11 @@ async def verify_telegram_password(
 
     if not session_state.telegram_session:
         raise _missing_password_session_error()
+
+    try:
+        require_sensitive_operation_unlock()
+    except SensitiveOperationLockedError as exc:
+        raise _sensitive_operation_locked_error() from exc
 
     client = _build_auth_client(
         request=request,

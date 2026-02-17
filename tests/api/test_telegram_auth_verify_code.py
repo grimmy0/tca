@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from telethon.errors import PhoneCodeInvalidError, SessionPasswordNeededError
 
 from tca.api.app import create_app
+from tca.auth import SENSITIVE_OPERATION_LOCKED_MESSAGE
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -36,6 +37,7 @@ def test_verify_code_advances_to_authenticated_state(
     api_id = 7777
     api_hash = "hash-for-verify"
     phone_number = "+15550004444"
+    mock_tg_client.session = _FakeStringSession("telegram-session-authenticated")
 
     app = create_app()
     app.state.telegram_auth_client_factory = _build_factory(
@@ -151,6 +153,64 @@ def test_verify_code_requires_password_updates_status(
         raise AssertionError
 
 
+def test_verify_code_rejects_when_sensitive_operations_locked(
+    tmp_path: Path,
+    monkeypatch: object,
+    mock_tg_client: MockTelegramClient,
+) -> None:
+    """Ensure locked mode returns deterministic errors before OTP verification."""
+    db_path = _configure_locked_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="telegram-auth-locked-code.sqlite3",
+        output_file_name="telegram-auth-locked-code-token.txt",
+    )
+    api_id = 2468
+    api_hash = "hash-for-locked-code"
+    phone_number = "+15550002222"
+
+    app = create_app()
+    app.state.telegram_auth_client_factory = _build_factory(
+        mock_tg_client=mock_tg_client,
+        expected_api_id=api_id,
+        expected_api_hash=api_hash,
+    )
+
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            side_effect=_token_side_effect(),
+        ),
+        TestClient(app) as client,
+    ):
+        session_id = _start_auth_session(
+            client=client,
+            api_id=api_id,
+            api_hash=api_hash,
+            phone_number=phone_number,
+        )
+        response = client.post(
+            "/auth/telegram/verify-code",
+            json={
+                "session_id": session_id,
+                "api_id": api_id,
+                "api_hash": api_hash,
+                "code": "11111",
+            },
+            headers=_auth_headers(),
+        )
+
+    if response.status_code != HTTPStatus.LOCKED:
+        raise AssertionError
+    payload = response.json()
+    if payload.get("detail") != SENSITIVE_OPERATION_LOCKED_MESSAGE:
+        raise AssertionError
+    if mock_tg_client.call_counts.get("sign_in", 0) != 0:
+        raise AssertionError
+    if _fetch_session_status(db_path=db_path, session_id=session_id) != "code_sent":
+        raise AssertionError
+
+
 def test_verify_code_wrong_code_returns_deterministic_error(
     tmp_path: Path,
     monkeypatch: object,
@@ -223,6 +283,7 @@ def test_verify_code_replayed_or_expired_session_returns_failure(
     api_id = 4444
     api_hash = "hash-for-replayed"
     phone_number = "+15550007777"
+    mock_tg_client.session = _FakeStringSession("telegram-session-replayed")
 
     app = create_app()
     app.state.telegram_auth_client_factory = _build_factory(
@@ -416,6 +477,26 @@ def _configure_auth_env(
     )
     patcher.setenv("TCA_MODE", "auto-unlock")
     patcher.setenv("TCA_SECRET_FILE", secret_file.as_posix())
+    return db_path
+
+
+def _configure_locked_auth_env(
+    *,
+    tmp_path: Path,
+    monkeypatch: object,
+    db_name: str,
+    output_file_name: str,
+) -> Path:
+    """Set DB/token-output env vars for locked-mode API tests."""
+    patcher = _as_monkeypatch(monkeypatch)
+    db_path = tmp_path / db_name
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (tmp_path / output_file_name).as_posix(),
+    )
+    patcher.setenv("TCA_MODE", "secure-interactive")
+    patcher.setenv("TCA_SECRET_FILE", "")
     return db_path
 
 
