@@ -4,7 +4,7 @@ TCA is a local-first Telegram channel aggregator that runs on your machine, merg
 
 ## Status
 
-- Phase: implementation in progress (storage, settings, auth bootstrap/unlock, channel-group APIs, and Telegram auth start are implemented; ingestion/dedupe/UI/ops remain planned).
+- Phase: implementation in progress (storage, settings, auth bootstrap/unlock, channel/group APIs, poll-now jobs, notifications list, and Telegram auth start/verify are implemented; ingestion/dedupe/UI/ops remain planned).
 - Scope: Telegram only.
 - Deployment target (planned): single local Docker container with SQLite persistence.
 
@@ -12,7 +12,7 @@ TCA is a local-first Telegram channel aggregator that runs on your machine, merg
 
 - FastAPI app factory with lifespan-managed migrations, settings seeding, bootstrap bearer token generation, and CORS allowlist.
 - Auth primitives: unlock modes, Argon2id KDF, envelope encryption helpers, session storage, key-rotation metadata, auth session state.
-- API endpoints: `/health` (public), `/settings/{key}`, `/channel-groups`, `/auth/telegram/start`, `/auth/telegram/verify-code`, `/auth/telegram/verify-password`, and `/openapi.json` (bearer auth required).
+- API endpoints: `/health` (public), `/settings/{key}`, `/channels`, `/channel-groups`, `/jobs/poll-now/{channel_id}`, `/notifications`, `/auth/telegram/start`, `/auth/telegram/verify-code`, `/auth/telegram/verify-password`, and `/openapi.json` (bearer auth required).
 - Storage: SQLite WAL/PRAGMAs, `BEGIN IMMEDIATE`, writer queue, migrations for core schema + FTS/ops tables.
 
 ## Why TCA

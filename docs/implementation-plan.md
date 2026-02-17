@@ -124,7 +124,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/mocks/test_mock_telegram_client.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `623dd59` + current follow-up patch (uncommitted)
+  - Commit: `623dd59`
   - Verification summary:
     - Created `MockTelegramClient` with deterministic scripting for OTP (`send_code_request`), flood wait, and message fetch (`iter_messages` / `get_messages`) paths.
     - Added `mock_tg_client` fixture to `tests/conftest.py`.

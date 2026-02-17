@@ -472,7 +472,7 @@ First-run auth wizard is explicit multi-step flow:
 
 No stdin-driven Telethon interactive login is used in container runtime.
 
-## 12.4 Channel Group Management API
+## 12.4 Channel, Group, and Ops Management API
 
 - `GET /channel-groups`
 - `POST /channel-groups`
@@ -480,6 +480,21 @@ No stdin-driven Telethon interactive login is used in container runtime.
 - `DELETE /channel-groups/{group_id}`
 - `PUT /channel-groups/{group_id}/channels/{channel_id}`
 - `DELETE /channel-groups/{group_id}/channels/{channel_id}`
+
+Channel CRUD endpoints:
+
+- `GET /channels`
+- `POST /channels`
+- `PATCH /channels/{channel_id}`
+- `DELETE /channels/{channel_id}` (supports `purge=true` for hard delete)
+
+Manual poll job trigger:
+
+- `POST /jobs/poll-now/{channel_id}`
+
+Notification list API:
+
+- `GET /notifications` (filters: `severity`, `type`)
 
 ## 12.5 Configuration Surface (Static vs Dynamic)
 

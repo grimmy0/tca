@@ -24,7 +24,7 @@ Scope is Telegram-only.
 The codebase is in early execution of the plan. Implemented so far includes:
 
 - app startup migrations, settings seeding, and unlock/bootstrap auth initialization,
-- API endpoints for health, settings, channel groups, and Telegram auth start/verify,
+- API endpoints for health, settings, channels, channel groups, poll-now jobs, notifications, and Telegram auth start/verify,
 - storage/auth primitives: WAL PRAGMAs, `BEGIN IMMEDIATE`, writer queue, encrypted sessions, auth session state, key rotation metadata,
 - strict pre-commit lint/type gate and shared SQLite concurrency test harness.
 
