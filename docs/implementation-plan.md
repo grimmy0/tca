@@ -913,7 +913,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/ingest/test_account_pause_flags.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `019ad82`
+  - Commit: `0485734`
   - Verification summary:
     - Added account pause/resume storage and schedulable channel filtering.
     - Persisted pause reasons on accounts and added pause flags migration.
