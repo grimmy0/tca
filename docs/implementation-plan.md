@@ -1007,7 +1007,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/api/test_notifications_api.py`
 - Execution record:
   - Date: 2026-02-17
-  - Commit: `73aef6a`
+  - Commit: `50f1b9c`
   - Verification summary:
     - Added notifications list endpoint with recency ordering and filtering.
     - Protected notifications list route with bearer auth.
