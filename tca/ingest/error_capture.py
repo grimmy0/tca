@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from enum import Enum
 from typing import TYPE_CHECKING, Callable, TypeVar
 
@@ -80,6 +81,8 @@ async def execute_with_ingest_error_capture(
     try:
         return await operation()
     except recoverable_errors as exc:
+        if isinstance(exc, asyncio.CancelledError):
+            raise
         await capture_ingest_error(
             writer_queue=writer_queue,
             errors_repository=errors_repository,

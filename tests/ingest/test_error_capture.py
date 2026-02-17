@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -168,4 +169,39 @@ async def test_ingest_pipeline_continues_after_recoverable_errors(
         )
         count = result.mappings().one()["count"]
     if count != 1:
+        raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_ingest_pipeline_does_not_swallow_cancellation(
+    ingest_error_runtime: tuple[IngestErrorsRepository, StorageRuntime],
+) -> None:
+    """Ensure cancellations propagate instead of being captured as errors."""
+    repository, runtime = ingest_error_runtime
+    queue = RecordingWriterQueue()
+
+    async def _cancel() -> None:
+        raise asyncio.CancelledError()
+
+    with pytest.raises(asyncio.CancelledError):
+        await execute_with_ingest_error_capture(
+            operation=_cancel,
+            writer_queue=queue,
+            errors_repository=repository,
+            channel_id=None,
+            stage=IngestErrorStage.FETCH,
+            error_code="FETCH_CANCEL",
+            payload_ref=None,
+            recoverable_errors=(Exception,),
+        )
+
+    if queue.submit_calls != 0:
+        raise AssertionError
+
+    async with runtime.read_session_factory() as session:
+        result = await session.execute(
+            text("SELECT COUNT(*) AS count FROM ingest_errors"),
+        )
+        count = result.mappings().one()["count"]
+    if count != 0:
         raise AssertionError
