@@ -365,11 +365,18 @@ An item is commit-ready only if all are true:
 - Change:
   - Add all Phase 1 indexes from design (published_at/hash/indexes/group indexes/error indexes).
 - Acceptance criteria:
-  - [ ] Each index defined in design is present in DB metadata.
-  - [ ] Missing index causes test failure.
-  - [ ] Query explain snapshots include index usage for representative read paths.
+  - [x] Each index defined in design is present in DB metadata. [Tests: tests/migrations/test_indexes.py::test_phase1_indexes_from_design_exist_in_metadata]
+  - [x] Missing index causes test failure. [Tests: tests/migrations/test_indexes.py::test_phase1_index_assertion_fails_when_required_index_is_missing]
+  - [x] Query explain snapshots include index usage for representative read paths. [Tests: tests/migrations/test_indexes.py::test_representative_read_path_query_plans_use_expected_indexes]
 - Verification:
   - `uv run pytest -q tests/migrations/test_indexes.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `c015`
+  - Verification summary:
+    - Added Alembic revision `c2f9c1e5a7b3` to create required Phase 1 secondary indexes on `items`, `dedupe_members`, `dedupe_clusters`, and `ingest_errors`.
+    - Added migration tests asserting every design-defined Phase 1 index signature is present in SQLite metadata.
+    - Added query-plan snapshot checks confirming representative read paths use the new secondary indexes.
 
 ### C016 - Add FTS5 External-Content Table Migration
 
