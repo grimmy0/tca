@@ -13,6 +13,7 @@ from telethon.errors import (
     ConnectionApiIdInvalidError,
     PhoneCodeExpiredError,
     PhoneCodeInvalidError,
+    PasswordHashInvalidError,
     SessionPasswordNeededError,
 )
 from telethon.sessions import StringSession
@@ -35,6 +36,7 @@ _INVALID_API_CREDENTIALS_DETAIL = "Invalid Telegram API credentials."
 _OTP_REQUEST_FAILED_DETAIL = "Unable to send Telegram login code."
 _INVALID_LOGIN_CODE_DETAIL = "Invalid Telegram login code."
 _EXPIRED_LOGIN_CODE_DETAIL = "Telegram login code expired."
+_INVALID_PASSWORD_DETAIL = "Invalid Telegram password."
 
 
 class TelegramAuthStartRequest(BaseModel):
@@ -62,6 +64,22 @@ class TelegramAuthVerifyCodeRequest(BaseModel):
 
 class TelegramAuthVerifyCodeResponse(BaseModel):
     """Response payload for Telegram OTP verification results."""
+
+    session_id: str
+    status: str
+
+
+class TelegramAuthVerifyPasswordRequest(BaseModel):
+    """Payload for verifying a Telegram 2FA password."""
+
+    session_id: str = Field(min_length=1)
+    api_id: int = Field(gt=0)
+    api_hash: str = Field(min_length=1)
+    password: str = Field(min_length=1)
+
+
+class TelegramAuthVerifyPasswordResponse(BaseModel):
+    """Response payload for Telegram password verification results."""
 
     session_id: str
     status: str
@@ -204,6 +222,56 @@ async def verify_telegram_code(
     )
 
 
+@router.post(
+    "/auth/telegram/verify-password",
+    tags=["auth"],
+    response_model=TelegramAuthVerifyPasswordResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def verify_telegram_password(
+    payload: TelegramAuthVerifyPasswordRequest,
+    request: Request,
+) -> TelegramAuthVerifyPasswordResponse:
+    """Verify a Telegram 2FA password and advance the auth session state."""
+    repository = _build_auth_session_repository(request)
+    writer_queue = _resolve_writer_queue(request)
+
+    try:
+        session_state = await repository.get_session(session_id=payload.session_id)
+    except AuthSessionStateNotFoundError as exc:
+        raise _auth_session_not_found_error(session_id=payload.session_id) from exc
+    except AuthSessionExpiredError as exc:
+        raise _auth_session_expired_error(session_id=payload.session_id) from exc
+
+    if session_state.status != _AUTH_STATUS_PASSWORD_REQUIRED:
+        raise _auth_session_password_status_conflict_error(
+            current_status=session_state.status,
+        )
+
+    client_factory = _resolve_auth_client_factory(request)
+    client = client_factory(payload.api_id, payload.api_hash)
+    try:
+        _ = await _sign_in_with_password(
+            client=client,
+            password=payload.password,
+        )
+    except PasswordHashInvalidError as exc:
+        raise _invalid_password_error() from exc
+    except (ApiIdInvalidError, ConnectionApiIdInvalidError) as exc:
+        raise _invalid_api_credentials_error() from exc
+
+    updated = await _update_auth_session_status(
+        writer_queue=writer_queue,
+        repository=repository,
+        session_id=session_state.session_id,
+        status=_AUTH_STATUS_AUTHENTICATED,
+    )
+    return TelegramAuthVerifyPasswordResponse(
+        session_id=updated.session_id,
+        status=updated.status,
+    )
+
+
 async def _send_login_code(
     *,
     client: TelegramAuthClientProtocol,
@@ -237,6 +305,24 @@ async def _sign_in_with_code(
 
     try:
         return await client.sign_in(phone=phone_number, code=code)
+    finally:
+        if should_disconnect:
+            await client.disconnect()
+
+
+async def _sign_in_with_password(
+    *,
+    client: TelegramAuthClientProtocol,
+    password: str,
+) -> object:
+    """Sign in with 2FA password using safe connect/disconnect handling."""
+    should_disconnect = False
+    if not client.is_connected():
+        await client.connect()
+        should_disconnect = True
+
+    try:
+        return await client.sign_in(password=password)
     finally:
         if should_disconnect:
             await client.disconnect()
@@ -282,6 +368,14 @@ def _invalid_login_code_error() -> HTTPException:
     )
 
 
+def _invalid_password_error() -> HTTPException:
+    """Build deterministic password error."""
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=_INVALID_PASSWORD_DETAIL,
+    )
+
+
 def _expired_login_code_error() -> HTTPException:
     """Build deterministic OTP expiry error."""
     return HTTPException(
@@ -312,6 +406,20 @@ def _auth_session_status_conflict_error(*, current_status: str) -> HTTPException
         status_code=status.HTTP_409_CONFLICT,
         detail=(
             "Auth session cannot accept login code when status is "
+            f"'{current_status}'."
+        ),
+    )
+
+
+def _auth_session_password_status_conflict_error(
+    *,
+    current_status: str,
+) -> HTTPException:
+    """Build deterministic error for invalid password step status."""
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=(
+            "Auth session cannot accept password when status is "
             f"'{current_status}'."
         ),
     )
