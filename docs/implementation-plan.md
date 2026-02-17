@@ -989,7 +989,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/api/test_poll_now.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: ``
+  - Commit: `1eea34c`
   - Verification summary:
     - Added poll-now API endpoint that enqueues poll jobs and rejects disabled/paused channels.
     - Added poll jobs queue table and repository plus manual poll tests.
@@ -1000,11 +1000,18 @@ An item is commit-ready only if all are true:
 - Change:
   - Implement notifications read/list endpoint for UI alerts.
 - Acceptance criteria:
-  - [ ] Endpoint returns notifications sorted by recency.
-  - [ ] Supports filtering by severity/type.
-  - [ ] Protected by bearer auth.
+  - [x] Endpoint returns notifications sorted by recency. [Tests: tests/api/test_notifications_api.py::test_list_notifications_returns_recent_first]
+  - [x] Supports filtering by severity/type. [Tests: tests/api/test_notifications_api.py::test_list_notifications_filters_by_severity_and_type]
+  - [x] Protected by bearer auth. [Tests: tests/api/test_notifications_api.py::test_list_notifications_requires_bearer_auth]
 - Verification:
   - `uv run pytest -q tests/api/test_notifications_api.py`
+- Execution record:
+  - Date: 2026-02-17
+  - Commit: `73aef6a`
+  - Verification summary:
+    - Added notifications list endpoint with recency ordering and filtering.
+    - Protected notifications list route with bearer auth.
+    - Verified with `uv run pytest -q tests/api/test_notifications_api.py`.
 
 ### C048 - Add API Endpoint to Acknowledge Notifications
 

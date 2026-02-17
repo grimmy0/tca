@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, cast
 
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from tca.storage.settings_repo import JSONValue
 
@@ -23,6 +24,20 @@ class NotificationRecord:
     severity: str
     message: str
     payload: JSONValue | None
+
+
+@dataclass(slots=True, frozen=True)
+class NotificationListRecord:
+    """Typed notifications payload for read/list responses."""
+
+    notification_id: int
+    type: str
+    severity: str
+    message: str
+    payload: JSONValue | None
+    is_acknowledged: bool
+    acknowledged_at: datetime | None
+    created_at: datetime
 
 
 class NotificationsRepositoryError(RuntimeError):
@@ -97,6 +112,49 @@ class NotificationsRepository:
             await session.commit()
         return _decode_row(row)
 
+    async def list_notifications(
+        self,
+        *,
+        severities: tuple[str, ...] | None = None,
+        types: tuple[str, ...] | None = None,
+    ) -> list[NotificationListRecord]:
+        """List notifications with optional severity/type filters."""
+        statement = """
+            SELECT
+                id,
+                type,
+                severity,
+                message,
+                payload_json,
+                is_acknowledged,
+                acknowledged_at,
+                created_at
+            FROM notifications
+        """
+        conditions: list[str] = []
+        params: dict[str, object] = {}
+
+        if severities:
+            conditions.append("severity IN :severities")
+            params["severities"] = list(severities)
+        if types:
+            conditions.append("type IN :types")
+            params["types"] = list(types)
+        if conditions:
+            statement += " WHERE " + " AND ".join(conditions)
+        statement += " ORDER BY created_at DESC, id DESC"
+
+        sql = text(statement)
+        if severities:
+            sql = sql.bindparams(bindparam("severities", expanding=True))
+        if types:
+            sql = sql.bindparams(bindparam("types", expanding=True))
+
+        async with self._read_session_factory() as session:
+            result = await session.execute(sql, params)
+            rows = result.mappings().all()
+        return [_decode_list_row(row) for row in rows]
+
 
 def _encode_payload_json(
     *,
@@ -150,3 +208,77 @@ def _decode_row(row: object) -> NotificationRecord:
         message=message,
         payload=payload,
     )
+
+
+def _decode_list_row(row: object) -> NotificationListRecord:
+    """Decode row mapping into NotificationListRecord."""
+    row_map = cast("dict[str, object]", row)
+    notification_id = row_map.get("id")
+    notification_type = row_map.get("type")
+    severity = row_map.get("severity")
+    message = row_map.get("message")
+    payload_json = row_map.get("payload_json")
+    is_acknowledged = row_map.get("is_acknowledged")
+    acknowledged_at = row_map.get("acknowledged_at")
+    created_at = row_map.get("created_at")
+
+    if not isinstance(notification_id, int):
+        raise NotificationsRepositoryError("Notification row missing id.")
+    if not isinstance(notification_type, str):
+        raise NotificationsRepositoryError("Notification row missing type.")
+    if not isinstance(severity, str):
+        raise NotificationsRepositoryError("Notification row missing severity.")
+    if not isinstance(message, str):
+        raise NotificationsRepositoryError("Notification row missing message.")
+    if not isinstance(is_acknowledged, (bool, int)):
+        raise NotificationsRepositoryError(
+            "Notification row missing is_acknowledged flag.",
+        )
+    acknowledged_at_value = _coerce_optional_datetime(value=acknowledged_at)
+    created_at_value = _coerce_datetime(value=created_at)
+    payload = _decode_payload_json(payload_json)
+
+    return NotificationListRecord(
+        notification_id=notification_id,
+        type=notification_type,
+        severity=severity,
+        message=message,
+        payload=payload,
+        is_acknowledged=bool(is_acknowledged),
+        acknowledged_at=acknowledged_at_value,
+        created_at=created_at_value,
+    )
+
+
+def _coerce_datetime(*, value: object) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError as exc:
+            raise NotificationsRepositoryError(
+                "Notification row invalid created_at.",
+            ) from exc
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed
+    raise NotificationsRepositoryError("Notification row missing created_at.")
+
+
+def _coerce_optional_datetime(*, value: object) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError as exc:
+            raise NotificationsRepositoryError(
+                "Notification row invalid acknowledged_at.",
+            ) from exc
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed
+    raise NotificationsRepositoryError("Notification row invalid acknowledged_at.")

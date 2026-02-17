@@ -40,6 +40,7 @@ from .migrations import (
     run_startup_migrations,
 )
 from .notifications_repo import (
+    NotificationListRecord,
     NotificationRecord,
     NotificationPayloadEncodeError,
     NotificationsRepository,
@@ -90,6 +91,7 @@ __all__ = [
     "MigrationRunnerDependency",
     "MigrationStartupError",
     "NotificationPayloadEncodeError",
+    "NotificationListRecord",
     "NotificationRecord",
     "NotificationsRepository",
     "NotificationsRepositoryError",
