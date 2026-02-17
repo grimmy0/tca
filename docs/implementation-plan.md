@@ -1121,11 +1121,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Detect repeated flood/auth failures and pause entire account.
 - Acceptance criteria:
-  - [ ] Repeated threshold breaches trigger account pause.
-  - [ ] High-severity notification is emitted once per pause event.
-  - [ ] Polling does not continue until explicit resume.
+  - [x] Repeated threshold breaches trigger account pause. [Tests: tests/ingest/test_account_risk_escalation.py::test_account_risk_escalation_pauses_account_on_repeated_breaches]
+  - [x] High-severity notification is emitted once per pause event. [Tests: tests/ingest/test_account_risk_escalation.py::test_account_risk_escalation_emits_notification_once]
+  - [x] Polling does not continue until explicit resume. [Tests: tests/ingest/test_account_risk_escalation.py::test_account_risk_escalation_blocks_schedulable_channels_until_resume]
 - Verification:
   - `uv run pytest -q tests/ingest/test_account_risk_escalation.py`
+- Execution record:
+  - Date: 2026-02-17
+  - Commit: `0b18fca`
+  - Verification summary:
+    - `uv run pytest -q tests/ingest/test_account_risk_escalation.py` passed (`3 passed, 3 warnings`).
 
 ### C055 - Implement Ingest Error Capture
 
