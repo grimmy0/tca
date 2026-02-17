@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import PlainTextResponse, Response
 
 from tca.api.bearer_auth import require_bearer_auth
+from tca.api.routes.channels import router as channels_router
 from tca.api.routes.channel_groups import router as channel_groups_router
 from tca.api.routes.health import router as health_router
 from tca.api.routes.settings import router as settings_router
@@ -230,6 +231,10 @@ def create_app() -> FastAPI:
     app.state.writer_queue_factory = WriterQueue
     _configure_cors(app=app, allow_origins=settings.cors_allow_origins)
     app.include_router(health_router)
+    app.include_router(
+        channels_router,
+        dependencies=protected_route_dependencies,
+    )
     app.include_router(
         channel_groups_router,
         dependencies=protected_route_dependencies,

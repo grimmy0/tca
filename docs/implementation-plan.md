@@ -928,11 +928,18 @@ An item is commit-ready only if all are true:
 - Change:
   - Add API for create/list/update channels (Telegram-only schema).
 - Acceptance criteria:
-  - [ ] Channel create validates required Telegram identifiers.
-  - [ ] List endpoint returns only caller-visible channels.
-  - [ ] Update endpoint persists polling-related fields.
+  - [x] Channel create validates required Telegram identifiers. [Tests: tests/api/test_channels_crud.py::test_channel_create_validates_required_telegram_identifiers]
+  - [x] List endpoint returns only caller-visible channels. [Tests: tests/api/test_channels_crud.py::test_list_channels_returns_only_enabled_rows]
+  - [x] Update endpoint persists polling-related fields. [Tests: tests/api/test_channels_crud.py::test_patch_channel_persists_polling_state_updates]
 - Verification:
   - `uv run pytest -q tests/api/test_channels_crud.py`
+- Execution record:
+  - Date: 2026-02-17
+  - Commit: `935bcbb`
+  - Verification summary:
+    - Added channels CRUD routes with polling state persistence and visibility filtering.
+    - Added channel state repository plus merge migration for Alembic heads.
+    - Verified with `uv run pytest -q tests/api/test_channels_crud.py`.
 
 ### C044 - Implement Channel Soft-Delete API Behavior
 

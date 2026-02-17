@@ -132,6 +132,7 @@ class ChannelsRepository:
         channel_id: int,
         name: str,
         username: str | None,
+        is_enabled: bool,
     ) -> ChannelRecord | None:
         """Update mutable channel fields and return row payload when found."""
         statement = text(
@@ -139,6 +140,7 @@ class ChannelsRepository:
             UPDATE telegram_channels
             SET name = :name,
                 username = :username,
+                is_enabled = :is_enabled,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = :channel_id
             RETURNING
@@ -157,6 +159,7 @@ class ChannelsRepository:
                     "channel_id": channel_id,
                     "name": name,
                     "username": username,
+                    "is_enabled": is_enabled,
                 },
             )
             row = result.mappings().one_or_none()

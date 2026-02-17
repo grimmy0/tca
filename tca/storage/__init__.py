@@ -19,6 +19,12 @@ from .channels_repo import (
     ChannelsRepository,
     ChannelsRepositoryError,
 )
+from .channel_state_repo import (
+    ChannelStateDecodeError,
+    ChannelStateRecord,
+    ChannelStateRepository,
+    ChannelStateRepositoryError,
+)
 from .db import (
     StorageRuntime,
     build_sqlite_url,
@@ -71,6 +77,10 @@ __all__ = [
     "ChannelRecord",
     "ChannelsRepository",
     "ChannelsRepositoryError",
+    "ChannelStateDecodeError",
+    "ChannelStateRecord",
+    "ChannelStateRepository",
+    "ChannelStateRepositoryError",
     "JSONValue",
     "MigrationRunnerDependency",
     "MigrationStartupError",
