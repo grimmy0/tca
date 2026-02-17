@@ -92,6 +92,17 @@ async def scheduler_runtime(tmp_path: Path) -> AsyncIterator[StorageRuntime]:
             )
             """,
         )
+        _ = await connection.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS settings (
+                id INTEGER PRIMARY KEY,
+                key VARCHAR(255) NOT NULL,
+                value_json TEXT NOT NULL,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT uq_settings_key UNIQUE (key)
+            )
+            """,
+        )
     try:
         yield runtime
     finally:
@@ -257,6 +268,7 @@ def _build_core_loop(runtime: StorageRuntime, *, now: datetime) -> SchedulerCore
             write_session_factory=runtime.write_session_factory,
         ),
         poll_interval_seconds=300,
+        jitter_ratio=0.0,
         time_provider=lambda: now,
         correlation_id_factory=_build_correlation_factory(),
     )

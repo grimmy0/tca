@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+import random
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Callable
 from uuid import uuid4
@@ -14,6 +15,7 @@ from tca.storage import (
     ChannelsRepository,
     PollJobRecord,
     PollJobsRepository,
+    SettingsRepository,
     StorageRuntime,
     WriterQueueProtocol,
 )
@@ -24,6 +26,10 @@ TimeProvider = Callable[[], datetime]
 CorrelationIdFactory = Callable[[], str]
 RuntimeProvider = Callable[[], StorageRuntime]
 WriterQueueProvider = Callable[[], WriterQueueProtocol]
+
+DEFAULT_POLL_INTERVAL_SECONDS = 300
+DEFAULT_JITTER_RATIO = 0.2
+POLL_INTERVAL_SETTING_KEY = "scheduler.default_poll_interval_seconds"
 
 
 def _utc_now() -> datetime:
@@ -48,7 +54,9 @@ class SchedulerCoreLoop:
     state_repository: ChannelStateRepository
     jobs_repository: PollJobsRepository
     writer_queue: WriterQueueProtocol | None = None
-    poll_interval_seconds: int = 300
+    poll_interval_seconds: int = DEFAULT_POLL_INTERVAL_SECONDS
+    jitter_ratio: float = DEFAULT_JITTER_RATIO
+    jitter_rng: random.Random = field(default_factory=random.Random)
     time_provider: TimeProvider = _utc_now
     correlation_id_factory: CorrelationIdFactory = _default_correlation_id
 
@@ -82,9 +90,21 @@ class SchedulerCoreLoop:
     ) -> bool:
         if state_last_success is None:
             return True
-        state_last_success = _normalize_datetime(state_last_success)
-        next_run_at = state_last_success + timedelta(seconds=self.poll_interval_seconds)
+        next_run_at = self._compute_next_run_at(
+            state_last_success=state_last_success,
+        )
         return next_run_at <= now
+
+    def _compute_next_run_at(self, *, state_last_success: datetime) -> datetime:
+        state_last_success = _normalize_datetime(state_last_success)
+        jitter_seconds = self._compute_jitter_seconds()
+        return state_last_success + timedelta(
+            seconds=self.poll_interval_seconds + jitter_seconds,
+        )
+
+    def _compute_jitter_seconds(self) -> float:
+        jitter_range = self.poll_interval_seconds * self.jitter_ratio
+        return self.jitter_rng.uniform(-jitter_range, jitter_range)
 
     async def _enqueue_job(self, *, channel_id: int) -> PollJobRecord:
         correlation_id = self.correlation_id_factory()
@@ -106,7 +126,9 @@ class SchedulerService:
 
     runtime_provider: RuntimeProvider
     writer_queue_provider: WriterQueueProvider | None = None
-    poll_interval_seconds: int = 300
+    poll_interval_seconds: int = DEFAULT_POLL_INTERVAL_SECONDS
+    jitter_ratio: float = DEFAULT_JITTER_RATIO
+    jitter_rng: random.Random = field(default_factory=random.Random)
     tick_interval_seconds: float = 1.0
     time_provider: TimeProvider = _utc_now
     correlation_id_factory: CorrelationIdFactory = _default_correlation_id
@@ -118,6 +140,14 @@ class SchedulerService:
         if self.is_running:
             return
         runtime = self.runtime_provider()
+        settings_repository = SettingsRepository(
+            read_session_factory=runtime.read_session_factory,
+            write_session_factory=runtime.write_session_factory,
+        )
+        poll_interval_seconds = await _resolve_poll_interval_seconds(
+            repository=settings_repository,
+            default_value=self.poll_interval_seconds,
+        )
         writer_queue = (
             self.writer_queue_provider()
             if self.writer_queue_provider is not None
@@ -137,7 +167,9 @@ class SchedulerService:
                 write_session_factory=runtime.write_session_factory,
             ),
             writer_queue=writer_queue,
-            poll_interval_seconds=self.poll_interval_seconds,
+            poll_interval_seconds=poll_interval_seconds,
+            jitter_ratio=self.jitter_ratio,
+            jitter_rng=self.jitter_rng,
             time_provider=self.time_provider,
             correlation_id_factory=self.correlation_id_factory,
         )
@@ -175,3 +207,23 @@ class SchedulerService:
                 )
             except asyncio.TimeoutError:
                 continue
+
+
+async def _resolve_poll_interval_seconds(
+    *,
+    repository: SettingsRepository,
+    default_value: int,
+) -> int:
+    record = await repository.get_by_key(key=POLL_INTERVAL_SETTING_KEY)
+    if record is None:
+        return default_value
+    value = record.value
+    if isinstance(value, bool):
+        return default_value
+    if isinstance(value, int):
+        return value if value > 0 else default_value
+    if isinstance(value, float):
+        if value <= 0:
+            return default_value
+        return int(value)
+    return default_value

@@ -1058,11 +1058,18 @@ An item is commit-ready only if all are true:
 - Change:
   - Implement default interval and +/-20% jitter policy.
 - Acceptance criteria:
-  - [ ] Computed next run time lies within jitter bounds.
-  - [ ] Jitter is deterministic under seeded RNG in tests.
-  - [ ] Configurable poll interval from settings is honored.
+  - [x] Computed next run time lies within jitter bounds. [Tests: tests/scheduler/test_jitter.py::test_next_run_at_within_jitter_bounds]
+  - [x] Jitter is deterministic under seeded RNG in tests. [Tests: tests/scheduler/test_jitter.py::test_jitter_is_deterministic_with_seeded_rng]
+  - [x] Configurable poll interval from settings is honored. [Tests: tests/scheduler/test_jitter.py::test_poll_interval_resolves_from_settings]
 - Verification:
   - `uv run pytest -q tests/scheduler/test_jitter.py`
+- Execution record:
+  - Date: 2026-02-17
+  - Commit: `31c7c88`
+  - Verification summary:
+    - Added jittered next-run computation with deterministic RNG handling.
+    - Resolved scheduler poll interval from dynamic settings.
+    - Added jitter tests and verified with `uv run pytest -q tests/scheduler/test_jitter.py`.
 
 ### C051 - Implement Channel Cursor Persistence
 
