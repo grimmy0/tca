@@ -225,6 +225,8 @@ def _coerce_optional_datetime(*, value: object) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
         return value
     if isinstance(value, str):
         try:

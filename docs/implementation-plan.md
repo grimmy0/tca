@@ -1111,7 +1111,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/ingest/test_flood_wait.py`
 - Execution record:
   - Date: 2026-02-17
-  - Commit: `57c6b77`
+  - Commit: `d2f0e1a`
   - Verification summary:
     - `uv run pytest -q tests/ingest/test_flood_wait.py` passed (`4 passed`).
     - `uv run pytest -q tests/scheduler/test_core_loop.py` passed (`5 passed`).

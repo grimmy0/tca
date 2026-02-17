@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from typing import Protocol, cast, runtime_checkable
 from unittest.mock import patch
@@ -131,7 +131,7 @@ def test_poll_now_rejects_paused_channel(
         (_as_path(tmp_path) / "poll-now-paused-bootstrap-token.txt").as_posix(),
     )
 
-    paused_until = datetime(2026, 2, 17, 12, 0, tzinfo=timezone.utc)
+    paused_until = datetime.now(timezone.utc) + timedelta(minutes=30)
 
     app = create_app()
     auth_headers = _auth_headers()
