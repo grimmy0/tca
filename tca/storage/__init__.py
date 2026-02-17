@@ -27,6 +27,12 @@ from .migrations import (
     MigrationStartupError,
     run_startup_migrations,
 )
+from .notifications_repo import (
+    NotificationRecord,
+    NotificationPayloadEncodeError,
+    NotificationsRepository,
+    NotificationsRepositoryError,
+)
 from .settings_repo import (
     JSONValue,
     SettingAlreadyExistsError,
@@ -58,6 +64,10 @@ __all__ = [
     "JSONValue",
     "MigrationRunnerDependency",
     "MigrationStartupError",
+    "NotificationPayloadEncodeError",
+    "NotificationRecord",
+    "NotificationsRepository",
+    "NotificationsRepositoryError",
     "SettingAlreadyExistsError",
     "SettingRecord",
     "SettingsRepository",

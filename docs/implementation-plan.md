@@ -888,11 +888,18 @@ An item is commit-ready only if all are true:
 - Change:
   - On registration block/auth failure, write notification with actionable message.
 - Acceptance criteria:
-  - [ ] Expected failure classes produce `auth_registration_blocked` or related notification.
-  - [ ] Notification severity is set correctly.
-  - [ ] Notification payload includes retry guidance.
+  - [x] Expected failure classes produce `auth_registration_blocked` or related notification. [Tests: tests/notifications/test_auth_notifications.py::test_auth_start_blocked_registration_creates_notification, tests/notifications/test_auth_notifications.py::test_auth_verify_code_failed_login_creates_notification]
+  - [x] Notification severity is set correctly. [Tests: tests/notifications/test_auth_notifications.py::test_auth_start_blocked_registration_creates_notification, tests/notifications/test_auth_notifications.py::test_auth_verify_code_failed_login_creates_notification]
+  - [x] Notification payload includes retry guidance. [Tests: tests/notifications/test_auth_notifications.py::test_auth_start_blocked_registration_creates_notification, tests/notifications/test_auth_notifications.py::test_auth_verify_code_failed_login_creates_notification]
 - Verification:
   - `uv run pytest -q tests/notifications/test_auth_notifications.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `4441f9d`
+  - Verification summary:
+    - Added auth failure notifications with retry guidance and severity.
+    - Persisted auth registration/login failures into notifications storage.
+    - Verified with `uv run pytest -q tests/notifications/test_auth_notifications.py`.
 
 ### C042 - Add Account Pause/Resume Flags
 

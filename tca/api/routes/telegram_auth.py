@@ -11,6 +11,10 @@ from telethon import TelegramClient
 from telethon.errors import (
     ApiIdInvalidError,
     ConnectionApiIdInvalidError,
+    PhoneNumberBannedError,
+    PhoneNumberFloodError,
+    PhoneNumberInvalidError,
+    PhoneNumberUnoccupiedError,
     PhoneCodeExpiredError,
     PhoneCodeInvalidError,
     PasswordHashInvalidError,
@@ -32,6 +36,7 @@ from tca.auth import (
     resolve_key_encryption_key,
 )
 from tca.storage import StorageRuntime, WriterQueueProtocol
+from tca.storage.notifications_repo import NotificationsRepository
 from tca.storage.settings_repo import SettingsRepository
 
 router = APIRouter()
@@ -47,6 +52,14 @@ _INVALID_PASSWORD_DETAIL = "Invalid Telegram password."
 _MISSING_PASSWORD_SESSION_DETAIL = "Auth session missing Telegram session state."
 _PASSWORD_SESSION_CAPTURE_FAILED_DETAIL = "Unable to capture Telegram auth session."
 _SENSITIVE_OPERATION_LOCKED_DETAIL = SENSITIVE_OPERATION_LOCKED_MESSAGE
+_AUTH_REGISTRATION_BLOCKED_DETAIL = "Telegram registration is blocked. Retry later."
+_AUTH_LOGIN_FAILED_DETAIL = "Telegram login failed. Retry after verifying credentials."
+
+_NOTIFICATION_TYPE_REGISTRATION_BLOCKED = "auth_registration_blocked"
+_NOTIFICATION_TYPE_LOGIN_FAILED = "auth_login_failed"
+_NOTIFICATION_SEVERITY_HIGH = "high"
+_NOTIFICATION_SEVERITY_MEDIUM = "medium"
+_DEFAULT_RETRY_AFTER_SECONDS = 3600
 
 
 class TelegramAuthStartRequest(BaseModel):
@@ -154,6 +167,22 @@ async def start_telegram_auth(
             client=client,
             phone_number=payload.phone_number,
         )
+    except (
+        PhoneNumberBannedError,
+        PhoneNumberFloodError,
+        PhoneNumberInvalidError,
+        PhoneNumberUnoccupiedError,
+    ) as exc:
+        writer_queue = _resolve_writer_queue(request)
+        notification_type = await _record_auth_failure_notification(
+            request=request,
+            writer_queue=writer_queue,
+            error=exc,
+        )
+        raise _auth_failure_http_error(
+            error=exc,
+            notification_type=notification_type,
+        ) from exc
     except (ApiIdInvalidError, ConnectionApiIdInvalidError) as exc:
         raise _invalid_api_credentials_error() from exc
 
@@ -239,6 +268,21 @@ async def verify_telegram_code(
             session_id=session_state.session_id,
         )
         raise _expired_login_code_error() from exc
+    except (
+        PhoneNumberBannedError,
+        PhoneNumberFloodError,
+        PhoneNumberInvalidError,
+        PhoneNumberUnoccupiedError,
+    ) as exc:
+        notification_type = await _record_auth_failure_notification(
+            request=request,
+            writer_queue=writer_queue,
+            error=exc,
+        )
+        raise _auth_failure_http_error(
+            error=exc,
+            notification_type=notification_type,
+        ) from exc
     except (ApiIdInvalidError, ConnectionApiIdInvalidError) as exc:
         raise _invalid_api_credentials_error() from exc
 
@@ -316,6 +360,21 @@ async def verify_telegram_password(
         )
     except PasswordHashInvalidError as exc:
         raise _invalid_password_error() from exc
+    except (
+        PhoneNumberBannedError,
+        PhoneNumberFloodError,
+        PhoneNumberInvalidError,
+        PhoneNumberUnoccupiedError,
+    ) as exc:
+        notification_type = await _record_auth_failure_notification(
+            request=request,
+            writer_queue=writer_queue,
+            error=exc,
+        )
+        raise _auth_failure_http_error(
+            error=exc,
+            notification_type=notification_type,
+        ) from exc
     except (ApiIdInvalidError, ConnectionApiIdInvalidError) as exc:
         raise _invalid_api_credentials_error() from exc
 
@@ -694,4 +753,112 @@ def _extract_session_string(client: TelegramAuthClientProtocol) -> str | None:
     session_string = save_obj()
     if isinstance(session_string, str) and session_string:
         return session_string
+    return None
+
+
+def _auth_registration_blocked_error(*, error: BaseException) -> HTTPException:
+    """Build deterministic error for blocked registration/login failures."""
+    _ = error
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=_AUTH_REGISTRATION_BLOCKED_DETAIL,
+    )
+
+
+def _auth_login_failed_error(*, error: BaseException) -> HTTPException:
+    """Build deterministic error for login failures that are not blocks."""
+    _ = error
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=_AUTH_LOGIN_FAILED_DETAIL,
+    )
+
+
+async def _record_auth_failure_notification(
+    *,
+    request: Request,
+    writer_queue: WriterQueueProtocol,
+    error: BaseException,
+) -> str:
+    """Persist a notification for registration/login failures."""
+    runtime = _resolve_storage_runtime(request)
+    repository = NotificationsRepository(
+        read_session_factory=runtime.read_session_factory,
+        write_session_factory=runtime.write_session_factory,
+    )
+    notification_type, severity, message, payload = _map_auth_error_notification(
+        error=error,
+    )
+
+    async def _persist() -> None:
+        _ = await repository.create(
+            notification_type=notification_type,
+            severity=severity,
+            message=message,
+            payload=payload,
+        )
+
+    await writer_queue.submit(_persist)
+    return notification_type
+
+
+def _auth_failure_http_error(
+    *,
+    error: BaseException,
+    notification_type: str,
+) -> HTTPException:
+    """Select HTTP error based on notification type."""
+    if notification_type == _NOTIFICATION_TYPE_REGISTRATION_BLOCKED:
+        return _auth_registration_blocked_error(error=error)
+    return _auth_login_failed_error(error=error)
+
+
+def _map_auth_error_notification(
+    *,
+    error: BaseException,
+) -> tuple[str, str, str, dict[str, object]]:
+    """Map auth errors into notification details with retry guidance."""
+    if isinstance(error, (PhoneNumberBannedError, PhoneNumberFloodError)):
+        retry_hint = (
+            "Wait before retrying. If this persists, review the Telegram account."
+        )
+        return (
+            _NOTIFICATION_TYPE_REGISTRATION_BLOCKED,
+            _NOTIFICATION_SEVERITY_HIGH,
+            "Telegram registration/login is blocked for this account.",
+            _build_retry_payload(error=error, retry_hint=retry_hint),
+        )
+    retry_hint = "Confirm the phone number and retry the login flow."
+    return (
+        _NOTIFICATION_TYPE_LOGIN_FAILED,
+        _NOTIFICATION_SEVERITY_MEDIUM,
+        "Telegram login failed for the supplied account details.",
+        _build_retry_payload(
+            error=error,
+            retry_hint=retry_hint,
+        ),
+    )
+
+
+def _build_retry_payload(
+    *,
+    error: BaseException,
+    retry_hint: str,
+) -> dict[str, object]:
+    """Build notification payload containing retry guidance."""
+    retry_after_seconds = _extract_retry_after_seconds(error=error)
+    if retry_after_seconds is None:
+        retry_after_seconds = _DEFAULT_RETRY_AFTER_SECONDS
+    return {
+        "error_type": error.__class__.__name__,
+        "retry_after_seconds": retry_after_seconds,
+        "retry_hint": retry_hint,
+    }
+
+
+def _extract_retry_after_seconds(*, error: BaseException) -> int | None:
+    """Extract retry-after seconds if the error exposes a wait duration."""
+    retry_after = getattr(error, "seconds", None)
+    if isinstance(retry_after, int) and retry_after > 0:
+        return retry_after
     return None
