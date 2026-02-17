@@ -225,6 +225,30 @@ class ChannelsRepository:
             rows = result.mappings().all()
         return [_decode_channel_row(row) for row in rows]
 
+    async def list_schedulable_channels(self) -> list[ChannelRecord]:
+        """List enabled channels for accounts that are not paused."""
+        statement = text(
+            """
+            SELECT
+                channels.id,
+                channels.account_id,
+                channels.telegram_channel_id,
+                channels.name,
+                channels.username,
+                channels.is_enabled
+            FROM telegram_channels AS channels
+            INNER JOIN telegram_accounts AS accounts
+                ON accounts.id = channels.account_id
+            WHERE channels.is_enabled = 1
+              AND accounts.paused_at IS NULL
+            ORDER BY channels.id ASC
+            """,
+        )
+        async with self._read_session_factory() as session:
+            result = await session.execute(statement)
+            rows = result.mappings().all()
+        return [_decode_channel_row(row) for row in rows]
+
     async def _set_enabled_state(
         self,
         *,

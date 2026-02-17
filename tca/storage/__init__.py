@@ -7,6 +7,12 @@ from .channel_groups_repo import (
     ChannelGroupsRepository,
     ChannelGroupsRepositoryError,
 )
+from .account_pause_repo import (
+    AccountPauseDecodeError,
+    AccountPauseRecord,
+    AccountPauseRepository,
+    AccountPauseRepositoryError,
+)
 from .channels_repo import (
     ChannelDecodeError,
     ChannelRecord,
@@ -51,6 +57,10 @@ from .writer_queue import (
 )
 
 __all__ = [
+    "AccountPauseDecodeError",
+    "AccountPauseRecord",
+    "AccountPauseRepository",
+    "AccountPauseRepositoryError",
     "DYNAMIC_SETTINGS_DEFAULTS",
     "ChannelAlreadyAssignedToGroupError",
     "ChannelDecodeError",

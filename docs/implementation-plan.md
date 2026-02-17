@@ -906,11 +906,18 @@ An item is commit-ready only if all are true:
 - Change:
   - Add account-level pause field and resume operation used by risk controls.
 - Acceptance criteria:
-  - [ ] Paused account channels are excluded from scheduler selection.
-  - [ ] Resume operation clears pause state.
-  - [ ] Pause reason is persisted.
+  - [x] Paused account channels are excluded from scheduler selection. [Tests: tests/ingest/test_account_pause_flags.py::test_scheduler_selection_excludes_paused_accounts]
+  - [x] Resume operation clears pause state. [Tests: tests/ingest/test_account_pause_flags.py::test_resume_clears_pause_state]
+  - [x] Pause reason is persisted. [Tests: tests/ingest/test_account_pause_flags.py::test_pause_reason_persisted]
 - Verification:
   - `uv run pytest -q tests/ingest/test_account_pause_flags.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `019ad82`
+  - Verification summary:
+    - Added account pause/resume storage and schedulable channel filtering.
+    - Persisted pause reasons on accounts and added pause flags migration.
+    - Verified with `uv run pytest -q tests/ingest/test_account_pause_flags.py`.
 
 ---
 
