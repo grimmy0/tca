@@ -55,6 +55,7 @@ class AuthSessionState:
     phone_number: str
     status: str
     expires_at: int
+    telegram_session: str | None
 
 
 class AuthSessionStateRepository:
@@ -79,6 +80,7 @@ class AuthSessionStateRepository:
         session_id: str,
         phone_number: str,
         status: str,
+        telegram_session: str | None = None,
         expires_at: int | None = None,
         ttl_seconds: int | None = None,
     ) -> AuthSessionState:
@@ -95,10 +97,11 @@ class AuthSessionStateRepository:
                 session_id,
                 phone_number,
                 status,
-                expires_at
+                expires_at,
+                telegram_session
             )
-            VALUES (:session_id, :phone_number, :status, :expires_at)
-            RETURNING session_id, phone_number, status, expires_at
+            VALUES (:session_id, :phone_number, :status, :expires_at, :telegram_session)
+            RETURNING session_id, phone_number, status, expires_at, telegram_session
             """,
         )
         async with self._write_session_factory() as session:
@@ -109,6 +112,7 @@ class AuthSessionStateRepository:
                     "phone_number": phone_number,
                     "status": status,
                     "expires_at": expires_at,
+                    "telegram_session": telegram_session,
                 },
             )
             row = result.mappings().one()
@@ -119,7 +123,7 @@ class AuthSessionStateRepository:
         """Fetch auth session state by session id, enforcing expiry."""
         statement = text(
             """
-            SELECT session_id, phone_number, status, expires_at
+            SELECT session_id, phone_number, status, expires_at, telegram_session
             FROM auth_session_state
             WHERE session_id = :session_id
             """,
@@ -141,22 +145,35 @@ class AuthSessionStateRepository:
         *,
         session_id: str,
         status: str,
+        telegram_session: str | None = None,
+        update_session: bool = False,
     ) -> AuthSessionState:
         """Update the status for an auth session state row."""
-        statement = text(
-            """
-            UPDATE auth_session_state
-            SET status = :status,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE session_id = :session_id
-            RETURNING session_id, phone_number, status, expires_at
-            """,
-        )
-        async with self._write_session_factory() as session:
-            result = await session.execute(
-                statement,
-                {"session_id": session_id, "status": status},
+        values: dict[str, object] = {"session_id": session_id, "status": status}
+        if not update_session:
+            statement = text(
+                """
+                UPDATE auth_session_state
+                SET status = :status,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE session_id = :session_id
+                RETURNING session_id, phone_number, status, expires_at, telegram_session
+                """,
             )
+        else:
+            statement = text(
+                """
+                UPDATE auth_session_state
+                SET status = :status,
+                    telegram_session = :telegram_session,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE session_id = :session_id
+                RETURNING session_id, phone_number, status, expires_at, telegram_session
+                """,
+            )
+            values["telegram_session"] = telegram_session
+        async with self._write_session_factory() as session:
+            result = await session.execute(statement, values)
             row = result.mappings().one_or_none()
             await session.commit()
         if row is None:
@@ -194,6 +211,10 @@ def _decode_row(row: object) -> AuthSessionState:
         ),
         status=_coerce_str(value=row_map.get("status"), field_name="status"),
         expires_at=_coerce_int(value=row_map.get("expires_at"), field_name="expires_at"),
+        telegram_session=_coerce_optional_str(
+            value=row_map.get("telegram_session"),
+            field_name="telegram_session",
+        ),
     )
 
 
@@ -211,6 +232,15 @@ def _coerce_int(*, value: object, field_name: str) -> int:
     if isinstance(value, str) and value.isdigit():
         return int(value)
     raise AuthSessionStateError(f"Auth session state missing `{field_name}` value.")
+
+
+def _coerce_optional_str(*, value: object, field_name: str) -> str | None:
+    """Normalize and validate optional string column values."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    raise AuthSessionStateError(f"Auth session state invalid `{field_name}` value.")
 
 
 def _now_epoch() -> int:

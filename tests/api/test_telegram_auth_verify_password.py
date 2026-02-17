@@ -37,13 +37,17 @@ def test_verify_password_finalizes_login(
     api_hash = "hash-for-password"
     phone_number = "+15550009999"
     password = "correct-password"
+    expected_session = "telegram-password-session"
+    mock_tg_client.session = _FakeStringSession(expected_session)
     mock_tg_client.responses["sign_in"] = SessionPasswordNeededError(request=None)
 
     app = create_app()
+    session_strings: list[str | None] = []
     app.state.telegram_auth_client_factory = _build_factory(
         mock_tg_client=mock_tg_client,
         expected_api_id=api_id,
         expected_api_hash=api_hash,
+        session_strings=session_strings,
     )
 
     with (
@@ -95,7 +99,17 @@ def test_verify_password_finalizes_login(
         raise AssertionError
     if mock_tg_client.call_counts.get("sign_in") != 2:
         raise AssertionError
+    if expected_session not in session_strings:
+        raise AssertionError
     if _fetch_session_status(db_path=db_path, session_id=session_id) != "authenticated":
+        raise AssertionError
+    if (
+        _fetch_session_telegram_session(
+            db_path=db_path,
+            session_id=session_id,
+        )
+        is not None
+    ):
         raise AssertionError
 
 
@@ -114,6 +128,7 @@ def test_verify_password_wrong_password_returns_retryable_error(
     api_id = 1414
     api_hash = "hash-for-wrong-password"
     phone_number = "+15550008888"
+    mock_tg_client.session = _FakeStringSession("telegram-password-bad")
     mock_tg_client.responses["sign_in"] = SessionPasswordNeededError(request=None)
 
     app = create_app()
@@ -272,6 +287,23 @@ def _fetch_session_status(*, db_path: Path, session_id: str) -> str:
     return row[0]
 
 
+def _fetch_session_telegram_session(*, db_path: Path, session_id: str) -> str | None:
+    """Fetch auth session Telegram session from sqlite storage."""
+    with sqlite3.connect(db_path) as connection:
+        cursor = connection.execute(
+            "SELECT telegram_session FROM auth_session_state WHERE session_id = ?",
+            (session_id,),
+        )
+        row = cursor.fetchone()
+    if row is None:
+        raise AssertionError
+    if row[0] is None:
+        return None
+    if not isinstance(row[0], str):
+        raise AssertionError
+    return row[0]
+
+
 def _token_side_effect() -> object:
     """Return a token generator that reserves the first value for auth."""
     counter = itertools.count()
@@ -290,14 +322,21 @@ def _build_factory(
     mock_tg_client: MockTelegramClient,
     expected_api_id: int,
     expected_api_hash: str,
+    session_strings: list[str | None] | None = None,
 ) -> object:
     """Build client factory that asserts inputs and returns the mock client."""
 
-    def _factory(api_id: int, api_hash: str) -> MockTelegramClient:
+    def _factory(
+        api_id: int,
+        api_hash: str,
+        session_string: str | None = None,
+    ) -> MockTelegramClient:
         if api_id != expected_api_id:
             raise AssertionError
         if api_hash != expected_api_hash:
             raise AssertionError
+        if session_strings is not None:
+            session_strings.append(session_string)
         return mock_tg_client
 
     return _factory
@@ -339,3 +378,14 @@ class MonkeyPatchLike(Protocol):
 
     def setenv(self, name: str, value: str) -> None:
         """Set environment variable for duration of current test."""
+
+
+class _FakeStringSession:
+    """Minimal StringSession stand-in with a deterministic save method."""
+
+    def __init__(self, value: str) -> None:
+        self._value = value
+
+    def save(self) -> str:
+        """Return fixed session payload."""
+        return self._value

@@ -96,6 +96,8 @@ def test_verify_code_requires_password_updates_status(
     api_id = 8888
     api_hash = "hash-for-password"
     phone_number = "+15550005555"
+    expected_session = "telegram-session-state"
+    mock_tg_client.session = _FakeStringSession(expected_session)
     mock_tg_client.responses["sign_in"] = SessionPasswordNeededError(request=None)
 
     app = create_app()
@@ -138,6 +140,14 @@ def test_verify_code_requires_password_updates_status(
         db_path=db_path,
         session_id=session_id,
     ) != "password_required":
+        raise AssertionError
+    if (
+        _fetch_session_telegram_session(
+            db_path=db_path,
+            session_id=session_id,
+        )
+        != expected_session
+    ):
         raise AssertionError
 
 
@@ -329,6 +339,23 @@ def _fetch_session_status(*, db_path: Path, session_id: str) -> str:
     return row[0]
 
 
+def _fetch_session_telegram_session(*, db_path: Path, session_id: str) -> str | None:
+    """Fetch auth session Telegram session from sqlite storage."""
+    with sqlite3.connect(db_path) as connection:
+        cursor = connection.execute(
+            "SELECT telegram_session FROM auth_session_state WHERE session_id = ?",
+            (session_id,),
+        )
+        row = cursor.fetchone()
+    if row is None:
+        raise AssertionError
+    if row[0] is None:
+        return None
+    if not isinstance(row[0], str):
+        raise AssertionError
+    return row[0]
+
+
 def _expire_session(*, db_path: Path, session_id: str) -> None:
     """Force session expiry by writing a past timestamp."""
     with sqlite3.connect(db_path) as connection:
@@ -406,3 +433,14 @@ class MonkeyPatchLike(Protocol):
 
     def setenv(self, name: str, value: str) -> None:
         """Set environment variable for duration of current test."""
+
+
+class _FakeStringSession:
+    """Minimal StringSession stand-in with a deterministic save method."""
+
+    def __init__(self, value: str) -> None:
+        self._value = value
+
+    def save(self) -> str:
+        """Return fixed session payload."""
+        return self._value

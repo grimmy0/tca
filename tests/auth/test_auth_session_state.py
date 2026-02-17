@@ -37,6 +37,7 @@ async def auth_session_state_runtime(
                 phone_number TEXT NOT NULL,
                 status TEXT NOT NULL,
                 expires_at INTEGER NOT NULL,
+                telegram_session TEXT NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
             )

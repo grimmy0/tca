@@ -37,6 +37,8 @@ _OTP_REQUEST_FAILED_DETAIL = "Unable to send Telegram login code."
 _INVALID_LOGIN_CODE_DETAIL = "Invalid Telegram login code."
 _EXPIRED_LOGIN_CODE_DETAIL = "Telegram login code expired."
 _INVALID_PASSWORD_DETAIL = "Invalid Telegram password."
+_MISSING_PASSWORD_SESSION_DETAIL = "Auth session missing Telegram session state."
+_PASSWORD_SESSION_CAPTURE_FAILED_DETAIL = "Unable to capture Telegram auth session."
 
 
 class TelegramAuthStartRequest(BaseModel):
@@ -109,11 +111,20 @@ class TelegramAuthClientProtocol(Protocol):
     def is_connected(self) -> bool:
         """Return True when the client is currently connected."""
 
+    @property
+    def session(self) -> object | None:
+        """Return the underlying session object, if available."""
+
 
 class TelegramAuthClientFactory(Protocol):
     """Factory for creating Telegram clients for auth flow."""
 
-    def __call__(self, api_id: int, api_hash: str) -> TelegramAuthClientProtocol:
+    def __call__(
+        self,
+        api_id: int,
+        api_hash: str,
+        session_string: str | None = None,
+    ) -> TelegramAuthClientProtocol:
         """Create a Telegram client instance."""
 
 
@@ -179,8 +190,11 @@ async def verify_telegram_code(
     if session_state.status != _AUTH_STATUS_CODE_SENT:
         raise _auth_session_status_conflict_error(current_status=session_state.status)
 
-    client_factory = _resolve_auth_client_factory(request)
-    client = client_factory(payload.api_id, payload.api_hash)
+    client = _build_auth_client(
+        request=request,
+        api_id=payload.api_id,
+        api_hash=payload.api_hash,
+    )
     try:
         _ = await _sign_in_with_code(
             client=client,
@@ -188,11 +202,16 @@ async def verify_telegram_code(
             code=payload.code,
         )
     except SessionPasswordNeededError:
+        session_string = _extract_session_string(client)
+        if not session_string:
+            raise _password_session_capture_error()
         updated = await _update_auth_session_status(
             writer_queue=writer_queue,
             repository=repository,
             session_id=session_state.session_id,
             status=_AUTH_STATUS_PASSWORD_REQUIRED,
+            telegram_session=session_string,
+            update_session=True,
         )
         return TelegramAuthVerifyCodeResponse(
             session_id=updated.session_id,
@@ -248,8 +267,15 @@ async def verify_telegram_password(
             current_status=session_state.status,
         )
 
-    client_factory = _resolve_auth_client_factory(request)
-    client = client_factory(payload.api_id, payload.api_hash)
+    if not session_state.telegram_session:
+        raise _missing_password_session_error()
+
+    client = _build_auth_client(
+        request=request,
+        api_id=payload.api_id,
+        api_hash=payload.api_hash,
+        session_string=session_state.telegram_session,
+    )
     try:
         _ = await _sign_in_with_password(
             client=client,
@@ -265,6 +291,8 @@ async def verify_telegram_password(
         repository=repository,
         session_id=session_state.session_id,
         status=_AUTH_STATUS_AUTHENTICATED,
+        telegram_session=None,
+        update_session=True,
     )
     return TelegramAuthVerifyPasswordResponse(
         session_id=updated.session_id,
@@ -331,11 +359,13 @@ async def _sign_in_with_password(
 def _default_auth_client_factory(
     api_id: int,
     api_hash: str,
+    session_string: str | None = None,
 ) -> TelegramAuthClientProtocol:
     """Create a Telethon client using in-memory StringSession."""
+    session_obj = StringSession(session_string) if session_string else StringSession()
     return cast(
         "TelegramAuthClientProtocol",
-        TelegramClient(StringSession(), api_id, api_hash),
+        TelegramClient(session_obj, api_id, api_hash),
     )
 
 
@@ -373,6 +403,22 @@ def _invalid_password_error() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail=_INVALID_PASSWORD_DETAIL,
+    )
+
+
+def _missing_password_session_error() -> HTTPException:
+    """Build deterministic error for missing password session state."""
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=_MISSING_PASSWORD_SESSION_DETAIL,
+    )
+
+
+def _password_session_capture_error() -> HTTPException:
+    """Build deterministic error when session capture fails."""
+    return HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=_PASSWORD_SESSION_CAPTURE_FAILED_DETAIL,
     )
 
 
@@ -431,11 +477,18 @@ async def _update_auth_session_status(
     repository: AuthSessionStateRepository,
     session_id: str,
     status: str,
+    telegram_session: str | None = None,
+    update_session: bool = False,
 ) -> AuthSessionState:
     """Update auth session status through the writer queue."""
 
     async def _update() -> AuthSessionState:
-        return await repository.update_status(session_id=session_id, status=status)
+        return await repository.update_status(
+            session_id=session_id,
+            status=status,
+            telegram_session=telegram_session,
+            update_session=update_session,
+        )
 
     try:
         return await writer_queue.submit(_update)
@@ -466,6 +519,24 @@ def _build_auth_session_repository(request: Request) -> AuthSessionStateReposito
         read_session_factory=runtime.read_session_factory,
         write_session_factory=runtime.write_session_factory,
     )
+
+
+def _build_auth_client(
+    *,
+    request: Request,
+    api_id: int,
+    api_hash: str,
+    session_string: str | None = None,
+) -> TelegramAuthClientProtocol:
+    """Build auth client from factory with optional StringSession reuse."""
+    factory = _resolve_auth_client_factory(request)
+    if session_string is None:
+        return factory(api_id, api_hash)
+    try:
+        return factory(api_id, api_hash, session_string)
+    except TypeError as exc:
+        message = "Telegram auth client factory does not accept session string."
+        raise TypeError(message) from exc
 
 
 def _resolve_auth_client_factory(request: Request) -> TelegramAuthClientFactory:
@@ -506,3 +577,15 @@ def _resolve_app_state(request: Request) -> object:
     request_obj = cast("object", request)
     app_obj = cast("object", getattr(request_obj, "app", None))
     return cast("object", getattr(app_obj, "state", None))
+
+
+def _extract_session_string(client: TelegramAuthClientProtocol) -> str | None:
+    """Extract StringSession data from the Telethon client if available."""
+    session_obj = getattr(client, "session", None)
+    save_obj = getattr(session_obj, "save", None)
+    if session_obj is None or not callable(save_obj):
+        return None
+    session_string = save_obj()
+    if isinstance(session_string, str) and session_string:
+        return session_string
+    return None
