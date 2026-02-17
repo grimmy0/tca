@@ -666,7 +666,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/api/test_cors.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `7506af3`
+  - Commit: `89251c9`
   - Verification summary:
     - Added `TCA_CORS_ALLOW_ORIGINS` static settings support in `tca/config/settings.py` with tuple parsing and empty-by-default behavior to enforce default-deny CORS.
     - Wired CORS middleware setup in `tca/api/app.py` so headers are emitted only for configured allowlisted origins.
@@ -876,10 +876,12 @@ An item is commit-ready only if all are true:
 - Verification:
   - `uv run pytest -q tests/telegram/test_stringsession_persistence.py`
 - Execution record:
-  - Date: 2026-02-16
-  - Commit: `TBD`
+  - Date: 2026-02-17
+  - Commit: `14cce6f`
   - Verification summary:
-    - `uv run pytest -q tests/telegram/test_stringsession_persistence.py`
+    - Guarded OTP/password verification when sensitive operations are locked.
+    - Added locked-mode coverage and StringSession test session setup.
+    - Verified with `uv run pytest -q tests/api/test_telegram_auth_verify_code.py tests/api/test_telegram_auth_verify_password.py tests/telegram/test_stringsession_persistence.py`.
 
 ### C041 - Implement Registration/Login Failure Notifications
 
