@@ -1144,7 +1144,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/ingest/test_error_capture.py`
 - Execution record:
   - Date: 2026-02-17
-  - Commit: `30f0866`
+  - Commit: `eed5bfb`
   - Verification summary:
     - `uv run pytest -q tests/ingest/test_error_capture.py` passed (`3 passed`)
 
@@ -1153,11 +1153,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Upsert `raw_messages` by `(channel_id, message_id)` with latest payload.
 - Acceptance criteria:
-  - [ ] Duplicate ingest of same message updates existing row, not inserts duplicate.
-  - [ ] Raw payload is replaced with latest version.
-  - [ ] Unique constraint violations do not crash poll loop.
+  - [x] Duplicate ingest of same message updates existing row, not inserts duplicate. [Tests: tests/ingest/test_raw_upsert.py::test_raw_upsert_updates_existing_row_without_duplicate]
+  - [x] Raw payload is replaced with latest version. [Tests: tests/ingest/test_raw_upsert.py::test_raw_upsert_replaces_payload_with_latest_version]
+  - [x] Unique constraint violations do not crash poll loop. [Tests: tests/ingest/test_raw_upsert.py::test_raw_upsert_handles_unique_constraint_conflict]
 - Verification:
   - `uv run pytest -q tests/ingest/test_raw_upsert.py`
+- Execution record:
+  - Date: 2026-02-17
+  - Commit: `7c2f861`
+  - Verification summary:
+    - `uv run pytest -q tests/ingest/test_raw_upsert.py` passed (`5 passed in 0.18s`).
 
 ---
 

@@ -58,6 +58,13 @@ from .poll_jobs_repo import (
     PollJobsRepository,
     PollJobsRepositoryError,
 )
+from .raw_messages_repo import (
+    RawMessagePayloadDecodeError,
+    RawMessagePayloadEncodeError,
+    RawMessageRecord,
+    RawMessagesRepository,
+    RawMessagesRepositoryError,
+)
 from .settings_repo import (
     JSONValue,
     SettingAlreadyExistsError,
@@ -110,6 +117,11 @@ __all__ = [
     "PollJobRecord",
     "PollJobsRepository",
     "PollJobsRepositoryError",
+    "RawMessagePayloadDecodeError",
+    "RawMessagePayloadEncodeError",
+    "RawMessageRecord",
+    "RawMessagesRepository",
+    "RawMessagesRepositoryError",
     "SettingAlreadyExistsError",
     "SettingRecord",
     "SettingsRepository",
