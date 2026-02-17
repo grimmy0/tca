@@ -23,9 +23,15 @@ from tca.auth import (
     AuthSessionState,
     AuthSessionStateNotFoundError,
     AuthSessionStateRepository,
+    SENSITIVE_OPERATION_LOCKED_MESSAGE,
+    SensitiveOperationLockedError,
+    TelegramAccountStorage,
+    TelegramSessionStorage,
     request_login_code,
+    resolve_key_encryption_key,
 )
 from tca.storage import StorageRuntime, WriterQueueProtocol
+from tca.storage.settings_repo import SettingsRepository
 
 router = APIRouter()
 
@@ -39,6 +45,7 @@ _EXPIRED_LOGIN_CODE_DETAIL = "Telegram login code expired."
 _INVALID_PASSWORD_DETAIL = "Invalid Telegram password."
 _MISSING_PASSWORD_SESSION_DETAIL = "Auth session missing Telegram session state."
 _PASSWORD_SESSION_CAPTURE_FAILED_DETAIL = "Unable to capture Telegram auth session."
+_SENSITIVE_OPERATION_LOCKED_DETAIL = SENSITIVE_OPERATION_LOCKED_MESSAGE
 
 
 class TelegramAuthStartRequest(BaseModel):
@@ -229,6 +236,21 @@ async def verify_telegram_code(
     except (ApiIdInvalidError, ConnectionApiIdInvalidError) as exc:
         raise _invalid_api_credentials_error() from exc
 
+    session_string = _extract_session_string(client)
+    if not session_string:
+        raise _password_session_capture_error()
+    try:
+        await _persist_authenticated_session(
+            request=request,
+            writer_queue=writer_queue,
+            api_id=payload.api_id,
+            api_hash=payload.api_hash,
+            phone_number=session_state.phone_number,
+            session_string=session_string,
+        )
+    except SensitiveOperationLockedError as exc:
+        raise _sensitive_operation_locked_error() from exc
+
     updated = await _update_auth_session_status(
         writer_queue=writer_queue,
         repository=repository,
@@ -285,6 +307,21 @@ async def verify_telegram_password(
         raise _invalid_password_error() from exc
     except (ApiIdInvalidError, ConnectionApiIdInvalidError) as exc:
         raise _invalid_api_credentials_error() from exc
+
+    session_string = _extract_session_string(client)
+    if not session_string:
+        raise _password_session_capture_error()
+    try:
+        await _persist_authenticated_session(
+            request=request,
+            writer_queue=writer_queue,
+            api_id=payload.api_id,
+            api_hash=payload.api_hash,
+            phone_number=session_state.phone_number,
+            session_string=session_string,
+        )
+    except SensitiveOperationLockedError as exc:
+        raise _sensitive_operation_locked_error() from exc
 
     updated = await _update_auth_session_status(
         writer_queue=writer_queue,
@@ -422,6 +459,14 @@ def _password_session_capture_error() -> HTTPException:
     )
 
 
+def _sensitive_operation_locked_error() -> HTTPException:
+    """Build deterministic error for locked sensitive operations."""
+    return HTTPException(
+        status_code=status.HTTP_423_LOCKED,
+        detail=_SENSITIVE_OPERATION_LOCKED_DETAIL,
+    )
+
+
 def _expired_login_code_error() -> HTTPException:
     """Build deterministic OTP expiry error."""
     return HTTPException(
@@ -519,6 +564,56 @@ def _build_auth_session_repository(request: Request) -> AuthSessionStateReposito
         read_session_factory=runtime.read_session_factory,
         write_session_factory=runtime.write_session_factory,
     )
+
+
+def _build_settings_repository(request: Request) -> SettingsRepository:
+    """Create settings repository bound to app runtime sessions."""
+    runtime = _resolve_storage_runtime(request)
+    return SettingsRepository(
+        read_session_factory=runtime.read_session_factory,
+        write_session_factory=runtime.write_session_factory,
+    )
+
+
+async def _persist_authenticated_session(
+    *,
+    request: Request,
+    writer_queue: WriterQueueProtocol,
+    api_id: int,
+    api_hash: str,
+    phone_number: str,
+    session_string: str,
+) -> None:
+    """Persist account credentials and StringSession after successful login."""
+    runtime = _resolve_storage_runtime(request)
+    settings_repository = _build_settings_repository(request)
+    key_encryption_key = await resolve_key_encryption_key(
+        settings_repository=settings_repository,
+        writer_queue=writer_queue,
+    )
+    account_storage = TelegramAccountStorage(
+        read_session_factory=runtime.read_session_factory,
+        write_session_factory=runtime.write_session_factory,
+    )
+    session_storage = TelegramSessionStorage(
+        read_session_factory=runtime.read_session_factory,
+        write_session_factory=runtime.write_session_factory,
+    )
+
+    async def _persist() -> None:
+        account_id = await account_storage.upsert_account(
+            api_id=api_id,
+            api_hash=api_hash,
+            phone_number=phone_number,
+            key_encryption_key=key_encryption_key,
+        )
+        await session_storage.persist_session(
+            account_id=account_id,
+            string_session=session_string,
+            key_encryption_key=key_encryption_key,
+        )
+
+    await writer_queue.submit(_persist)
 
 
 def _build_auth_client(

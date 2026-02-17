@@ -1,5 +1,6 @@
 """Telegram client management module."""
 
+from .account_loader import TelegramAccountLoader
 from .client_manager import (
     AccountLoaderProtocol,
     ClientFactoryProtocol,
@@ -15,6 +16,7 @@ __all__ = [
     "ClientFactoryProtocol",
     "MissingTelethonClientError",
     "TelegramAccount",
+    "TelegramAccountLoader",
     "TelegramClientProtocol",
     "TelethonClientManager",
     "TelethonClientManagerError",

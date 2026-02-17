@@ -16,6 +16,11 @@ from .auth_session_state import (
     AuthSessionStateNotFoundError,
     AuthSessionStateRepository,
 )
+from .account_storage import (
+    TelegramAccountRecord,
+    TelegramAccountStorage,
+    TelegramAccountStorageError,
+)
 from .encryption_utils import (
     AES_GCM_NONCE_BYTES,
     DATA_ENCRYPTION_KEY_BYTES,
@@ -34,6 +39,11 @@ from .kdf import (
     ARGON2ID_TIME_COST,
     KEY_ENCRYPTION_KEY_BYTES,
     derive_key_encryption_key,
+)
+from .key_material import (
+    AUTH_KEY_SALT_SETTING,
+    KeyMaterialError,
+    resolve_key_encryption_key,
 )
 from .key_rotation import (
     KeyRotationAccountNotFoundError,
@@ -63,6 +73,7 @@ from .unlock_modes import (
 
 __all__ = [
     "AUTH_SESSION_TTL_SECONDS",
+    "AUTH_KEY_SALT_SETTING",
     "AES_GCM_NONCE_BYTES",
     "ARGON2ID_MEMORY_COST_KIB",
     "ARGON2ID_PARALLELISM",
@@ -72,6 +83,7 @@ __all__ = [
     "DATA_ENCRYPTION_KEY_BYTES",
     "ENVELOPE_VERSION",
     "KEY_ENCRYPTION_KEY_BYTES",
+    "KeyMaterialError",
     "KeyRotationAccountNotFoundError",
     "KeyRotationRepository",
     "KeyRotationState",
@@ -89,6 +101,9 @@ __all__ = [
     "SensitiveOperationLockedError",
     "StartupUnlockDependency",
     "StartupUnlockModeError",
+    "TelegramAccountRecord",
+    "TelegramAccountStorage",
+    "TelegramAccountStorageError",
     "TelegramAccountNotFoundError",
     "TelegramSessionStorage",
     "TelegramSessionStorageError",
@@ -105,6 +120,7 @@ __all__ = [
     "request_login_code",
     "require_sensitive_operation_unlock",
     "resolve_bootstrap_token_output_path",
+    "resolve_key_encryption_key",
     "unlock_with_passphrase",
     "unwrap_data_encryption_key",
     "wrap_data_encryption_key",

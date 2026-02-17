@@ -407,11 +407,15 @@ def _configure_auth_env(
     """Set DB/token-output env vars for authenticated API tests."""
     patcher = _as_monkeypatch(monkeypatch)
     db_path = tmp_path / db_name
+    secret_file = tmp_path / "auth-verify-code.secret"
+    _ = secret_file.write_text("auth-verify-code-secret\n", encoding="utf-8")
     patcher.setenv("TCA_DB_PATH", db_path.as_posix())
     patcher.setenv(
         "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
         (tmp_path / output_file_name).as_posix(),
     )
+    patcher.setenv("TCA_MODE", "auto-unlock")
+    patcher.setenv("TCA_SECRET_FILE", secret_file.as_posix())
     return db_path
 
 

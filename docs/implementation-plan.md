@@ -666,7 +666,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/api/test_cors.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `TBD`
+  - Commit: `7506af3`
   - Verification summary:
     - Added `TCA_CORS_ALLOW_ORIGINS` static settings support in `tca/config/settings.py` with tuple parsing and empty-by-default behavior to enforce default-deny CORS.
     - Wired CORS middleware setup in `tca/api/app.py` so headers are emitted only for configured allowlisted origins.
@@ -852,22 +852,34 @@ An item is commit-ready only if all are true:
 - Change:
   - Complete 2FA password step when required.
 - Acceptance criteria:
-  - [ ] Correct password finalizes login.
-  - [ ] Wrong password returns retryable error.
-  - [ ] Endpoint rejects calls when password step not required.
+  - [x] Correct password finalizes login. [Tests: tests/api/test_telegram_auth_verify_password.py::test_verify_password_finalizes_login]
+  - [x] Wrong password returns retryable error. [Tests: tests/api/test_telegram_auth_verify_password.py::test_verify_password_wrong_password_returns_retryable_error]
+  - [x] Endpoint rejects calls when password step not required. [Tests: tests/api/test_telegram_auth_verify_password.py::test_verify_password_rejects_when_step_not_required]
 - Verification:
   - `uv run pytest -q tests/api/test_telegram_auth_verify_password.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `54526ff`
+  - Verification summary:
+    - Added `POST /auth/telegram/verify-password` for password-required sessions.
+    - Added API tests for correct password, wrong password, and invalid session status.
+    - Verified with `uv run pytest -q tests/api/test_telegram_auth_verify_password.py`.
 
 ### C040 - Persist StringSession After Successful Login
 
 - Change:
   - Convert authenticated Telethon session to StringSession and persist encrypted.
 - Acceptance criteria:
-  - [ ] Post-login account row created/updated in `telegram_accounts`.
-  - [ ] Session value is encrypted at rest.
-  - [ ] Later client initialization can reuse saved session without OTP.
+  - [x] Post-login account row created/updated in `telegram_accounts`. [Tests: tests/telegram/test_stringsession_persistence.py::test_stringsession_persisted_and_reused]
+  - [x] Session value is encrypted at rest. [Tests: tests/telegram/test_stringsession_persistence.py::test_stringsession_persisted_and_reused]
+  - [x] Later client initialization can reuse saved session without OTP. [Tests: tests/telegram/test_stringsession_persistence.py::test_stringsession_persisted_and_reused]
 - Verification:
   - `uv run pytest -q tests/telegram/test_stringsession_persistence.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `TBD`
+  - Verification summary:
+    - `uv run pytest -q tests/telegram/test_stringsession_persistence.py`
 
 ### C041 - Implement Registration/Login Failure Notifications
 
