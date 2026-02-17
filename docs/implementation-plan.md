@@ -946,11 +946,18 @@ An item is commit-ready only if all are true:
 - Change:
   - Implement default delete mode as disable/hide only.
 - Acceptance criteria:
-  - [ ] `DELETE /channels/{id}` marks channel disabled.
-  - [ ] Historical items remain queryable.
-  - [ ] Disabled channel no longer scheduled for polling.
+  - [x] `DELETE /channels/{id}` marks channel disabled. [Tests: tests/api/test_channel_soft_delete.py::test_delete_channel_marks_disabled]
+  - [x] Historical items remain queryable. [Tests: tests/api/test_channel_soft_delete.py::test_delete_channel_preserves_historical_items]
+  - [x] Disabled channel no longer scheduled for polling. [Tests: tests/api/test_channel_soft_delete.py::test_delete_channel_excludes_scheduler_selection]
 - Verification:
   - `uv run pytest -q tests/api/test_channel_soft_delete.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `a351f66`
+  - Verification summary:
+    - Added channel DELETE route that disables channels via the writer queue.
+    - Preserved historical items and scheduler exclusion behavior in tests.
+    - Verified with `uv run pytest -q tests/api/test_channel_soft_delete.py`.
 
 ### C045 - Implement Channel `purge=true` Delete Path
 
