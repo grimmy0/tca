@@ -834,11 +834,18 @@ An item is commit-ready only if all are true:
 - Change:
   - Verify OTP and transition auth session state.
 - Acceptance criteria:
-  - [ ] Correct code advances to authenticated or password-required state.
-  - [ ] Wrong code returns deterministic error response.
-  - [ ] Replayed/expired code path returns failure.
+  - [x] Correct code advances to authenticated or password-required state. [Tests: tests/api/test_telegram_auth_verify_code.py::test_verify_code_advances_to_authenticated_state, tests/api/test_telegram_auth_verify_code.py::test_verify_code_requires_password_updates_status]
+  - [x] Wrong code returns deterministic error response. [Tests: tests/api/test_telegram_auth_verify_code.py::test_verify_code_wrong_code_returns_deterministic_error]
+  - [x] Replayed/expired code path returns failure. [Tests: tests/api/test_telegram_auth_verify_code.py::test_verify_code_replayed_or_expired_session_returns_failure]
 - Verification:
   - `uv run pytest -q tests/api/test_telegram_auth_verify_code.py`
+- Execution record:
+  - Date: 2026-02-16
+  - Commit: `513c071`
+  - Verification summary:
+    - Added `POST /auth/telegram/verify-code` to validate OTP codes and advance auth session status.
+    - Added API tests for authenticated/password-required transitions, invalid codes, and replayed/expired sessions.
+    - Verified with `uv run pytest -q tests/api/test_telegram_auth_verify_code.py`.
 
 ### C039 - Implement `POST /auth/telegram/verify-password`
 
