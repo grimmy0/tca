@@ -40,6 +40,12 @@ from .migrations import (
     MigrationStartupError,
     run_startup_migrations,
 )
+from .ingest_errors_repo import (
+    IngestErrorDecodeError,
+    IngestErrorRecord,
+    IngestErrorsRepository,
+    IngestErrorsRepositoryError,
+)
 from .notifications_repo import (
     NotificationListRecord,
     NotificationRecord,
@@ -89,6 +95,10 @@ __all__ = [
     "ChannelStateRecord",
     "ChannelStateRepository",
     "ChannelStateRepositoryError",
+    "IngestErrorDecodeError",
+    "IngestErrorRecord",
+    "IngestErrorsRepository",
+    "IngestErrorsRepositoryError",
     "JSONValue",
     "MigrationRunnerDependency",
     "MigrationStartupError",

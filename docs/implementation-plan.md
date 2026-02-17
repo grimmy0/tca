@@ -1128,7 +1128,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/ingest/test_account_risk_escalation.py`
 - Execution record:
   - Date: 2026-02-17
-  - Commit: `0b18fca`
+  - Commit: `599f10c`
   - Verification summary:
     - `uv run pytest -q tests/ingest/test_account_risk_escalation.py` passed (`3 passed, 3 warnings`).
 
@@ -1137,11 +1137,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Persist errors in `ingest_errors` with stage/code/message/payload_ref.
 - Acceptance criteria:
-  - [ ] All error stages map to allowed enum values.
-  - [ ] Error rows include non-null timestamp.
-  - [ ] Ingest pipeline continues after recoverable errors.
+  - [x] All error stages map to allowed enum values. [Tests: tests/ingest/test_error_capture.py::test_ingest_error_stage_mapping_matches_allowed_values]
+  - [x] Error rows include non-null timestamp. [Tests: tests/ingest/test_error_capture.py::test_ingest_error_rows_include_non_null_timestamp]
+  - [x] Ingest pipeline continues after recoverable errors. [Tests: tests/ingest/test_error_capture.py::test_ingest_pipeline_continues_after_recoverable_errors]
 - Verification:
   - `uv run pytest -q tests/ingest/test_error_capture.py`
+- Execution record:
+  - Date: 2026-02-17
+  - Commit: `30f0866`
+  - Verification summary:
+    - `uv run pytest -q tests/ingest/test_error_capture.py` passed (`3 passed`)
 
 ### C056 - Implement Raw Message Upsert Logic
 
