@@ -442,6 +442,7 @@ Phase 1 uses on-demand thread query only.
 - Bootstrap token generated with `secrets.token_urlsafe(32)`.
 - Store only SHA-256 digest of token in DB.
 - Verify with constant-time compare against digest.
+- Bootstrap token written once to `TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH` (default `/data/bootstrap-bearer-token.txt`).
 
 Rationale: high-entropy bearer tokens should be random and unguessable; Argon2id remains for passphrase/KDF use. [S25] [S16] [S18]
 
@@ -489,6 +490,8 @@ Environment variables (static, restart required):
 - `TCA_MODE`
 - `TCA_LOG_LEVEL`
 - `TCA_SECRET_FILE`
+- `TCA_CORS_ALLOW_ORIGINS`
+- `TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH`
 
 `settings` rows (dynamic, UI/API editable, no restart required):
 

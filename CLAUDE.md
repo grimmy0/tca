@@ -12,8 +12,10 @@ TCA is a local-first Telegram channel aggregator. It ingests channel updates usi
 
 ## Current State
 
-- Early implementation phase.
-- Package skeleton, dependency baseline, strict lint/type gates, and shared SQLite concurrency test harness are implemented.
+- Early implementation phase with storage/auth/api scaffolding in place.
+- Startup runs migrations, seeds dynamic settings, and initializes unlock mode + bootstrap bearer token.
+- API endpoints: `/health`, `/settings/{key}`, `/channel-groups`, `/auth/telegram/start`, `/auth/telegram/verify-code`, `/auth/telegram/verify-password`, `/openapi.json` (bearer auth required except `/health`).
+- Storage/auth primitives: WAL PRAGMAs, `BEGIN IMMEDIATE`, writer queue, encrypted session storage, auth session state, key rotation metadata.
 
 ## Development Commands
 

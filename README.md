@@ -4,9 +4,16 @@ TCA is a local-first Telegram channel aggregator that runs on your machine, merg
 
 ## Status
 
-- Phase: implementation in progress (foundational plan items are underway).
+- Phase: implementation in progress (storage, settings, auth bootstrap/unlock, channel-group APIs, and Telegram auth start are implemented; ingestion/dedupe/UI/ops remain planned).
 - Scope: Telegram only.
-- Deployment target: single local Docker container with SQLite persistence.
+- Deployment target (planned): single local Docker container with SQLite persistence.
+
+## Current Implementation Snapshot
+
+- FastAPI app factory with lifespan-managed migrations, settings seeding, bootstrap bearer token generation, and CORS allowlist.
+- Auth primitives: unlock modes, Argon2id KDF, envelope encryption helpers, session storage, key-rotation metadata, auth session state.
+- API endpoints: `/health` (public), `/settings/{key}`, `/channel-groups`, `/auth/telegram/start`, `/auth/telegram/verify-code`, `/auth/telegram/verify-password`, and `/openapi.json` (bearer auth required).
+- Storage: SQLite WAL/PRAGMAs, `BEGIN IMMEDIATE`, writer queue, migrations for core schema + FTS/ops tables.
 
 ## Why TCA
 
@@ -50,14 +57,14 @@ Suggested reading order:
 TCA follows a modular local-monolith layout:
 
 - `api/`: HTTP endpoints and auth middleware.
-- `ui/`: server-rendered pages (Jinja2 + HTMX + Pico CSS).
-- `auth/`: Telegram login flow and encrypted session handling.
-- `ingest/`: polling and message fetch logic.
-- `normalize/`: canonical item transformation.
-- `dedupe/`: strategy chain and cluster operations.
+- `ui/`: server-rendered pages (Jinja2 + HTMX + Pico CSS) (planned).
+- `auth/`: Telegram login flow and encrypted session handling (partial; OTP start/verify + storage primitives).
+- `ingest/`: polling and message fetch logic (helpers only; no scheduler yet).
+- `normalize/`: canonical item transformation (planned).
+- `dedupe/`: strategy chain and cluster operations (planned).
 - `storage/`: SQLAlchemy repositories and write serialization.
-- `scheduler/`: polling cadence, jitter, backoff, pause/resume.
-- `ops/`: retention, backup, health, graceful shutdown tasks.
+- `scheduler/`: polling cadence, jitter, backoff, pause/resume (planned).
+- `ops/`: retention, backup, health, graceful shutdown tasks (planned).
 
 ## Deduplication Model (Planned)
 
@@ -74,15 +81,18 @@ Core behaviors:
 - Explainability via persisted decision records.
 - Deterministic cluster merge and representative item selection.
 
-## Security Model (Planned)
+## Security Model (Partially Implemented)
 
 - All API endpoints except `/health` require bearer auth.
 - Bearer token is generated once, stored as SHA-256 digest only.
+- Bootstrap bearer token is written once to `TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH` (default `/data/bootstrap-bearer-token.txt`).
 - Telegram session material is encrypted at rest.
 - KEK is derived with Argon2id from user passphrase.
 - Startup modes:
   - `secure-interactive` (default)
   - `auto-unlock` (optional, lower security)
+
+Implemented today: bearer auth enforcement, bootstrap token output, unlock modes, KEK derivation, session encryption helpers, and auth session state storage.
 
 ## Data and Reliability Model (Planned)
 
@@ -92,7 +102,9 @@ Core behaviors:
 - Ordered retention pruning with bounded batch sizes.
 - Nightly backups via SQLite Online Backup API and integrity checks.
 
-## Configuration Surface (Planned)
+Implemented today: WAL/PRAGMA enforcement, `BEGIN IMMEDIATE`, and writer queue; retention/backup jobs are not wired yet.
+
+## Configuration Surface (Partially Implemented)
 
 Static environment variables (restart required):
 
@@ -101,6 +113,8 @@ Static environment variables (restart required):
 - `TCA_MODE`
 - `TCA_LOG_LEVEL`
 - `TCA_SECRET_FILE`
+- `TCA_CORS_ALLOW_ORIGINS` (comma-separated allowlist)
+- `TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH`
 
 Dynamic settings (runtime editable via API/UI):
 
@@ -108,6 +122,8 @@ Dynamic settings (runtime editable via API/UI):
 - scheduler polling limits and intervals
 - retention windows
 - backup retention count
+
+Implemented today: allowlisted dynamic settings read/write via `/settings/{key}`.
 
 ## Local Development
 
