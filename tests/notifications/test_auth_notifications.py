@@ -60,7 +60,7 @@ def test_auth_start_blocked_registration_creates_notification(
     if response.status_code != HTTPStatus.FORBIDDEN:
         raise AssertionError
     payload = response.json()
-    if payload.get("detail") != "Telegram registration is blocked. Retry later.":
+    if payload.get("detail") != "Telegram registration/login is blocked. Retry later.":
         raise AssertionError
 
     notifications = _fetch_notifications(db_path=db_path)

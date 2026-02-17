@@ -52,7 +52,9 @@ _INVALID_PASSWORD_DETAIL = "Invalid Telegram password."
 _MISSING_PASSWORD_SESSION_DETAIL = "Auth session missing Telegram session state."
 _PASSWORD_SESSION_CAPTURE_FAILED_DETAIL = "Unable to capture Telegram auth session."
 _SENSITIVE_OPERATION_LOCKED_DETAIL = SENSITIVE_OPERATION_LOCKED_MESSAGE
-_AUTH_REGISTRATION_BLOCKED_DETAIL = "Telegram registration is blocked. Retry later."
+_AUTH_REGISTRATION_BLOCKED_DETAIL = (
+    "Telegram registration/login is blocked. Retry later."
+)
 _AUTH_LOGIN_FAILED_DETAIL = "Telegram login failed. Retry after verifying credentials."
 
 _NOTIFICATION_TYPE_REGISTRATION_BLOCKED = "auth_registration_blocked"

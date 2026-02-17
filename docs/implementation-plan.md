@@ -895,7 +895,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/notifications/test_auth_notifications.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `4441f9d`
+  - Commit: `ec461171`
   - Verification summary:
     - Added auth failure notifications with retry guidance and severity.
     - Persisted auth registration/login failures into notifications storage.
