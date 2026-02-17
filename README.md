@@ -4,7 +4,7 @@ TCA is a local-first Telegram channel aggregator that runs on your machine, merg
 
 ## Status
 
-- Phase: implementation in progress (storage, settings, auth bootstrap/unlock, channel/group APIs, poll-now jobs, notifications list, and Telegram auth start/verify are implemented; ingestion/dedupe/UI/ops remain planned).
+- Phase: implementation in progress (storage, settings, auth bootstrap/unlock, channel/group APIs, poll-now jobs, notifications list/ack, scheduler core loop, ingest helpers, and Telegram auth start/verify are implemented; dedupe/UI/ops remain planned).
 - Scope: Telegram only.
 - Deployment target (planned): single local Docker container with SQLite persistence.
 
@@ -12,7 +12,9 @@ TCA is a local-first Telegram channel aggregator that runs on your machine, merg
 
 - FastAPI app factory with lifespan-managed migrations, settings seeding, bootstrap bearer token generation, and CORS allowlist.
 - Auth primitives: unlock modes, Argon2id KDF, envelope encryption helpers, session storage, key-rotation metadata, auth session state.
-- API endpoints: `/health` (public), `/settings/{key}`, `/channels`, `/channel-groups`, `/jobs/poll-now/{channel_id}`, `/notifications`, `/auth/telegram/start`, `/auth/telegram/verify-code`, `/auth/telegram/verify-password`, and `/openapi.json` (bearer auth required).
+- API endpoints: `/health` (public), `/settings/{key}`, `/channels`, `/channel-groups`, `/jobs/poll-now/{channel_id}`, `/notifications`, `/notifications/{notification_id}/ack`, `/auth/telegram/start`, `/auth/telegram/verify-code`, `/auth/telegram/verify-password`, and `/openapi.json` (bearer auth required).
+- Scheduler core loop with jittered poll cadence and poll job enqueueing.
+- Ingest helpers: cursor state, bounded pagination, raw message upsert, flood-wait handling, account risk escalation, ingest error capture.
 - Storage: SQLite WAL/PRAGMAs, `BEGIN IMMEDIATE`, writer queue, migrations for core schema + FTS/ops tables.
 
 ## Why TCA
@@ -59,11 +61,11 @@ TCA follows a modular local-monolith layout:
 - `api/`: HTTP endpoints and auth middleware.
 - `ui/`: server-rendered pages (Jinja2 + HTMX + Pico CSS) (planned).
 - `auth/`: Telegram login flow and encrypted session handling (partial; OTP start/verify + storage primitives).
-- `ingest/`: polling and message fetch logic (helpers only; no scheduler yet).
+- `ingest/`: polling and message fetch logic (helpers only; no worker execution yet).
 - `normalize/`: canonical item transformation (planned).
 - `dedupe/`: strategy chain and cluster operations (planned).
 - `storage/`: SQLAlchemy repositories and write serialization.
-- `scheduler/`: polling cadence, jitter, backoff, pause/resume (planned).
+- `scheduler/`: polling cadence, jitter, pause-aware selection (implemented); backoff/worker execution (planned).
 - `ops/`: retention, backup, health, graceful shutdown tasks (planned).
 
 ## Deduplication Model (Planned)
@@ -116,7 +118,7 @@ Static environment variables (restart required):
 - `TCA_CORS_ALLOW_ORIGINS` (comma-separated allowlist)
 - `TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH`
 
-Dynamic settings (runtime editable via API/UI):
+Dynamic settings (runtime editable via API; UI planned):
 
 - dedupe horizon and thresholds
 - scheduler polling limits and intervals

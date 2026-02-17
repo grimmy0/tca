@@ -4,6 +4,7 @@
 
 - Version: 3
 - Last updated: 2026-02-16
+- Implementation status: partial (API/storage/auth/scheduler/ingest helpers implemented; UI/dedupe/ops/packaging planned).
 - Scope: Local deployment only, Telegram only
 - Audience: Engineering, product, operations
 
@@ -79,12 +80,12 @@ These are fixed for Phase 1.
 
 Single `tca` process contains:
 
-- REST API,
-- minimal embedded web UI,
-- scheduler,
-- ingest workers,
-- dedupe engine,
-- retention/maintenance jobs.
+- REST API (implemented),
+- minimal embedded web UI (planned),
+- scheduler (core loop + poll job enqueueing implemented),
+- ingest workers (planned),
+- dedupe engine (planned),
+- retention/maintenance jobs (planned).
 
 Persistent volume:
 
@@ -107,9 +108,9 @@ Persistent volume:
 ## 5.3 Lifecycle Integration (FastAPI + Telethon)
 
 - Use FastAPI lifespan to initialize and teardown shared resources. [S1]
-- Create one shared Telethon client per account in app state.
+- Create one shared Telethon client per account in app state for ingest (auth endpoints use short-lived clients).
 - Connect Telethon clients on startup and disconnect on shutdown.
-- Never create per-request Telethon clients.
+- Never create per-request Telethon clients for ingest traffic (auth endpoints are the exception).
 - Keep one asyncio event loop for both API and Telethon client usage. [S13]
 
 ## 6. Persistence, Concurrency, and Reliability
@@ -143,6 +144,8 @@ If a write hits `SQLITE_BUSY`:
 3. If still failing:
 - ingest job is requeued with delay,
 - API write returns `503` with retry hint.
+
+Status: planned; current implementation relies on `busy_timeout` and does not yet implement retry/backoff or API `503` responses.
 
 ## 6.4 ORM Async Constraints
 
@@ -202,6 +205,8 @@ Rotation is two-phase and crash-recoverable:
 3. Commit completion marker only when all rows are updated.
 4. On crash, resume from last completed row/version.
 
+Status: rotation metadata is implemented; the KEK rewrap job is planned.
+
 ## 7.6 Registration Failure Handling
 
 If API ID registration/login cannot proceed:
@@ -212,15 +217,16 @@ If API ID registration/login cannot proceed:
 
 This aligns with Telegram and Telethon guidance that registration can be blocked for some numbers and should be retried later. [S2] [S3]
 
+Status: notifications and account-risk tracking are implemented; retry backoff and UI guidance are planned.
+
 ## 8. Ingestion Design (Telegram Only)
 
 ## 8.1 Cursor Contract
 
-Cursor is a typed JSON object persisted per channel:
+Cursor is a typed JSON object persisted per channel. Channel id is stored on the `channel_state` row, not inside the cursor JSON payload:
 
 ```json
 {
-  "channel_id": 123456789,
   "last_message_id": 45210,
   "next_offset_id": null,
   "last_polled_at": "2026-02-15T18:30:00Z"
@@ -247,7 +253,7 @@ If more data remains, `next_offset_id` is stored and the next scheduler run cont
 - Telethon/Telegram `FLOOD_WAIT` is treated as provider backpressure.
 - Channel is paused until `now + wait_seconds`.
 - Scheduler avoids paused channels and records event.
-- Use Telethon `flood_sleep_threshold=0` to keep sleeps explicit in scheduler control. [S5] [S11]
+- Planned: use Telethon `flood_sleep_threshold=0` to keep sleeps explicit in scheduler control. [S5] [S11]
 
 ## 8.5 Account Restriction Handling
 
@@ -256,6 +262,8 @@ If repeated flood waits or auth errors indicate account risk:
 - pause all polling for that account,
 - emit high-severity notification,
 - require explicit user re-enable in UI.
+
+Status: pause + notification behavior is implemented; UI-based re-enable is planned.
 
 ## 8.6 Error Recording
 
@@ -454,6 +462,8 @@ Rationale: high-entropy bearer tokens should be random and unguessable; Argon2id
 
 ## 12.3 Minimal UI (Phase 1)
 
+Status: planned; UI routes/templates are not implemented yet.
+
 Phase 1 includes a minimal web UI to avoid API-only usability:
 
 - first-run setup (auth + key unlock),
@@ -495,6 +505,7 @@ Manual poll job trigger:
 Notification list API:
 
 - `GET /notifications` (filters: `severity`, `type`)
+- `PUT /notifications/{notification_id}/ack`
 
 ## 12.5 Configuration Surface (Static vs Dynamic)
 
@@ -542,6 +553,8 @@ Hardcoded defaults:
 - record audit event.
 
 ## 14. Retention, Backups, and Maintenance
+
+Status: planned; retention/backup jobs are not implemented yet.
 
 ## 14.1 Retention
 
@@ -594,6 +607,8 @@ User-visible issues are surfaced via:
 - UI alerts,
 - optional webhook for local automation.
 
+Status: notifications table + API list/ack are implemented; UI alerts and webhook are planned.
+
 Alert types:
 
 - auth re-login needed,
@@ -622,6 +637,8 @@ Decision on Bot API hybrid:
 - Reason: product goal is "aggregate channels the user follows" and this is anchored on user account access with MTProto; Bot API is bot-account scoped and does not replace user-account subscription access. [S3] [S23]
 
 ## 17. Docker Installation
+
+Status: planned; Dockerfile/Compose artifacts are not in the repo yet.
 
 ```yaml
 services:

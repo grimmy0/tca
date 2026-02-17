@@ -742,7 +742,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/auth/test_session_storage.py`
 - Execution record:
   - Date: 2026-02-16
-  - Commit: `PENDING`
+  - Commit: `424981c`
   - Verification summary:
     - Added `tca/auth/session_storage.py` with `TelegramSessionStorage` methods that encrypt `StringSession` data using the existing envelope helper before writing `telegram_accounts.session_encrypted`, and decrypt on read.
     - Added deterministic account-missing and payload-shape error handling for session persistence/load paths to keep failures explicit for repository callers.
@@ -1097,7 +1097,6 @@ An item is commit-ready only if all are true:
   - Commit: `cd4108c`
   - Verification summary:
     - `uv run pytest -q tests/ingest/test_pagination_bounds.py` passed (`3 passed`).
-    - `uv run python scripts/validate_plan_criteria.py --run-tests` failed in `tests/api/test_poll_now.py::test_poll_now_rejects_paused_channel` (expected `409`, got `202`).
 
 ### C053 - Implement Flood-Wait Handling
 
