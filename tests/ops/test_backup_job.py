@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import sqlite3
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -118,6 +119,36 @@ async def test_backup_job_runs_integrity_check_for_created_backup(
 
 
 @pytest.mark.asyncio
+async def test_backup_job_is_idempotent_for_same_run_date(
+    tmp_path: Path,
+    notifications_runtime: StorageRuntime,
+) -> None:
+    """Running backup twice for same date should overwrite output safely."""
+    source_db_path = tmp_path / "source-idempotent.sqlite3"
+    _create_source_database(db_path=source_db_path)
+    backup_dir = tmp_path / "backups-idempotent"
+    fixed_now = datetime.now(UTC).replace(hour=2, minute=45, second=0, microsecond=0)
+    job = NightlySQLiteBackupJob(
+        read_session_factory=notifications_runtime.read_session_factory,
+        write_session_factory=notifications_runtime.write_session_factory,
+        db_path=source_db_path,
+        backup_dir=backup_dir,
+        now_provider=lambda: fixed_now,
+    )
+
+    first_summary = await job.run_once()
+    second_summary = await job.run_once()
+    second_integrity_result = _run_integrity_check(db_path=second_summary.backup_path)
+
+    if first_summary.backup_path != second_summary.backup_path:
+        raise AssertionError
+    if second_summary.integrity_check_result != "ok":
+        raise AssertionError
+    if second_integrity_result != "ok":
+        raise AssertionError
+
+
+@pytest.mark.asyncio
 async def test_backup_job_failure_creates_notification(
     tmp_path: Path,
     notifications_runtime: StorageRuntime,
@@ -162,6 +193,42 @@ async def test_backup_job_failure_creates_notification(
     ):
         raise AssertionError
     if notification.payload.get("error_type") != "FileNotFoundError":
+        raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_backup_job_cancellation_propagates_without_notification(
+    tmp_path: Path,
+    notifications_runtime: StorageRuntime,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cancelled backup execution should not be remapped to backup failure."""
+    source_db_path = tmp_path / "source-cancelled.sqlite3"
+    _create_source_database(db_path=source_db_path)
+    fixed_now = datetime.now(UTC).replace(hour=4, minute=30, second=0, microsecond=0)
+    backup_dir = tmp_path / "cancelled-backups"
+    job = NightlySQLiteBackupJob(
+        read_session_factory=notifications_runtime.read_session_factory,
+        write_session_factory=notifications_runtime.write_session_factory,
+        db_path=source_db_path,
+        backup_dir=backup_dir,
+        now_provider=lambda: fixed_now,
+    )
+
+    async def _raise_cancelled(*_args: object, **_kwargs: object) -> str:
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr("tca.ops.backup_job.asyncio.to_thread", _raise_cancelled)
+
+    with pytest.raises(asyncio.CancelledError):
+        _ = await job.run_once()
+
+    repository = NotificationsRepository(
+        read_session_factory=notifications_runtime.read_session_factory,
+        write_session_factory=notifications_runtime.write_session_factory,
+    )
+    notifications = await repository.list_notifications()
+    if notifications:
         raise AssertionError
 
 

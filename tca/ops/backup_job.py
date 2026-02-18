@@ -69,6 +69,8 @@ class NightlySQLiteBackupJob:
                 source_db_path=self._db_path,
                 backup_path=backup_path,
             )
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:
             await self._create_failure_notification(
                 backup_path=backup_path,

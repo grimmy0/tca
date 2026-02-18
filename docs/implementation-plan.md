@@ -1557,7 +1557,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/ops/test_backup_job.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `NONE`
+  - Commit: `eca6af2ffd388e726b29b180f20011bb6521d0b8`
   - Verification summary:
     - `uv run pytest -q tests/ops/test_backup_job.py` passed.
 
