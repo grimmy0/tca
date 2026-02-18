@@ -1,5 +1,11 @@
 """Deduplication module for TCA."""
 
+from .content_hash_strategy import (
+    CONTENT_HASH_MATCH_REASON,
+    CONTENT_HASH_MISMATCH_REASON,
+    CONTENT_HASH_MISSING_REASON,
+    evaluate_content_hash,
+)
 from .exact_url_strategy import (
     EXACT_URL_MATCH_REASON,
     EXACT_URL_MISMATCH_REASON,
@@ -13,6 +19,7 @@ from .strategy_contract import (
     DuplicateResult,
     StrategyCallable,
     StrategyContractError,
+    StrategyMetadata,
     StrategyResult,
     StrategyStatus,
     abstain,
@@ -23,6 +30,9 @@ from .strategy_contract import (
 )
 
 __all__ = [
+    "CONTENT_HASH_MATCH_REASON",
+    "CONTENT_HASH_MISMATCH_REASON",
+    "CONTENT_HASH_MISSING_REASON",
     "EXACT_URL_MATCH_REASON",
     "EXACT_URL_MISMATCH_REASON",
     "EXACT_URL_MISSING_REASON",
@@ -32,12 +42,14 @@ __all__ = [
     "DuplicateResult",
     "StrategyCallable",
     "StrategyContractError",
+    "StrategyMetadata",
     "StrategyResult",
     "StrategyStatus",
     "abstain",
     "coerce_strategy_result",
     "distinct",
     "duplicate",
+    "evaluate_content_hash",
     "evaluate_exact_url",
     "run_strategy",
 ]

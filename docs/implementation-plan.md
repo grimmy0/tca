@@ -1273,11 +1273,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Add exact hash strategy over normalized `title + "\n" + body`.
 - Acceptance criteria:
-  - [ ] Equal normalized content returns `DUPLICATE`.
-  - [ ] Different normalized content does not return `DUPLICATE`.
-  - [ ] Decision metadata includes compared hash values.
+  - [x] Equal normalized content returns `DUPLICATE`. [Tests: tests/dedupe/test_strategy_content_hash.py::test_equal_normalized_content_returns_duplicate]
+  - [x] Different normalized content does not return `DUPLICATE`. [Tests: tests/dedupe/test_strategy_content_hash.py::test_different_normalized_content_does_not_return_duplicate]
+  - [x] Decision metadata includes compared hash values. [Tests: tests/dedupe/test_strategy_content_hash.py::test_decision_metadata_includes_compared_hash_values]
 - Verification:
   - `uv run pytest -q tests/dedupe/test_strategy_content_hash.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/dedupe/test_strategy_content_hash.py` passed.
 
 ### C064 - Implement `title_similarity` Strategy
 

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Mapping
-from typing import Literal, TypedDict, assert_never, cast
+from typing import Literal, NotRequired, TypedDict, assert_never, cast
 
 STRATEGY_STATUSES: tuple[str, str, str] = ("DUPLICATE", "DISTINCT", "ABSTAIN")
 StrategyStatus = Literal["DUPLICATE", "DISTINCT", "ABSTAIN"]
+StrategyMetadata = dict[str, object]
 
 
 class DuplicateResult(TypedDict):
@@ -16,6 +17,7 @@ class DuplicateResult(TypedDict):
     status: Literal["DUPLICATE"]
     score: float
     reason: str
+    metadata: NotRequired[StrategyMetadata]
 
 
 class DistinctResult(TypedDict):
@@ -23,6 +25,7 @@ class DistinctResult(TypedDict):
 
     status: Literal["DISTINCT"]
     reason: str
+    metadata: NotRequired[StrategyMetadata]
 
 
 class AbstainResult(TypedDict):
@@ -30,6 +33,7 @@ class AbstainResult(TypedDict):
 
     status: Literal["ABSTAIN"]
     reason: str
+    metadata: NotRequired[StrategyMetadata]
 
 
 StrategyResult = DuplicateResult | DistinctResult | AbstainResult
@@ -40,19 +44,41 @@ class StrategyContractError(ValueError):
     """Raised when a strategy violates the required result contract."""
 
 
-def duplicate(*, score: float, reason: str) -> DuplicateResult:
+def duplicate(
+    *,
+    score: float,
+    reason: str,
+    metadata: Mapping[str, object] | None = None,
+) -> DuplicateResult:
     """Return a typed DUPLICATE strategy result."""
-    return {"status": "DUPLICATE", "score": score, "reason": reason}
+    result: DuplicateResult = {"status": "DUPLICATE", "score": score, "reason": reason}
+    if metadata is not None:
+        result["metadata"] = dict(metadata)
+    return result
 
 
-def distinct(*, reason: str) -> DistinctResult:
+def distinct(
+    *,
+    reason: str,
+    metadata: Mapping[str, object] | None = None,
+) -> DistinctResult:
     """Return a typed DISTINCT strategy result."""
-    return {"status": "DISTINCT", "reason": reason}
+    result: DistinctResult = {"status": "DISTINCT", "reason": reason}
+    if metadata is not None:
+        result["metadata"] = dict(metadata)
+    return result
 
 
-def abstain(*, reason: str) -> AbstainResult:
+def abstain(
+    *,
+    reason: str,
+    metadata: Mapping[str, object] | None = None,
+) -> AbstainResult:
     """Return a typed ABSTAIN strategy result."""
-    return {"status": "ABSTAIN", "reason": reason}
+    result: AbstainResult = {"status": "ABSTAIN", "reason": reason}
+    if metadata is not None:
+        result["metadata"] = dict(metadata)
+    return result
 
 
 def run_strategy(*, strategy_name: str, strategy: StrategyCallable) -> StrategyResult:
@@ -90,14 +116,15 @@ def coerce_strategy_result(result: object) -> StrategyResult:
     if not reason:
         message = "Strategy result `reason` must be non-empty."
         raise StrategyContractError(message)
+    metadata = _coerce_metadata(result=result_map)
 
     if status == "DUPLICATE":
         score = _coerce_score(result=result_map)
-        return duplicate(score=score, reason=reason)
+        return duplicate(score=score, reason=reason, metadata=metadata)
     if status == "DISTINCT":
-        return distinct(reason=reason)
+        return distinct(reason=reason, metadata=metadata)
     if status == "ABSTAIN":
-        return abstain(reason=reason)
+        return abstain(reason=reason, metadata=metadata)
 
     assert_never(status)
 
@@ -112,3 +139,21 @@ def _coerce_score(*, result: Mapping[str, object]) -> float:
         message = "DUPLICATE strategy result `score` must be finite."
         raise StrategyContractError(message)
     return score
+
+
+def _coerce_metadata(*, result: Mapping[str, object]) -> StrategyMetadata | None:
+    metadata_obj = result.get("metadata")
+    if metadata_obj is None:
+        return None
+    if not isinstance(metadata_obj, Mapping):
+        message = "Strategy result `metadata` must be a mapping when provided."
+        raise StrategyContractError(message)
+
+    metadata_map = cast("Mapping[object, object]", metadata_obj)
+    metadata: StrategyMetadata = {}
+    for key, value in metadata_map.items():
+        if not isinstance(key, str):
+            message = "Strategy result `metadata` keys must be strings."
+            raise StrategyContractError(message)
+        metadata[key] = value
+    return metadata
