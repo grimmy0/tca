@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from tca.dedupe import (
     NO_STRATEGY_MATCH_REASON,
+    StrategyContractError,
     execute_strategy_chain,
 )
 
@@ -71,10 +74,34 @@ def test_all_abstain_returns_distinct_no_strategy_match() -> None:
         raise AssertionError
 
 
+def test_invalid_result_raises_and_stops_chain() -> None:
+    """Invalid contract output should raise and halt further evaluation."""
+    executed: list[str] = []
+
+    with pytest.raises(StrategyContractError, match="first_invalid"):
+        _ = execute_strategy_chain(
+            strategies=(
+                ("first_invalid", _invalid_strategy("first_invalid", executed)),
+                ("second_abstain", _abstain_strategy("second_abstain", executed)),
+            ),
+        )
+
+    if executed != ["first_invalid"]:
+        raise AssertionError
+
+
 def _abstain_strategy(label: str, executed: list[str]) -> Callable[[], object]:
     def _strategy() -> object:
         executed.append(label)
         return {"status": "ABSTAIN", "reason": f"{label}_reason"}
+
+    return _strategy
+
+
+def _invalid_strategy(label: str, executed: list[str]) -> Callable[[], object]:
+    def _strategy() -> object:
+        executed.append(label)
+        return {"status": "INVALID", "reason": f"{label}_reason"}
 
     return _strategy
 
