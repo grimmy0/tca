@@ -10,6 +10,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from tca.api.app import create_app
+from tca.storage import ChannelAlreadyAssignedToGroupError, ChannelGroupsRepository
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -198,6 +199,197 @@ def test_groups_view_edits_and_persists_horizon_override(
         raise AssertionError
 
 
+def test_channels_view_create_requires_existing_account(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Ensure channel create reports missing account FK violations explicitly."""
+    db_path = _configure_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="ui-channels-groups-channel-missing-account.sqlite3",
+        output_file_name="ui-channels-groups-channel-missing-account-token.txt",
+    )
+    app = create_app()
+
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
+        response = client.post(
+            "/ui/channels",
+            data={
+                "account_id": "9999",
+                "telegram_channel_id": "30001",
+                "name": "missing-account",
+                "username": "",
+            },
+            headers=_auth_headers(),
+            follow_redirects=False,
+        )
+
+    if response.status_code != HTTPStatus.NOT_FOUND:
+        raise AssertionError
+    if "Account" not in response.text or "was not found" not in response.text:
+        raise AssertionError
+    if _count_rows(db_path=db_path, table_name="telegram_channels") != 0:
+        raise AssertionError
+
+
+def test_groups_view_create_rolls_back_group_when_membership_insert_fails(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Ensure group creation compensates when channel membership insert fails."""
+    db_path = _configure_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="ui-channels-groups-group-create-rollback.sqlite3",
+        output_file_name="ui-channels-groups-group-create-rollback-token.txt",
+    )
+    app = create_app()
+
+    async def _raise_assignment_conflict(
+        self: object,  # noqa: ARG001
+        *,
+        group_id: int,  # noqa: ARG001
+        channel_id: int,
+    ) -> object:
+        raise ChannelAlreadyAssignedToGroupError.for_channel(channel_id)
+
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        patch(
+            "tca.ui.routes.ChannelGroupsRepository.add_channel_membership",
+            new=_raise_assignment_conflict,
+        ),
+        TestClient(app) as client,
+    ):
+        _insert_account(db_path=db_path)
+        channel_id = _create_channel(
+            client=client,
+            db_path=db_path,
+            account_id=DEFAULT_ACCOUNT_ID,
+            telegram_channel_id=31001,
+            name="rollback-target",
+        )
+        response = client.post(
+            "/ui/groups",
+            data={
+                "name": "Should Roll Back",
+                "description": "",
+                "dedupe_horizon_minutes_override": "",
+                "channel_id": str(channel_id),
+            },
+            headers=_auth_headers(),
+            follow_redirects=False,
+        )
+
+    if response.status_code != HTTPStatus.CONFLICT:
+        raise AssertionError
+    if _count_rows(db_path=db_path, table_name="channel_groups") != 0:
+        raise AssertionError
+    if _count_rows(db_path=db_path, table_name="channel_group_members") != 0:
+        raise AssertionError
+
+
+def test_groups_view_reassign_restores_previous_membership_on_failure(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Ensure reassignment restore keeps prior membership when insert fails."""
+    db_path = _configure_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="ui-channels-groups-group-reassign-rollback.sqlite3",
+        output_file_name="ui-channels-groups-group-reassign-rollback-token.txt",
+    )
+    app = create_app()
+
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
+        _insert_account(db_path=db_path)
+        channel_a = _create_channel(
+            client=client,
+            db_path=db_path,
+            account_id=DEFAULT_ACCOUNT_ID,
+            telegram_channel_id=32001,
+            name="channel-a",
+        )
+        channel_b = _create_channel(
+            client=client,
+            db_path=db_path,
+            account_id=DEFAULT_ACCOUNT_ID,
+            telegram_channel_id=32002,
+            name="channel-b",
+        )
+        created_group = client.post(
+            "/ui/groups",
+            data={
+                "name": "Rollback Group",
+                "description": "",
+                "dedupe_horizon_minutes_override": "",
+                "channel_id": str(channel_a),
+            },
+            headers=_auth_headers(),
+            follow_redirects=False,
+        )
+        if created_group.status_code != HTTPStatus.SEE_OTHER:
+            raise AssertionError
+        group_id = _fetch_single_group_id(db_path=db_path)
+
+    original_add_channel_membership = ChannelGroupsRepository.add_channel_membership
+
+    async def _fail_reassignment(
+        self: object,
+        *,
+        group_id: int,
+        channel_id: int,
+    ) -> object:
+        if channel_id == channel_b:
+            raise ChannelAlreadyAssignedToGroupError.for_channel(channel_id)
+        return await original_add_channel_membership(
+            self,
+            group_id=group_id,
+            channel_id=channel_id,
+        )
+
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        patch(
+            "tca.ui.routes.ChannelGroupsRepository.add_channel_membership",
+            new=_fail_reassignment,
+        ),
+        TestClient(app) as client,
+    ):
+        response = client.post(
+            f"/ui/groups/{group_id}/channel",
+            data={"channel_id": str(channel_b)},
+            headers=_auth_headers(),
+            follow_redirects=False,
+        )
+
+    if response.status_code != HTTPStatus.CONFLICT:
+        raise AssertionError
+    membership_rows = _fetch_group_memberships(db_path=db_path, group_id=group_id)
+    if membership_rows != [channel_a]:
+        raise AssertionError
+
+
 def _create_channel(
     *,
     client: TestClient,
@@ -340,6 +532,23 @@ def _fetch_group_horizon_override(*, db_path: Path, group_id: int) -> int | None
     if value is not None and type(value) is not int:
         raise AssertionError
     return value
+
+
+def _count_rows(*, db_path: Path, table_name: str) -> int:
+    query_by_table = {
+        "telegram_channels": "SELECT COUNT(*) FROM telegram_channels",
+        "channel_groups": "SELECT COUNT(*) FROM channel_groups",
+        "channel_group_members": "SELECT COUNT(*) FROM channel_group_members",
+    }
+    query = query_by_table.get(table_name)
+    if query is None:
+        raise AssertionError
+    with sqlite3.connect(db_path) as connection:
+        cursor = connection.execute(query)
+        row = cursor.fetchone()
+    if row is None or type(row[0]) is not int:
+        raise AssertionError
+    return row[0]
 
 
 def _configure_auth_env(

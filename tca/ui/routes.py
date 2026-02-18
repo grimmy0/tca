@@ -122,12 +122,20 @@ async def post_create_channel(request: Request) -> Response:
                 username=username_raw or None,
             ),
         )
-    except IntegrityError:
-        return await _render_channels_groups_view(
-            request=request,
-            status_code=409,
-            error_message="Channel create conflict: duplicate telegram channel id.",
-        )
+    except IntegrityError as exc:
+        if _is_duplicate_channel_integrity_error(exc=exc):
+            return await _render_channels_groups_view(
+                request=request,
+                status_code=409,
+                error_message="Channel create conflict: duplicate telegram channel id.",
+            )
+        if _is_channel_account_fk_integrity_error(exc=exc):
+            return await _render_channels_groups_view(
+                request=request,
+                status_code=404,
+                error_message=f"Account '{account_id}' was not found.",
+            )
+        raise
 
     return RedirectResponse(url="/ui/channels-groups", status_code=303)
 
@@ -657,13 +665,13 @@ async def _load_channels_groups_data(
         account_result = await session.execute(account_statement)
         channel_rows = channels_result.mappings().all()
         group_rows = groups_result.mappings().all()
-        default_account_obj = account_result.scalar_one_or_none()
+        default_account_obj = cast("object", account_result.scalar_one_or_none())
 
     channels = [_decode_ui_channel_row(row=row) for row in channel_rows]
     groups = [_decode_ui_group_row(row=row) for row in group_rows]
     if default_account_obj is None:
         return channels, groups, None
-    if not isinstance(default_account_obj, int):
+    if type(default_account_obj) is not int:
         message = "Expected integer `telegram_accounts.id` value."
         raise TypeError(message)
     return channels, groups, default_account_obj
@@ -801,10 +809,19 @@ async def _create_group_from_form_values(
         dedupe_horizon_minutes_override=values.dedupe_horizon_minutes_override,
     )
     if values.channel_id is not None:
-        _ = await groups_repository.add_channel_membership(
-            group_id=created.id,
-            channel_id=values.channel_id,
-        )
+        try:
+            _ = await groups_repository.add_channel_membership(
+                group_id=created.id,
+                channel_id=values.channel_id,
+            )
+        except IntegrityError as exc:
+            _ = await groups_repository.delete_group(group_id=created.id)
+            if _is_membership_channel_fk_integrity_error(exc=exc):
+                return False
+            raise
+        except ChannelAlreadyAssignedToGroupError:
+            _ = await groups_repository.delete_group(group_id=created.id)
+            raise
     return True
 
 
@@ -842,16 +859,26 @@ async def _assign_group_channel_membership(
     if membership is not None and membership.group_id != group_id:
         raise ChannelAlreadyAssignedToGroupError.for_channel(desired_channel_id)
 
+    removed_current_assignment = False
     if current_channel_id is not None and current_channel_id != desired_channel_id:
         _ = await groups_repository.remove_channel_membership(
             group_id=group_id,
             channel_id=current_channel_id,
         )
+        removed_current_assignment = True
     if current_channel_id != desired_channel_id:
-        _ = await groups_repository.add_channel_membership(
-            group_id=group_id,
-            channel_id=desired_channel_id,
-        )
+        try:
+            _ = await groups_repository.add_channel_membership(
+                group_id=group_id,
+                channel_id=desired_channel_id,
+            )
+        except (ChannelAlreadyAssignedToGroupError, IntegrityError):
+            if removed_current_assignment and current_channel_id is not None:
+                _ = await groups_repository.add_channel_membership(
+                    group_id=group_id,
+                    channel_id=current_channel_id,
+                )
+            raise
     return True
 
 
@@ -879,10 +906,10 @@ async def _get_group_channel_assignment(
     )
     async with runtime.read_session_factory() as session:
         result = await session.execute(statement, {"group_id": group_id})
-        channel_id_obj = result.scalar_one_or_none()
+        channel_id_obj = cast("object", result.scalar_one_or_none())
     if channel_id_obj is None:
         return None
-    if not isinstance(channel_id_obj, int):
+    if type(channel_id_obj) is not int:
         message = "Expected integer `channel_id` in `channel_group_members` row."
         raise TypeError(message)
     return channel_id_obj
@@ -945,3 +972,35 @@ def _parse_int(*, value: str) -> int | None:
         return int(value)
     except ValueError:
         return None
+
+
+def _is_duplicate_channel_integrity_error(*, exc: IntegrityError) -> bool:
+    message = _normalized_integrity_message(exc=exc)
+    if "uq_telegram_channels_telegram_channel_id" in message:
+        return True
+    return (
+        "unique constraint failed" in message
+        and "telegram_channels.telegram_channel_id" in message
+    )
+
+
+def _is_channel_account_fk_integrity_error(*, exc: IntegrityError) -> bool:
+    message = _normalized_integrity_message(exc=exc)
+    if "fk_telegram_channels_account_id" in message:
+        return True
+    return "foreign key constraint failed" in message
+
+
+def _is_membership_channel_fk_integrity_error(*, exc: IntegrityError) -> bool:
+    message = _normalized_integrity_message(exc=exc)
+    if "fk_channel_group_members_channel_id" in message:
+        return True
+    return "foreign key constraint failed" in message
+
+
+def _normalized_integrity_message(*, exc: IntegrityError) -> str:
+    driver_error = cast("object | None", getattr(exc, "orig", None))
+    message_parts = [str(exc)]
+    if driver_error is not None:
+        message_parts.append(str(driver_error))
+    return " ".join(message_parts).lower()
