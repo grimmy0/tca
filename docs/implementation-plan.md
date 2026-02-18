@@ -1534,11 +1534,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Add daily prune routine with the exact six-step order and batch size `500`.
 - Acceptance criteria:
-  - [ ] Job executes steps in designed order.
-  - [ ] Batch size respected for raw/items deletions.
-  - [ ] Cluster recomputation/empty cluster cleanup is verified.
+  - [x] Job executes steps in designed order. [Tests: tests/ops/test_prune_job.py::test_prune_job_executes_steps_in_designed_order]
+  - [x] Batch size respected for raw/items deletions. [Tests: tests/ops/test_prune_job.py::test_prune_job_respects_batch_size_for_raw_messages_and_items]
+  - [x] Cluster recomputation/empty cluster cleanup is verified. [Tests: tests/ops/test_prune_job.py::test_prune_job_recomputes_cluster_representatives_and_removes_empty_clusters]
 - Verification:
   - `uv run pytest -q tests/ops/test_prune_job.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/ops/test_prune_job.py` passed.
 
 ### C080 - Implement Nightly SQLite Backup Job
 
