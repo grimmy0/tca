@@ -13,6 +13,7 @@ from tca.ops import (
     DELETE_BATCH_SIZE,
     OrderedRetentionPruneJob,
 )
+from tca.ops.prune_job import _coerce_row_int
 from tca.storage import StorageRuntime, create_storage_runtime, dispose_storage_runtime
 
 if TYPE_CHECKING:
@@ -383,6 +384,55 @@ async def test_prune_job_recomputes_cluster_representatives_and_removes_empty_cl
         raise AssertionError
 
 
+@pytest.mark.asyncio
+async def test_prune_job_uses_default_when_retention_days_is_fractional_float(
+    storage_runtime: StorageRuntime,
+) -> None:
+    """Ensure fractional retention values do not truncate into destructive deletes."""
+    now = datetime.now(UTC).replace(microsecond=0)
+    await _insert_base_account_and_channel(runtime=storage_runtime)
+    await _insert_setting(
+        runtime=storage_runtime,
+        key="retention.raw_messages_days",
+        value=30,
+    )
+    await _insert_setting(
+        runtime=storage_runtime,
+        key="retention.items_days",
+        value=0.5,
+    )
+    await _insert_setting(
+        runtime=storage_runtime,
+        key="retention.ingest_errors_days",
+        value=90,
+    )
+    await _insert_item(
+        runtime=storage_runtime,
+        item_id=901,
+        channel_id=1,
+        message_id=9901,
+        created_at=now - timedelta(days=10),
+    )
+
+    job = OrderedRetentionPruneJob(
+        read_session_factory=storage_runtime.read_session_factory,
+        write_session_factory=storage_runtime.write_session_factory,
+        now_provider=lambda: now,
+    )
+    summary = await job.run_once()
+
+    if summary.items_deleted != 0:
+        raise AssertionError
+    if await _read_item_exists(storage_runtime, item_id=901) is False:
+        raise AssertionError
+
+
+def test_coerce_row_int_rejects_bool() -> None:
+    """Ensure bool values cannot pass int-coercion guardrails."""
+    with pytest.raises(TypeError, match=r"expected integer `cluster_id`"):
+        _coerce_row_int(value=True, field="cluster_id")
+
+
 async def _insert_base_account_and_channel(*, runtime: StorageRuntime) -> None:
     async with runtime.write_session_factory() as session:
         _ = await session.execute(
@@ -415,7 +465,7 @@ async def _insert_setting(
     *,
     runtime: StorageRuntime,
     key: str,
-    value: int,
+    value: float,
 ) -> None:
     async with runtime.write_session_factory() as session:
         _ = await session.execute(
@@ -623,6 +673,22 @@ async def _read_cluster_exists(runtime: StorageRuntime, *, cluster_id: int) -> b
                 """,
             ),
             {"cluster_id": cluster_id},
+        )
+        count = cast("int", result.scalar_one())
+    return count == 1
+
+
+async def _read_item_exists(runtime: StorageRuntime, *, item_id: int) -> bool:
+    async with runtime.read_session_factory() as session:
+        result = await session.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM items
+                WHERE id = :item_id
+                """,
+            ),
+            {"item_id": item_id},
         )
         count = cast("int", result.scalar_one())
     return count == 1

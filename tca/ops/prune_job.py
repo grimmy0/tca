@@ -209,6 +209,8 @@ async def _resolve_positive_days_setting(
             default_value=default_value,
         )
     if isinstance(value, float):
+        if not value.is_integer():
+            return default_value
         return _resolve_days_numeric(
             value=int(value),
             allow_zero=allow_zero,
