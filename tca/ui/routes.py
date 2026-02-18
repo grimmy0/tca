@@ -883,7 +883,8 @@ def _to_ui_notification_row(*, record: NotificationListRecord) -> UINotification
 def _format_datetime(value: object) -> str | None:
     if value is None:
         return None
-    if not hasattr(value, "isoformat"):
+    isoformat = getattr(value, "isoformat", None)
+    if not callable(isoformat):
         message = "Expected datetime-compatible object."
         raise TypeError(message)
     typed_value = cast("SupportsIsoformat", value)

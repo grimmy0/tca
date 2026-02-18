@@ -1525,7 +1525,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/ui/test_notifications_view.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `NONE`
+  - Commit: `1b6d28dce234ac77a67accd13b9a1ab4d14698aa`
   - Verification summary:
     - `uv run pytest -q tests/ui/test_notifications_view.py` passed.
 

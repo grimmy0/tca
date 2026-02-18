@@ -116,6 +116,126 @@ def test_notifications_view_acknowledge_updates_ui_and_db(
         raise AssertionError
 
 
+def test_notifications_view_acknowledge_is_idempotent(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Repeated acknowledge action should keep a stable acknowledged timestamp."""
+    db_path = _configure_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="ui-notifications-ack-idempotent.sqlite3",
+        output_file_name="ui-notifications-ack-idempotent-token.txt",
+    )
+    app = create_app()
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
+        _insert_notification(
+            db_path=db_path,
+            notification_id=102,
+            notification_type="auth_login_failed",
+            severity="medium",
+            message="idempotent ack",
+            created_at="2026-02-16T12:15:00+00:00",
+        )
+        first = client.post(
+            "/ui/notifications/102/ack",
+            headers=_auth_headers(),
+            follow_redirects=True,
+        )
+        first_is_acknowledged, first_acknowledged_at = _fetch_ack_state(
+            db_path=db_path,
+            notification_id=102,
+        )
+        second = client.post(
+            "/ui/notifications/102/ack",
+            headers=_auth_headers(),
+            follow_redirects=True,
+        )
+        second_is_acknowledged, second_acknowledged_at = _fetch_ack_state(
+            db_path=db_path,
+            notification_id=102,
+        )
+
+    if first.status_code != HTTPStatus.OK:
+        raise AssertionError
+    if second.status_code != HTTPStatus.OK:
+        raise AssertionError
+    if first_is_acknowledged is not True:
+        raise AssertionError
+    if second_is_acknowledged is not True:
+        raise AssertionError
+    if first_acknowledged_at is None:
+        raise AssertionError
+    if first_acknowledged_at != second_acknowledged_at:
+        raise AssertionError
+    if 'action="/ui/notifications/102/ack"' in second.text:
+        raise AssertionError
+
+
+def test_notifications_view_acknowledge_missing_notification_renders_not_found(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Missing notification id should return a 404 page-level error message."""
+    _configure_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="ui-notifications-ack-missing.sqlite3",
+        output_file_name="ui-notifications-ack-missing-token.txt",
+    )
+    app = create_app()
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
+        response = client.post(
+            "/ui/notifications/9999/ack",
+            headers=_auth_headers(),
+        )
+
+    if response.status_code != HTTPStatus.NOT_FOUND:
+        raise AssertionError
+    if "9999" not in response.text or "was not found." not in response.text:
+        raise AssertionError
+
+
+def test_notifications_view_requires_bearer_auth(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Notifications UI routes should reject unauthenticated requests."""
+    _configure_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="ui-notifications-auth.sqlite3",
+        output_file_name="ui-notifications-auth-token.txt",
+    )
+    app = create_app()
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
+        list_response = client.get("/ui/notifications")
+        ack_response = client.post("/ui/notifications/42/ack")
+
+    if list_response.status_code != HTTPStatus.UNAUTHORIZED:
+        raise AssertionError
+    if ack_response.status_code != HTTPStatus.UNAUTHORIZED:
+        raise AssertionError
+
+
 def test_notifications_view_marks_high_severity_alerts_visually(
     tmp_path: Path,
     monkeypatch: object,
