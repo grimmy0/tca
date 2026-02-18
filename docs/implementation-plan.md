@@ -1232,7 +1232,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/normalize/test_similarity_normalization.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `NONE`
+  - Commit: `f3c06d4aa4124ce82f6cf490e4bfb8aea7799a01`
   - Verification summary:
     - `uv run pytest -q tests/normalize/test_similarity_normalization.py` passed.
 
