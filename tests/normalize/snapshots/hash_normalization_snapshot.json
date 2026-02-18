@@ -1,0 +1,8 @@
+{
+  "cases": {
+    "mixed_text_and_url": "launch https example com path x 1",
+    "telegram_wrapped_url": "see https example com a keep 1",
+    "build_title_body_input": "title one body https example com a c a 1 b 2",
+    "cjk_and_fullwidth": "fullwidth text 和中文"
+  }
+}

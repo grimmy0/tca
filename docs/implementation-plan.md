@@ -1209,11 +1209,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Implement hash pipeline exactly as specified for `content_hash` generation.
 - Acceptance criteria:
-  - [ ] Same semantic input yields same normalized hash input.
-  - [ ] Non-alphanumeric collapse behavior matches spec.
-  - [ ] Snapshot tests lock normalization outputs.
+  - [x] Same semantic input yields same normalized hash input. [Tests: tests/normalize/test_hash_normalization.py::test_same_semantic_input_yields_same_normalized_hash_input]
+  - [x] Non-alphanumeric collapse behavior matches spec. [Tests: tests/normalize/test_hash_normalization.py::test_non_alphanumeric_collapse_behavior_matches_spec]
+  - [x] Snapshot tests lock normalization outputs. [Tests: tests/normalize/test_hash_normalization.py::test_snapshot_locks_hash_normalization_outputs]
 - Verification:
   - `uv run pytest -q tests/normalize/test_hash_normalization.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/normalize/test_hash_normalization.py` passed.
 
 ### C060 - Implement Similarity Normalization Pipeline
 
