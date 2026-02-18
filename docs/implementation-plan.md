@@ -1589,7 +1589,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/ops/test_graceful_shutdown.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `NONE`
+  - Commit: `74909c8cfb397a08571d6ffbc920109f176e1ee3`
   - Verification summary:
     - `uv run pytest -q tests/ops/test_graceful_shutdown.py` passed.
 

@@ -55,6 +55,20 @@ class HangingSchedulerDependency:
 
 
 @dataclass(slots=True)
+class FailingSchedulerDependency:
+    """Scheduler dependency that raises during shutdown."""
+
+    error_message: str
+
+    async def startup(self) -> None:
+        """No-op startup hook used by lifecycle tests."""
+
+    async def shutdown(self) -> None:
+        """Raise deterministic scheduler shutdown failure."""
+        raise RuntimeError(self.error_message)
+
+
+@dataclass(slots=True)
 class OrderedWriterQueue:
     """Queue-like object that records close ordering for shutdown tests."""
 
@@ -235,6 +249,37 @@ async def test_graceful_shutdown_exits_before_timeout_when_scheduler_hangs(
         raise AssertionError
     if not scheduler.cancelled:
         raise AssertionError
+    if shutdown_events != [
+        "writer_queue.close",
+        "telethon_manager.shutdown",
+        "auth.shutdown",
+        "settings.shutdown",
+        "db.shutdown",
+    ]:
+        raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_graceful_shutdown_continues_after_scheduler_shutdown_error() -> None:
+    """Scheduler shutdown exceptions should not prevent downstream teardown."""
+    shutdown_events: list[str] = []
+    error_message = "scheduler-shutdown-failed"
+    app = create_app()
+    app.state.writer_queue_factory = lambda: OrderedWriterQueue(
+        shutdown_events=shutdown_events,
+    )
+    app.state.dependencies = StartupDependencies(
+        db=OrderedDependency("db", shutdown_events),
+        settings=OrderedDependency("settings", shutdown_events),
+        auth=OrderedDependency("auth", shutdown_events),
+        telethon_manager=OrderedDependency("telethon_manager", shutdown_events),
+        scheduler=FailingSchedulerDependency(error_message=error_message),
+    )
+
+    with pytest.raises(RuntimeError, match=error_message):
+        async with lifespan(app):
+            pass
+
     if shutdown_events != [
         "writer_queue.close",
         "telethon_manager.shutdown",

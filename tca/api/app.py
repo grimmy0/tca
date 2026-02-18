@@ -372,6 +372,7 @@ async def _shutdown_in_order(
         await _shutdown_scheduler_with_timeout(
             dependency=scheduler_dependency,
             timeout_seconds=SCHEDULER_SHUTDOWN_TIMEOUT_SECONDS,
+            shutdown_errors=shutdown_errors,
         )
 
     await _close_writer_queue(
@@ -401,11 +402,14 @@ async def _shutdown_scheduler_with_timeout(
     *,
     dependency: LifecycleDependency,
     timeout_seconds: float,
+    shutdown_errors: list[Exception],
 ) -> None:
     """Stop scheduler intake and bound in-flight drain wait time."""
     shutdown_task = asyncio.create_task(dependency.shutdown())
     try:
         await asyncio.wait_for(shutdown_task, timeout=timeout_seconds)
+    except asyncio.CancelledError:
+        raise
     except TimeoutError:
         _ = shutdown_task.cancel()
         with suppress(asyncio.CancelledError):
@@ -414,6 +418,11 @@ async def _shutdown_scheduler_with_timeout(
             "Scheduler shutdown exceeded %.2fs timeout; continuing teardown.",
             timeout_seconds,
         )
+    except Exception as exc:
+        if isinstance(exc, asyncio.CancelledError):
+            raise
+        logger.exception("Shutdown step failed for scheduler dependency.")
+        shutdown_errors.append(exc)
 
 
 async def _close_writer_queue(
