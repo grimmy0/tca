@@ -1445,7 +1445,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/api/test_dedupe_decisions_api.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `NONE`
+  - Commit: `5d6b3ee01d9f8a28cfaee42bf73aea4dc4f11fd4`
   - Verification summary:
     - `uv run pytest -q tests/api/test_dedupe_decisions_api.py` passed.
 

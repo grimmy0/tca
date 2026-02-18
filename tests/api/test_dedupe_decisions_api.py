@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 BOOTSTRAP_TOKEN = "dedupe-decisions-api-token"  # noqa: S105
 EXPECTED_OK_STATUS = HTTPStatus.OK
 EXPECTED_NOT_FOUND_STATUS = HTTPStatus.NOT_FOUND
+EXPECTED_UNAUTHORIZED_STATUS = HTTPStatus.UNAUTHORIZED
 TARGET_ITEM_ID = 101
 EXPECTED_TRACE_ENTRY_COUNT = 2
 EXPECTED_TITLE_SIMILARITY_SCORE = 0.98
@@ -229,6 +230,33 @@ def test_get_dedupe_decisions_openapi_schema_is_explicit_and_stable(
         "created_at",
     }
     if set(entry_properties) != expected_entry_fields:
+        raise AssertionError
+
+
+def test_get_dedupe_decisions_requires_bearer_auth(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Ensure dedupe decision trace endpoint is protected by bearer auth."""
+    db_path = tmp_path / "dedupe-decisions-auth.sqlite3"
+    patcher = _as_monkeypatch(monkeypatch)
+    patcher.setenv("TCA_DB_PATH", db_path.as_posix())
+    patcher.setenv(
+        "TCA_BOOTSTRAP_TOKEN_OUTPUT_PATH",
+        (tmp_path / "dedupe-decisions-auth-token.txt").as_posix(),
+    )
+
+    app = create_app()
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
+        response = client.get("/dedupe/decisions/101")
+
+    if response.status_code != EXPECTED_UNAUTHORIZED_STATUS:
         raise AssertionError
 
 
