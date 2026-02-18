@@ -1422,11 +1422,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Add thread endpoint with paging/filter options.
 - Acceptance criteria:
-  - [ ] Endpoint returns cluster-level entries with duplicate counts.
-  - [ ] Supports page/size validation and bounds.
-  - [ ] Protected by bearer auth.
+  - [x] Endpoint returns cluster-level entries with duplicate counts. [Tests: tests/api/test_thread_api.py::test_get_thread_returns_cluster_entries_with_duplicate_counts]
+  - [x] Supports page/size validation and bounds. [Tests: tests/api/test_thread_api.py::test_get_thread_validates_page_query_bounds, tests/api/test_thread_api.py::test_get_thread_validates_size_query_bounds]
+  - [x] Protected by bearer auth. [Tests: tests/api/test_thread_api.py::test_get_thread_requires_bearer_auth]
 - Verification:
   - `uv run pytest -q tests/api/test_thread_api.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/api/test_thread_api.py` passed.
 
 ### C073 - Implement Dedupe Decision Read API
 
