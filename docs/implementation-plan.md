@@ -1454,11 +1454,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Add base template, layout, static assets, and auth-protected UI routing.
 - Acceptance criteria:
-  - [ ] UI renders without Node build pipeline.
-  - [ ] Base template loads HTMX and CSS successfully.
-  - [ ] Unauthorized UI access redirects or rejects consistently.
+  - [x] UI renders without Node build pipeline. [Tests: tests/ui/test_shell.py::test_ui_shell_renders_without_node_build_pipeline]
+  - [x] Base template loads HTMX and CSS successfully. [Tests: tests/ui/test_shell.py::test_ui_shell_base_template_loads_htmx_and_css]
+  - [x] Unauthorized UI access redirects or rejects consistently. [Tests: tests/ui/test_shell.py::test_ui_shell_rejects_unauthorized_access]
 - Verification:
   - `uv run pytest -q tests/ui/test_shell.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/ui/test_shell.py` passed.
 
 ### C075 - Implement First-Run Setup UI (Auth + Unlock)
 

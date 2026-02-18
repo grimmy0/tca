@@ -35,6 +35,8 @@ from tca.storage import (
     dispose_storage_runtime,
 )
 from tca.telegram import TelethonClientManager
+from tca.ui import router as ui_router
+from tca.ui.routes import static_files as ui_static_files
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -294,6 +296,11 @@ def create_app() -> FastAPI:
         dedupe_decisions_router,
         dependencies=protected_route_dependencies,
     )
+    app.include_router(
+        ui_router,
+        dependencies=protected_route_dependencies,
+    )
+    app.mount("/ui/static", ui_static_files, name="ui-static")
 
     app.add_api_route(
         "/openapi.json",

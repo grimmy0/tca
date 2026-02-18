@@ -1,0 +1,12 @@
+:root {
+  --tca-shell-max-width: 52rem;
+}
+
+.container {
+  max-width: var(--tca-shell-max-width);
+  padding-block: 2rem;
+}
+
+#ui-shell-ready {
+  margin-block-start: 0.5rem;
+}
