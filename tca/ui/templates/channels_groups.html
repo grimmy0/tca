@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}TCA Channels + Groups{% endblock %}
+
+{% block content %}
+<section>
+  <h1>Channels + Groups</h1>
+  <p><a href="/ui">Return to shell</a></p>
+  {% if error_message %}
+  <p id="channels-groups-error"><strong>{{ error_message }}</strong></p>
+  {% endif %}
+</section>
+
+<section id="channels-panel">
+  <h2>Channels</h2>
+  <form id="channel-create-form" method="post" action="/ui/channels">
+    <label>
+      Account ID
+      <input
+        type="number"
+        name="account_id"
+        required
+        {% if default_account_id is not none %}value="{{ default_account_id }}"{% endif %}
+      />
+    </label>
+    <label>
+      Telegram channel ID
+      <input type="number" name="telegram_channel_id" required />
+    </label>
+    <label>
+      Name
+      <input type="text" name="name" required />
+    </label>
+    <label>
+      Username
+      <input type="text" name="username" />
+    </label>
+    <button type="submit">Add channel</button>
+  </form>
+
+  {% if channels %}
+    {% for channel in channels %}
+    <article id="channel-{{ channel.id }}">
+      <header>
+        <strong>{{ channel.name }}</strong> (id={{ channel.id }}, tg={{ channel.telegram_channel_id }})
+      </header>
+      <p>
+        Username: {{ channel.username or "(none)" }}.
+        Status: {% if channel.is_enabled %}enabled{% else %}disabled{% endif %}.
+        Group: {{ channel.group_id if channel.group_id is not none else "unassigned" }}.
+      </p>
+      <form method="post" action="/ui/channels/{{ channel.id }}/edit">
+        <label>
+          Name
+          <input type="text" name="name" value="{{ channel.name }}" required />
+        </label>
+        <label>
+          Username
+          <input type="text" name="username" value="{{ channel.username or '' }}" />
+        </label>
+        <button type="submit">Save channel</button>
+      </form>
+      {% if channel.is_enabled %}
+      <form method="post" action="/ui/channels/{{ channel.id }}/disable">
+        <button type="submit">Disable channel</button>
+      </form>
+      {% endif %}
+    </article>
+    {% endfor %}
+  {% else %}
+  <p id="channels-empty">No channels configured.</p>
+  {% endif %}
+</section>
+
+<section id="groups-panel">
+  <h2>Groups</h2>
+  <form id="group-create-form" method="post" action="/ui/groups">
+    <label>
+      Name
+      <input type="text" name="name" required />
+    </label>
+    <label>
+      Description
+      <input type="text" name="description" />
+    </label>
+    <label>
+      Horizon override (minutes)
+      <input type="number" name="dedupe_horizon_minutes_override" />
+    </label>
+    <label>
+      Assign channel
+      <select name="channel_id">
+        <option value="">Unassigned</option>
+        {% for channel in channels %}
+          {% if channel.is_enabled %}
+          <option value="{{ channel.id }}">{{ channel.name }} ({{ channel.id }})</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Create group</button>
+  </form>
+
+  {% if groups %}
+    {% for group in groups %}
+    <article id="group-{{ group.id }}">
+      <header>
+        <strong>{{ group.name }}</strong> (id={{ group.id }})
+      </header>
+      <p>
+        Description: {{ group.description or "(none)" }}.
+        Horizon override:
+        {{ group.dedupe_horizon_minutes_override if group.dedupe_horizon_minutes_override is not none else "(global)" }}.
+      </p>
+      <form method="post" action="/ui/groups/{{ group.id }}/edit">
+        <label>
+          Name
+          <input type="text" name="name" value="{{ group.name }}" required />
+        </label>
+        <label>
+          Description
+          <input type="text" name="description" value="{{ group.description or '' }}" />
+        </label>
+        <label>
+          Horizon override (minutes)
+          <input
+            type="number"
+            name="dedupe_horizon_minutes_override"
+            value="{{ group.dedupe_horizon_minutes_override if group.dedupe_horizon_minutes_override is not none else '' }}"
+          />
+        </label>
+        <button type="submit">Save group</button>
+      </form>
+      <form method="post" action="/ui/groups/{{ group.id }}/channel">
+        <label>
+          Assigned channel
+          <select name="channel_id">
+            <option value="">Unassigned</option>
+            {% for channel in channels %}
+              {% if channel.is_enabled %}
+              <option
+                value="{{ channel.id }}"
+                {% if group.channel_id == channel.id %}selected{% endif %}
+              >
+                {{ channel.name }} ({{ channel.id }})
+              </option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </label>
+        <button type="submit">Update assignment</button>
+      </form>
+    </article>
+    {% endfor %}
+  {% else %}
+  <p id="groups-empty">No groups configured.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1486,11 +1486,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Build pages/forms for channel CRUD and group assignment/override.
 - Acceptance criteria:
-  - [ ] User can add/edit/disable channels from UI.
-  - [ ] User can create groups and assign one channel per group.
-  - [ ] Group horizon override is editable and persisted.
+  - [x] User can add/edit/disable channels from UI. [Tests: tests/ui/test_channels_groups_views.py::test_channels_view_add_edit_disable_channel_persists_changes]
+  - [x] User can create groups and assign one channel per group. [Tests: tests/ui/test_channels_groups_views.py::test_groups_view_creates_group_and_updates_single_channel_assignment]
+  - [x] Group horizon override is editable and persisted. [Tests: tests/ui/test_channels_groups_views.py::test_groups_view_edits_and_persists_horizon_override]
 - Verification:
   - `uv run pytest -q tests/ui/test_channels_groups_views.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/ui/test_channels_groups_views.py` passed.
 
 ### C077 - Implement Thread + Explainability UI Views
 
