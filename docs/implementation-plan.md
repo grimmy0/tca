@@ -1621,11 +1621,17 @@ An item is commit-ready only if all are true:
 - Change:
   - Add `docker-compose.yml` using pinned semver image tag and `/data` volume.
 - Acceptance criteria:
-  - [ ] Compose file uses non-`latest` image tag.
-  - [ ] Volume persists DB/backups across container restart.
-  - [ ] Default bind and mode env vars match design.
+  - [x] Compose file uses non-`latest` image tag. [Tests: tests/contracts/test_docker_compose_runtime.py::test_docker_compose_uses_non_latest_image_tag]
+  - [x] Volume persists DB/backups across container restart. [Tests: tests/contracts/test_docker_compose_runtime.py::test_docker_compose_persists_data_volume_for_db_and_backups]
+  - [x] Default bind and mode env vars match design. [Tests: tests/contracts/test_docker_compose_runtime.py::test_docker_compose_defaults_match_bind_and_mode_design_values]
 - Verification:
   - `docker compose config`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `deadbeef`
+  - Verification summary:
+    - `uv run pytest -q tests/contracts/test_docker_compose_runtime.py` passed.
+    - `docker compose config` passed.
 
 ### C085 - Add Entrypoint Startup Order Enforcement
 

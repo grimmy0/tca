@@ -1,0 +1,16 @@
+services:
+  tca:
+    image: ghcr.io/<owner>/tca:0.1.0
+    container_name: tca
+    ports:
+      - "8787:8787"
+    environment:
+      - TCA_DB_PATH=/data/tca.db
+      - TCA_BIND=127.0.0.1
+      - TCA_MODE=secure-interactive
+    volumes:
+      - tca-data:/data
+    restart: unless-stopped
+
+volumes:
+  tca-data:
