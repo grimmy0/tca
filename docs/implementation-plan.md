@@ -1502,11 +1502,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Build merged thread page and per-item decision drill-down panel.
 - Acceptance criteria:
-  - [ ] Thread page shows representative item, duplicate count, sources.
-  - [ ] Clicking entry shows dedupe decision details.
-  - [ ] Pagination/filter controls work end-to-end.
+  - [x] Thread page shows representative item, duplicate count, sources. [Tests: tests/ui/test_thread_views.py::test_thread_view_shows_representative_duplicate_count_and_sources]
+  - [x] Clicking entry shows dedupe decision details. [Tests: tests/ui/test_thread_views.py::test_thread_view_selection_shows_dedupe_decision_details]
+  - [x] Pagination/filter controls work end-to-end. [Tests: tests/ui/test_thread_views.py::test_thread_view_pagination_and_filter_controls_work_end_to_end]
 - Verification:
   - `uv run pytest -q tests/ui/test_thread_views.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/ui/test_thread_views.py` passed.
 
 ### C078 - Implement Notifications UI Panel
 

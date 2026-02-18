@@ -41,6 +41,9 @@ templates = Jinja2Templates(directory=(_UI_DIR / "templates").as_posix())
 static_files = StaticFiles(directory=(_UI_DIR / "static").as_posix())
 
 router = APIRouter(tags=["ui"])
+DEFAULT_THREAD_PAGE = 1
+DEFAULT_THREAD_PAGE_SIZE = 20
+MAX_THREAD_PAGE_SIZE = 100
 
 
 @dataclass(slots=True, frozen=True)
@@ -77,6 +80,57 @@ class UIGroupFormValues:
     channel_id: int | None
 
 
+@dataclass(slots=True, frozen=True)
+class UIThreadEntryRow:
+    """Typed row payload used by thread UI template rendering."""
+
+    cluster_id: int
+    cluster_key: str
+    representative_item_id: int
+    representative_published_at: str | None
+    representative_title: str | None
+    representative_body: str | None
+    representative_canonical_url: str | None
+    representative_channel_id: int
+    representative_channel_name: str
+    duplicate_count: int
+    source_channel_names: tuple[str, ...]
+
+
+@dataclass(slots=True, frozen=True)
+class UIThreadDecisionRow:
+    """Typed row payload used by thread decision drill-down rendering."""
+
+    decision_id: int
+    item_id: int
+    cluster_id: int | None
+    candidate_item_id: int | None
+    strategy_name: str
+    outcome: str
+    reason_code: str | None
+    score: float | None
+    metadata_json: str | None
+    created_at: str
+
+
+@dataclass(slots=True, frozen=True)
+class UIThreadFilterChannelRow:
+    """Typed channel option payload for thread filter controls."""
+
+    id: int
+    name: str
+
+
+@dataclass(slots=True, frozen=True)
+class UIThreadViewState:
+    """Parsed thread UI query state used by render helpers."""
+
+    page: int
+    size: int
+    selected_channel_id: int | None
+    selected_item_id: int | None
+
+
 @router.get("/ui", response_class=HTMLResponse, include_in_schema=False)
 async def get_ui_shell(request: Request) -> HTMLResponse:
     """Render the minimal authenticated shell page."""
@@ -84,6 +138,83 @@ async def get_ui_shell(request: Request) -> HTMLResponse:
         request=request,
         name="shell.html",
         context={"page_title": "TCA"},
+    )
+
+
+@router.get("/ui/thread", response_class=HTMLResponse, include_in_schema=False)
+async def get_thread_view(request: Request) -> HTMLResponse:
+    """Render merged thread page with pagination, filter controls, and drill-down."""
+    page_raw = str(request.query_params.get("page", str(DEFAULT_THREAD_PAGE))).strip()
+    size_raw = str(
+        request.query_params.get("size", str(DEFAULT_THREAD_PAGE_SIZE)),
+    ).strip()
+    channel_id_raw = str(request.query_params.get("channel_id", "")).strip()
+    selected_item_raw = str(request.query_params.get("selected_item_id", "")).strip()
+
+    page = _parse_int(value=page_raw)
+    size = _parse_int(value=size_raw)
+    parsed_channel_id = _parse_optional_int(raw_value=channel_id_raw)
+    parsed_selected_item_id = _parse_optional_int(raw_value=selected_item_raw)
+
+    if page is None or page < 1:
+        return await _render_thread_view(
+            request=request,
+            state=UIThreadViewState(
+                page=DEFAULT_THREAD_PAGE,
+                size=DEFAULT_THREAD_PAGE_SIZE,
+                selected_channel_id=None,
+                selected_item_id=None,
+            ),
+            status_code=400,
+            error_message="Thread page must be an integer greater than zero.",
+        )
+    if size is None or size < 1 or size > MAX_THREAD_PAGE_SIZE:
+        return await _render_thread_view(
+            request=request,
+            state=UIThreadViewState(
+                page=page,
+                size=DEFAULT_THREAD_PAGE_SIZE,
+                selected_channel_id=None,
+                selected_item_id=None,
+            ),
+            status_code=400,
+            error_message=(
+                f"Thread page size must be between 1 and {MAX_THREAD_PAGE_SIZE}."
+            ),
+        )
+    if parsed_channel_id == "invalid":
+        return await _render_thread_view(
+            request=request,
+            state=UIThreadViewState(
+                page=page,
+                size=size,
+                selected_channel_id=None,
+                selected_item_id=None,
+            ),
+            status_code=400,
+            error_message="Thread filter channel id must be an integer.",
+        )
+    if parsed_selected_item_id == "invalid":
+        return await _render_thread_view(
+            request=request,
+            state=UIThreadViewState(
+                page=page,
+                size=size,
+                selected_channel_id=parsed_channel_id,
+                selected_item_id=None,
+            ),
+            status_code=400,
+            error_message="Selected thread item id must be an integer.",
+        )
+
+    return await _render_thread_view(
+        request=request,
+        state=UIThreadViewState(
+            page=page,
+            size=size,
+            selected_channel_id=parsed_channel_id,
+            selected_item_id=parsed_selected_item_id,
+        ),
     )
 
 
@@ -614,6 +745,287 @@ async def _render_channels_groups_view(
         },
         status_code=status_code,
     )
+
+
+async def _render_thread_view(
+    *,
+    request: Request,
+    state: UIThreadViewState,
+    status_code: int = 200,
+    error_message: str | None = None,
+) -> HTMLResponse:
+    entries, has_next_page = await _load_thread_entries(
+        request=request,
+        page=state.page,
+        size=state.size,
+        selected_channel_id=state.selected_channel_id,
+    )
+    filter_channels = await _load_thread_filter_channels(request=request)
+    selected_decisions = await _load_thread_decisions_for_item(
+        request=request,
+        selected_item_id=state.selected_item_id,
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="thread.html",
+        context={
+            "page_title": "TCA Thread",
+            "thread_entries": entries,
+            "thread_filter_channels": filter_channels,
+            "thread_selected_channel_id": state.selected_channel_id,
+            "thread_selected_item_id": state.selected_item_id,
+            "thread_selected_decisions": selected_decisions,
+            "thread_page": state.page,
+            "thread_size": state.size,
+            "thread_has_prev_page": state.page > 1,
+            "thread_has_next_page": has_next_page,
+            "error_message": error_message,
+        },
+        status_code=status_code,
+    )
+
+
+async def _load_thread_entries(
+    *,
+    request: Request,
+    page: int,
+    size: int,
+    selected_channel_id: int | None,
+) -> tuple[list[UIThreadEntryRow], bool]:
+    runtime = _resolve_storage_runtime(request=request)
+    offset = (page - 1) * size
+    limit = size + 1
+    statement = text(
+        """
+        SELECT
+            clusters.id AS cluster_id,
+            clusters.cluster_key AS cluster_key,
+            representative.id AS representative_item_id,
+            representative.published_at AS representative_published_at,
+            representative.title AS representative_title,
+            representative.body AS representative_body,
+            representative.canonical_url AS representative_canonical_url,
+            representative_channel.id AS representative_channel_id,
+            representative_channel.name AS representative_channel_name,
+            COUNT(DISTINCT members.item_id) AS duplicate_count,
+            COALESCE(
+                GROUP_CONCAT(DISTINCT member_channels.name),
+                representative_channel.name
+            ) AS source_channel_names
+        FROM dedupe_clusters AS clusters
+        INNER JOIN items AS representative
+            ON representative.id = clusters.representative_item_id
+        INNER JOIN telegram_channels AS representative_channel
+            ON representative_channel.id = representative.channel_id
+        LEFT JOIN dedupe_members AS members
+            ON members.cluster_id = clusters.id
+        LEFT JOIN items AS member_items
+            ON member_items.id = members.item_id
+        LEFT JOIN telegram_channels AS member_channels
+            ON member_channels.id = member_items.channel_id
+        WHERE :selected_channel_id IS NULL
+            OR representative.channel_id = :selected_channel_id
+        GROUP BY
+            clusters.id,
+            clusters.cluster_key,
+            representative.id,
+            representative.published_at,
+            representative.title,
+            representative.body,
+            representative.canonical_url,
+            representative_channel.id,
+            representative_channel.name
+        ORDER BY
+            CASE
+                WHEN representative.published_at IS NULL THEN 1
+                ELSE 0
+            END ASC,
+            representative.published_at DESC,
+            clusters.id DESC
+        LIMIT :limit
+        OFFSET :offset
+        """,
+    )
+    async with runtime.read_session_factory() as session:
+        result = await session.execute(
+            statement,
+            {
+                "selected_channel_id": selected_channel_id,
+                "limit": limit,
+                "offset": offset,
+            },
+        )
+        rows = result.mappings().all()
+
+    has_next = len(rows) > size
+    bounded_rows = rows[:size]
+    return [_decode_ui_thread_entry_row(row=row) for row in bounded_rows], has_next
+
+
+async def _load_thread_filter_channels(
+    *,
+    request: Request,
+) -> list[UIThreadFilterChannelRow]:
+    runtime = _resolve_storage_runtime(request=request)
+    statement = text(
+        """
+        SELECT id, name
+        FROM telegram_channels
+        ORDER BY name ASC, id ASC
+        """,
+    )
+    async with runtime.read_session_factory() as session:
+        result = await session.execute(statement)
+        rows = result.mappings().all()
+    channels: list[UIThreadFilterChannelRow] = []
+    for row in rows:
+        row_map = cast("dict[str, object]", cast("object", row))
+        channel_id = _require_int_field(row_map=row_map, field_name="id")
+        name = _require_text_field(row_map=row_map, field_name="name")
+        channels.append(UIThreadFilterChannelRow(id=channel_id, name=name))
+    return channels
+
+
+async def _load_thread_decisions_for_item(
+    *,
+    request: Request,
+    selected_item_id: int | None,
+) -> list[UIThreadDecisionRow]:
+    if selected_item_id is None:
+        return []
+
+    runtime = _resolve_storage_runtime(request=request)
+    statement = text(
+        """
+        SELECT
+            id,
+            item_id,
+            cluster_id,
+            candidate_item_id,
+            strategy_name,
+            outcome,
+            reason_code,
+            score,
+            metadata_json,
+            created_at
+        FROM dedupe_decisions
+        WHERE item_id = :item_id
+        ORDER BY id ASC
+        """,
+    )
+    async with runtime.read_session_factory() as session:
+        result = await session.execute(statement, {"item_id": selected_item_id})
+        rows = result.mappings().all()
+    return [_decode_ui_thread_decision_row(row=row) for row in rows]
+
+
+def _decode_ui_thread_entry_row(*, row: object) -> UIThreadEntryRow:
+    row_map = cast("dict[str, object]", row)
+    published_obj = row_map.get("representative_published_at")
+    if published_obj is not None and not isinstance(published_obj, str):
+        message = "Expected `representative_published_at` to be text or null."
+        raise TypeError(message)
+    title_obj = row_map.get("representative_title")
+    if title_obj is not None and not isinstance(title_obj, str):
+        message = "Expected `representative_title` to be text or null."
+        raise TypeError(message)
+    body_obj = row_map.get("representative_body")
+    if body_obj is not None and not isinstance(body_obj, str):
+        message = "Expected `representative_body` to be text or null."
+        raise TypeError(message)
+    url_obj = row_map.get("representative_canonical_url")
+    if url_obj is not None and not isinstance(url_obj, str):
+        message = "Expected `representative_canonical_url` to be text or null."
+        raise TypeError(message)
+    duplicate_count_obj = row_map.get("duplicate_count")
+    if type(duplicate_count_obj) is int:
+        duplicate_count = duplicate_count_obj
+    elif isinstance(duplicate_count_obj, str) and duplicate_count_obj.isdigit():
+        duplicate_count = int(duplicate_count_obj)
+    else:
+        message = "Expected `duplicate_count` to be an integer."
+        raise TypeError(message)
+    source_names = _parse_source_channel_names(
+        source_channel_names=row_map.get("source_channel_names"),
+    )
+    return UIThreadEntryRow(
+        cluster_id=_require_int_field(row_map=row_map, field_name="cluster_id"),
+        cluster_key=_require_text_field(row_map=row_map, field_name="cluster_key"),
+        representative_item_id=_require_int_field(
+            row_map=row_map,
+            field_name="representative_item_id",
+        ),
+        representative_published_at=published_obj,
+        representative_title=title_obj,
+        representative_body=body_obj,
+        representative_canonical_url=url_obj,
+        representative_channel_id=_require_int_field(
+            row_map=row_map,
+            field_name="representative_channel_id",
+        ),
+        representative_channel_name=_require_text_field(
+            row_map=row_map,
+            field_name="representative_channel_name",
+        ),
+        duplicate_count=duplicate_count,
+        source_channel_names=source_names,
+    )
+
+
+def _decode_ui_thread_decision_row(*, row: object) -> UIThreadDecisionRow:
+    row_map = cast("dict[str, object]", row)
+    cluster_obj = row_map.get("cluster_id")
+    if cluster_obj is not None and type(cluster_obj) is not int:
+        message = "Expected `cluster_id` to be integer or null."
+        raise TypeError(message)
+    candidate_obj = row_map.get("candidate_item_id")
+    if candidate_obj is not None and type(candidate_obj) is not int:
+        message = "Expected `candidate_item_id` to be integer or null."
+        raise TypeError(message)
+    score_obj = row_map.get("score")
+    if score_obj is None:
+        score: float | None = None
+    elif isinstance(score_obj, int | float):
+        score = float(score_obj)
+    else:
+        message = "Expected `score` to be number or null."
+        raise TypeError(message)
+    reason_obj = row_map.get("reason_code")
+    if reason_obj is not None and not isinstance(reason_obj, str):
+        message = "Expected `reason_code` to be text or null."
+        raise TypeError(message)
+    metadata_obj = row_map.get("metadata_json")
+    if metadata_obj is not None and not isinstance(metadata_obj, str):
+        message = "Expected `metadata_json` to be text or null."
+        raise TypeError(message)
+    created_at_obj = row_map.get("created_at")
+    if not isinstance(created_at_obj, str):
+        message = "Expected `created_at` to be text."
+        raise TypeError(message)
+    return UIThreadDecisionRow(
+        decision_id=_require_int_field(row_map=row_map, field_name="id"),
+        item_id=_require_int_field(row_map=row_map, field_name="item_id"),
+        cluster_id=cluster_obj,
+        candidate_item_id=candidate_obj,
+        strategy_name=_require_text_field(row_map=row_map, field_name="strategy_name"),
+        outcome=_require_text_field(row_map=row_map, field_name="outcome"),
+        reason_code=reason_obj,
+        score=score,
+        metadata_json=metadata_obj,
+        created_at=created_at_obj,
+    )
+
+
+def _parse_source_channel_names(*, source_channel_names: object) -> tuple[str, ...]:
+    if source_channel_names is None:
+        return ()
+    if not isinstance(source_channel_names, str):
+        message = "Expected `source_channel_names` to be text or null."
+        raise TypeError(message)
+    unique_names = sorted(
+        {part.strip() for part in source_channel_names.split(",") if part.strip()},
+    )
+    return tuple(unique_names)
 
 
 async def _load_channels_groups_data(

@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}TCA Thread{% endblock %}
+
+{% block content %}
+<section>
+  <h1>Thread</h1>
+  <p><a href="/ui">Return to shell</a></p>
+  {% if error_message %}
+  <p id="thread-error"><strong>{{ error_message }}</strong></p>
+  {% endif %}
+</section>
+
+<section id="thread-controls">
+  <form id="thread-filter-form" method="get" action="/ui/thread">
+    <label>
+      Source channel
+      <select name="channel_id">
+        <option value="">All channels</option>
+        {% for channel in thread_filter_channels %}
+        <option
+          value="{{ channel.id }}"
+          {% if thread_selected_channel_id == channel.id %}selected{% endif %}
+        >
+          {{ channel.name }} ({{ channel.id }})
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Page size
+      <input type="number" name="size" min="1" max="100" value="{{ thread_size }}" />
+    </label>
+    <input type="hidden" name="page" value="1" />
+    <button type="submit">Apply controls</button>
+  </form>
+</section>
+
+<section id="thread-list">
+  <h2>Merged thread</h2>
+  {% if thread_entries %}
+    {% for entry in thread_entries %}
+    <article id="thread-entry-{{ entry.cluster_id }}">
+      <header>
+        <a
+          href="/ui/thread?page={{ thread_page }}&size={{ thread_size }}{% if thread_selected_channel_id is not none %}&channel_id={{ thread_selected_channel_id }}{% endif %}&selected_item_id={{ entry.representative_item_id }}"
+        >
+          {{ entry.representative_title or "(untitled item)" }}
+        </a>
+      </header>
+      <p>
+        Cluster: {{ entry.cluster_key }}.
+        Representative item: {{ entry.representative_item_id }}.
+        Duplicate count: {{ entry.duplicate_count }}.
+      </p>
+      <p>
+        Representative source: {{ entry.representative_channel_name }}.
+        Sources: {% if entry.source_channel_names %}{{ entry.source_channel_names | join(", ") }}{% else %}(none){% endif %}.
+      </p>
+      {% if entry.representative_published_at %}
+      <p>Published at: {{ entry.representative_published_at }}</p>
+      {% endif %}
+      {% if entry.representative_body %}
+      <p>{{ entry.representative_body }}</p>
+      {% endif %}
+      {% if entry.representative_canonical_url %}
+      <p><a href="{{ entry.representative_canonical_url }}">{{ entry.representative_canonical_url }}</a></p>
+      {% endif %}
+    </article>
+    {% endfor %}
+  {% else %}
+  <p id="thread-empty">No deduplicated thread entries available.</p>
+  {% endif %}
+</section>
+
+<section id="thread-pagination">
+  <h2>Pagination</h2>
+  {% if thread_has_prev_page %}
+  <a
+    id="thread-prev-page"
+    href="/ui/thread?page={{ thread_page - 1 }}&size={{ thread_size }}{% if thread_selected_channel_id is not none %}&channel_id={{ thread_selected_channel_id }}{% endif %}{% if thread_selected_item_id is not none %}&selected_item_id={{ thread_selected_item_id }}{% endif %}"
+  >
+    Previous page
+  </a>
+  {% endif %}
+  <span id="thread-page-state">Page {{ thread_page }}</span>
+  {% if thread_has_next_page %}
+  <a
+    id="thread-next-page"
+    href="/ui/thread?page={{ thread_page + 1 }}&size={{ thread_size }}{% if thread_selected_channel_id is not none %}&channel_id={{ thread_selected_channel_id }}{% endif %}{% if thread_selected_item_id is not none %}&selected_item_id={{ thread_selected_item_id }}{% endif %}"
+  >
+    Next page
+  </a>
+  {% endif %}
+</section>
+
+<section id="thread-decision-panel">
+  <h2>Dedupe decision details</h2>
+  {% if thread_selected_item_id is none %}
+  <p id="thread-decision-empty">Select a thread entry to inspect decisions.</p>
+  {% elif thread_selected_decisions %}
+    {% for decision in thread_selected_decisions %}
+    <article id="thread-decision-{{ decision.decision_id }}">
+      <header>
+        <strong>{{ decision.strategy_name }}</strong> -> {{ decision.outcome }}
+      </header>
+      <p>
+        Decision ID: {{ decision.decision_id }}.
+        Item: {{ decision.item_id }}.
+        Cluster: {{ decision.cluster_id if decision.cluster_id is not none else "(none)" }}.
+        Candidate: {{ decision.candidate_item_id if decision.candidate_item_id is not none else "(none)" }}.
+      </p>
+      <p>
+        Reason: {{ decision.reason_code or "(none)" }}.
+        Score: {{ decision.score if decision.score is not none else "(none)" }}.
+      </p>
+      {% if decision.metadata_json %}
+      <p>Metadata: {{ decision.metadata_json }}</p>
+      {% endif %}
+      <p>Recorded at: {{ decision.created_at }}</p>
+    </article>
+    {% endfor %}
+  {% else %}
+  <p id="thread-decision-none">No dedupe decisions recorded for item {{ thread_selected_item_id }}.</p>
+  {% endif %}
+</section>
+{% endblock %}
