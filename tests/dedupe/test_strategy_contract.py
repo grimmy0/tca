@@ -44,3 +44,15 @@ def test_unknown_statuses_fail_fast() -> None:
             strategy_name="unknown_status",
             strategy=_unknown_status_strategy,
         )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [True, False, float("nan"), float("inf"), -float("inf")],
+)
+def test_duplicate_score_rejects_bool_and_non_finite_values(value: object) -> None:
+    """Ensure DUPLICATE score disallows bools and non-finite floats."""
+    with pytest.raises(StrategyContractError):
+        _ = coerce_strategy_result(
+            {"status": "DUPLICATE", "score": value, "reason": "invalid_score"},
+        )

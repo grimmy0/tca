@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Mapping
 from typing import Literal, TypedDict, assert_never, cast
 
@@ -106,4 +107,8 @@ def _coerce_score(*, result: Mapping[str, object]) -> float:
     if isinstance(score_obj, bool) or not isinstance(score_obj, int | float):
         message = "DUPLICATE strategy result `score` must be numeric."
         raise StrategyContractError(message)
-    return float(score_obj)
+    score = float(score_obj)
+    if not math.isfinite(score):
+        message = "DUPLICATE strategy result `score` must be finite."
+        raise StrategyContractError(message)
+    return score

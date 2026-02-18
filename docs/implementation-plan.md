@@ -1248,7 +1248,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/dedupe/test_strategy_contract.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `NONE`
+  - Commit: `bacf067434ddad029e23ab28f62bc2f76f881a44`
   - Verification summary:
     - `uv run pytest -q tests/dedupe/test_strategy_contract.py` passed.
 
