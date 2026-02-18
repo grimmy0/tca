@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}TCA Notifications{% endblock %}
+
+{% block content %}
+<section>
+  <h1>Notifications</h1>
+  <p><a href="/ui">Return to shell</a></p>
+  {% if error_message %}
+  <p id="notifications-error"><strong>{{ error_message }}</strong></p>
+  {% endif %}
+</section>
+
+<section id="notifications-list">
+  <h2>Alerts</h2>
+  {% if notifications %}
+    {% for notification in notifications %}
+    <article
+      id="notification-{{ notification.id }}"
+      class="notification-card{% if notification.is_high_severity %} notification-high{% endif %}"
+    >
+      <header>
+        <strong>{{ notification.type }}</strong>
+        <span class="notification-severity">{{ notification.severity | upper }}</span>
+      </header>
+      <p>{{ notification.message }}</p>
+      <p>Created at: {{ notification.created_at }}</p>
+      {% if notification.is_acknowledged %}
+      <p class="notification-ack-state">
+        Acknowledged at: {{ notification.acknowledged_at }}
+      </p>
+      {% else %}
+      <form method="post" action="/ui/notifications/{{ notification.id }}/ack">
+        <button type="submit">Acknowledge</button>
+      </form>
+      {% endif %}
+      {% if notification.is_high_severity %}
+      <p class="notification-high-label"><strong>High-severity alert</strong></p>
+      {% endif %}
+    </article>
+    {% endfor %}
+  {% else %}
+  <p id="notifications-empty">No notifications recorded.</p>
+  {% endif %}
+</section>
+{% endblock %}

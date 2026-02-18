@@ -10,3 +10,22 @@
 #ui-shell-ready {
   margin-block-start: 0.5rem;
 }
+
+.notification-card {
+  border: 1px solid var(--pico-muted-border-color);
+  border-left-width: 0.35rem;
+  border-radius: 0.5rem;
+  margin-block-end: 1rem;
+  padding: 1rem;
+}
+
+.notification-high {
+  border-left-color: #b54708;
+  background: #fff9f0;
+}
+
+.notification-high-label {
+  color: #8a2f02;
+  font-weight: 700;
+  margin-block-start: 0.25rem;
+}

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal, Protocol, cast
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Request
@@ -32,6 +32,8 @@ from tca.storage import (
     ChannelAlreadyAssignedToGroupError,
     ChannelGroupsRepository,
     ChannelsRepository,
+    NotificationListRecord,
+    NotificationsRepository,
     StorageRuntime,
     WriterQueueProtocol,
 )
@@ -131,6 +133,28 @@ class UIThreadViewState:
     selected_item_id: int | None
 
 
+@dataclass(slots=True, frozen=True)
+class UINotificationRow:
+    """Typed row payload used by notifications UI template rendering."""
+
+    id: int
+    type: str
+    severity: str
+    message: str
+    is_acknowledged: bool
+    acknowledged_at: str | None
+    created_at: str
+    is_high_severity: bool
+
+
+class SupportsIsoformat(Protocol):
+    """Protocol for datetime-like objects exposing isoformat()."""
+
+    def isoformat(self, sep: str = "T", timespec: str = "auto") -> str:
+        """Render datetime-like value into ISO-8601 text."""
+        ...
+
+
 @router.get("/ui", response_class=HTMLResponse, include_in_schema=False)
 async def get_ui_shell(request: Request) -> HTMLResponse:
     """Render the minimal authenticated shell page."""
@@ -222,6 +246,36 @@ async def get_thread_view(request: Request) -> HTMLResponse:
 async def get_channels_groups_view(request: Request) -> HTMLResponse:
     """Render channels/groups management page with editable form controls."""
     return await _render_channels_groups_view(request=request)
+
+
+@router.get("/ui/notifications", response_class=HTMLResponse, include_in_schema=False)
+async def get_notifications_view(request: Request) -> HTMLResponse:
+    """Render notifications list and acknowledgement controls."""
+    return await _render_notifications_view(request=request)
+
+
+@router.post(
+    "/ui/notifications/{notification_id}/ack",
+    response_class=HTMLResponse,
+    include_in_schema=False,
+)
+async def post_acknowledge_notification(
+    notification_id: int,
+    request: Request,
+) -> Response:
+    """Acknowledge one notification and redirect back to notifications view."""
+    repository = _build_notifications_repository(request=request)
+    writer_queue = _resolve_writer_queue(request=request)
+    acknowledged = await writer_queue.submit(
+        lambda: repository.acknowledge(notification_id=notification_id),
+    )
+    if acknowledged is None:
+        return await _render_notifications_view(
+            request=request,
+            status_code=404,
+            error_message=f"Notification '{notification_id}' was not found.",
+        )
+    return RedirectResponse(url="/ui/notifications", status_code=303)
 
 
 @router.post("/ui/channels", response_class=HTMLResponse, include_in_schema=False)
@@ -783,6 +837,57 @@ async def _render_thread_view(
         },
         status_code=status_code,
     )
+
+
+async def _render_notifications_view(
+    *,
+    request: Request,
+    status_code: int = 200,
+    error_message: str | None = None,
+) -> HTMLResponse:
+    notifications = await _load_notifications(request=request)
+    return templates.TemplateResponse(
+        request=request,
+        name="notifications.html",
+        context={
+            "page_title": "TCA Notifications",
+            "notifications": notifications,
+            "error_message": error_message,
+        },
+        status_code=status_code,
+    )
+
+
+async def _load_notifications(
+    *,
+    request: Request,
+) -> list[UINotificationRow]:
+    repository = _build_notifications_repository(request=request)
+    records = await repository.list_notifications()
+    return [_to_ui_notification_row(record=record) for record in records]
+
+
+def _to_ui_notification_row(*, record: NotificationListRecord) -> UINotificationRow:
+    return UINotificationRow(
+        id=record.notification_id,
+        type=record.type,
+        severity=record.severity,
+        message=record.message,
+        is_acknowledged=record.is_acknowledged,
+        acknowledged_at=_format_datetime(record.acknowledged_at),
+        created_at=_format_datetime(record.created_at) or "",
+        is_high_severity=record.severity.strip().lower() == "high",
+    )
+
+
+def _format_datetime(value: object) -> str | None:
+    if value is None:
+        return None
+    if not hasattr(value, "isoformat"):
+        message = "Expected datetime-compatible object."
+        raise TypeError(message)
+    typed_value = cast("SupportsIsoformat", value)
+    return typed_value.isoformat(sep=" ", timespec="seconds")
 
 
 async def _load_thread_entries(
@@ -1356,6 +1461,14 @@ def _build_channels_repository(*, request: Request) -> ChannelsRepository:
 def _build_channel_groups_repository(*, request: Request) -> ChannelGroupsRepository:
     runtime = _resolve_storage_runtime(request=request)
     return ChannelGroupsRepository(
+        read_session_factory=runtime.read_session_factory,
+        write_session_factory=runtime.write_session_factory,
+    )
+
+
+def _build_notifications_repository(*, request: Request) -> NotificationsRepository:
+    runtime = _resolve_storage_runtime(request=request)
+    return NotificationsRepository(
         read_session_factory=runtime.read_session_factory,
         write_session_factory=runtime.write_session_factory,
     )

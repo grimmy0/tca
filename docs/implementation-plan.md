@@ -1518,11 +1518,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Add UI for listing and acknowledging notifications.
 - Acceptance criteria:
-  - [ ] Notifications list sorted by recency.
-  - [ ] Acknowledge action updates state in UI and DB.
-  - [ ] High-severity alerts are visually distinguishable.
+  - [x] Notifications list sorted by recency. [Tests: tests/ui/test_notifications_view.py::test_notifications_view_lists_notifications_in_recency_order]
+  - [x] Acknowledge action updates state in UI and DB. [Tests: tests/ui/test_notifications_view.py::test_notifications_view_acknowledge_updates_ui_and_db]
+  - [x] High-severity alerts are visually distinguishable. [Tests: tests/ui/test_notifications_view.py::test_notifications_view_marks_high_severity_alerts_visually]
 - Verification:
   - `uv run pytest -q tests/ui/test_notifications_view.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/ui/test_notifications_view.py` passed.
 
 ### C079 - Implement Ordered Retention Prune Job
 
