@@ -1550,11 +1550,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Add backup job using SQLite Online Backup API and integrity check.
 - Acceptance criteria:
-  - [ ] Backup file created with expected naming format.
-  - [ ] `PRAGMA integrity_check` passes on created backup.
-  - [ ] Backup failure creates notification.
+  - [x] Backup file created with expected naming format. [Tests: tests/ops/test_backup_job.py::test_backup_job_creates_backup_file_with_expected_naming_format]
+  - [x] `PRAGMA integrity_check` passes on created backup. [Tests: tests/ops/test_backup_job.py::test_backup_job_runs_integrity_check_for_created_backup]
+  - [x] Backup failure creates notification. [Tests: tests/ops/test_backup_job.py::test_backup_job_failure_creates_notification]
 - Verification:
   - `uv run pytest -q tests/ops/test_backup_job.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/ops/test_backup_job.py` passed.
 
 ### C081 - Implement Backup Retention Cleanup
 
