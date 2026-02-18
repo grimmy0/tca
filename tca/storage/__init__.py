@@ -91,6 +91,11 @@ from .settings_seed import (
     SettingsSeedDependency,
     seed_default_dynamic_settings,
 )
+from .thread_query_repo import (
+    ThreadEntryRecord,
+    ThreadQueryRepository,
+    ThreadQueryRepositoryError,
+)
 from .writer_queue import (
     WriterQueue,
     WriterQueueClosedError,
@@ -151,6 +156,9 @@ __all__ = [
     "SettingsRepository",
     "SettingsSeedDependency",
     "StorageRuntime",
+    "ThreadEntryRecord",
+    "ThreadQueryRepository",
+    "ThreadQueryRepositoryError",
     "WriterQueue",
     "WriterQueueClosedError",
     "WriterQueueProtocol",

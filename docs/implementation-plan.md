@@ -1406,11 +1406,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Build read query joining clusters, members, items, channels for timeline response.
 - Acceptance criteria:
-  - [ ] Results are ordered by representative `published_at` descending.
-  - [ ] Query uses eager loading or explicit SQL (no lazy load path).
-  - [ ] Pagination returns deterministic pages.
+  - [x] Results are ordered by representative `published_at` descending. [Tests: tests/thread/test_thread_query.py::test_results_order_by_representative_published_at_descending]
+  - [x] Query uses eager loading or explicit SQL (no lazy load path). [Tests: tests/thread/test_thread_query.py::test_query_uses_single_explicit_sql_statement_without_lazy_load]
+  - [x] Pagination returns deterministic pages. [Tests: tests/thread/test_thread_query.py::test_pagination_returns_deterministic_pages]
 - Verification:
   - `uv run pytest -q tests/thread/test_thread_query.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/thread/test_thread_query.py` passed.
 
 ### C072 - Implement `GET /thread` API
 
