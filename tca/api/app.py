@@ -211,12 +211,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = load_settings()
     storage_runtime: StorageRuntime | None = None
     writer_queue: WriterQueueLifecycle | None = None
-    startup_order: tuple[LifecycleDependency, ...] = (
-        dependencies.db,
-        dependencies.settings,
-        dependencies.auth,
-        dependencies.telethon_manager,
-        dependencies.scheduler,
+    startup_order: tuple[tuple[str, LifecycleDependency], ...] = (
+        ("migrations", dependencies.db),
+        ("settings_seed", dependencies.settings),
+        ("auth", dependencies.auth),
+        ("telethon_manager", dependencies.telethon_manager),
+        ("scheduler", dependencies.scheduler),
     )
     started_dependencies: list[LifecycleDependency] = []
 
@@ -231,9 +231,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         writer_queue = _build_writer_queue(app)
         app.state.storage_runtime = storage_runtime
         app.state.writer_queue = writer_queue
-        for dependency in startup_order:
+        for step_name, dependency in startup_order:
+            logger.info("Startup step begin: %s", step_name)
             await dependency.startup()
             started_dependencies.append(dependency)
+            logger.info("Startup step complete: %s", step_name)
+        logger.info("Startup sequence complete; app is ready to serve requests.")
         yield
     finally:
         await _shutdown_in_order(

@@ -1638,11 +1638,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Ensure startup order: migrations -> settings seed -> app serve.
 - Acceptance criteria:
-  - [ ] App refuses to serve if migration step fails.
-  - [ ] First-run settings seed occurs before first request handling.
-  - [ ] Startup logs clearly show step boundaries.
+  - [x] App refuses to serve if migration step fails. [Tests: tests/app/test_startup_order.py::test_startup_refuses_to_serve_when_migration_step_fails]
+  - [x] First-run settings seed occurs before first request handling. [Tests: tests/app/test_startup_order.py::test_startup_seeds_settings_before_first_request_handling]
+  - [x] Startup logs clearly show step boundaries. [Tests: tests/app/test_startup_order.py::test_startup_logs_expose_step_boundaries]
 - Verification:
   - `uv run pytest -q tests/app/test_startup_order.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `0000000000000000000000000000000000000000`
+  - Verification summary:
+    - `uv run pytest -q tests/app/test_startup_order.py` passed.
 
 ### C086 - Add End-to-End Smoke Test (Auth Mocked)
 
