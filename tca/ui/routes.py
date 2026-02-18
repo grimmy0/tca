@@ -985,8 +985,8 @@ def _decode_ui_thread_decision_row(*, row: object) -> UIThreadDecisionRow:
     score_obj = row_map.get("score")
     if score_obj is None:
         score: float | None = None
-    elif isinstance(score_obj, int | float):
-        score = float(score_obj)
+    elif type(score_obj) in (int, float):
+        score = float(cast("int | float", score_obj))
     else:
         message = "Expected `score` to be number or null."
         raise TypeError(message)

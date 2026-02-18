@@ -8,9 +8,11 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from tca.api.app import create_app
+from tca.ui import routes as ui_routes
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -289,6 +291,80 @@ def test_thread_view_pagination_and_filter_controls_work_end_to_end(
         raise AssertionError
     if "Middle beta" in filtered_body:
         raise AssertionError
+
+
+def test_thread_view_rejects_invalid_query_values(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    """Invalid page, size, and filter query values should return a 400 error."""
+    db_path = _configure_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="ui-thread-invalid-query.sqlite3",
+        output_file_name="ui-thread-invalid-query-token.txt",
+    )
+    app = create_app()
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            return_value=BOOTSTRAP_TOKEN,
+        ),
+        TestClient(app) as client,
+    ):
+        _insert_account(db_path=db_path, account_id=1)
+        _insert_channel(
+            db_path=db_path,
+            channel_id=10,
+            account_id=1,
+            telegram_channel_id=5010,
+            name="alpha",
+        )
+        invalid_page = client.get("/ui/thread?page=0", headers=_auth_headers())
+        invalid_size = client.get("/ui/thread?size=0", headers=_auth_headers())
+        invalid_channel = client.get(
+            "/ui/thread?channel_id=abc",
+            headers=_auth_headers(),
+        )
+        invalid_selected_item = client.get(
+            "/ui/thread?selected_item_id=abc",
+            headers=_auth_headers(),
+        )
+
+    if invalid_page.status_code != HTTPStatus.BAD_REQUEST:
+        raise AssertionError
+    if "Thread page must be an integer greater than zero." not in invalid_page.text:
+        raise AssertionError
+    if invalid_size.status_code != HTTPStatus.BAD_REQUEST:
+        raise AssertionError
+    if "Thread page size must be between 1 and 100." not in invalid_size.text:
+        raise AssertionError
+    if invalid_channel.status_code != HTTPStatus.BAD_REQUEST:
+        raise AssertionError
+    if "Thread filter channel id must be an integer." not in invalid_channel.text:
+        raise AssertionError
+    if invalid_selected_item.status_code != HTTPStatus.BAD_REQUEST:
+        raise AssertionError
+    if "Selected thread item id must be an integer." not in invalid_selected_item.text:
+        raise AssertionError
+
+
+def test_decode_ui_thread_decision_row_rejects_boolean_score() -> None:
+    """Boolean score inputs must be rejected instead of coerced as integers."""
+    row = {
+        "id": 1,
+        "item_id": 101,
+        "cluster_id": 1,
+        "candidate_item_id": 102,
+        "strategy_name": "title_similarity",
+        "outcome": "DUPLICATE",
+        "reason_code": None,
+        "score": True,
+        "metadata_json": None,
+        "created_at": "2026-02-18 01:02:04",
+    }
+    with pytest.raises(TypeError):
+        _ = ui_routes._decode_ui_thread_decision_row(row=row)  # noqa: SLF001
 
 
 def _configure_auth_env(
