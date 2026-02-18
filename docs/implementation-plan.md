@@ -21,7 +21,11 @@ An item is commit-ready only if all are true:
 
 - Targeted tests for the changed area pass.
 - No unrelated files are modified.
-- Lint/type checks for touched modules pass.
+- Lint/type checks for touched modules pass (`scripts/lint_strict.sh`), including:
+  - execution-record SHA validation (`check_execution_record_shas.py`)
+  - migration downgrade test coverage (`check_migration_downgrade_coverage.py`)
+  - async broad-exception-catch detection (`check_broad_exception_catch.py`)
+  - hardcoded future-year datetime literals in tests (`check_hardcoded_test_dates.py`)
 - `uv run python scripts/validate_plan_criteria.py --run-tests` passes for all completed criteria.
 - If API/DB behavior changes, corresponding docs or migration files are included in the same commit.
 

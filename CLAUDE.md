@@ -27,6 +27,11 @@ uv sync --extra dev
 uv run python main.py
 
 # strict lint/type gate (same as pre-commit)
+# runs: ruff, ruff format, mypy, pyright, basedpyright,
+#        validate_plan_criteria, check_api_response_models,
+#        check_testclient_context, check_execution_record_shas,
+#        check_migration_downgrade_coverage, check_broad_exception_catch,
+#        check_hardcoded_test_dates
 scripts/lint_strict.sh
 
 # run all tests

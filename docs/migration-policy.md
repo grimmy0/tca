@@ -21,3 +21,12 @@ This project treats missing batch mode as a migration policy violation.
 3. Rollback expectations:
    - ensure downgrade path is explicit and reversible where feasible,
    - document non-reversible steps in migration PR notes before merge.
+
+## Automated Downgrade Coverage Enforcement
+
+`scripts/check_migration_downgrade_coverage.py` (part of `scripts/lint_strict.sh`) enforces that every migration upgrade test has a corresponding downgrade test:
+
+- For each `test_*.py` in `tests/migrations/` that exercises `upgrade`, at least one test function name must contain `downgrad`.
+- Non-compliant migration test files fail the lint gate.
+
+This catches migrations where the downgrade path was written but never tested.
