@@ -1280,7 +1280,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/dedupe/test_strategy_content_hash.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `NONE`
+  - Commit: `669bc16de69357c7f21f53e8c068b6d6becd0d52`
   - Verification summary:
     - `uv run pytest -q tests/dedupe/test_strategy_content_hash.py` passed.
 

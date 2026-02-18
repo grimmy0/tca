@@ -5,6 +5,7 @@ from __future__ import annotations
 from tca.dedupe import (
     CONTENT_HASH_MATCH_REASON,
     CONTENT_HASH_MISMATCH_REASON,
+    CONTENT_HASH_MISSING_REASON,
     evaluate_content_hash,
 )
 
@@ -62,4 +63,19 @@ def test_decision_metadata_includes_compared_hash_values() -> None:
     if not isinstance(right_hash, str):
         raise TypeError
     if not left_hash or not right_hash:
+        raise AssertionError
+
+
+def test_missing_normalized_content_abstains() -> None:
+    """Missing comparable normalized content should return ABSTAIN."""
+    result = evaluate_content_hash(
+        left_title="!!!",
+        left_body=None,
+        right_title=None,
+        right_body=None,
+    )
+
+    if result["status"] != "ABSTAIN":
+        raise AssertionError
+    if result["reason"] != CONTENT_HASH_MISSING_REASON:
         raise AssertionError

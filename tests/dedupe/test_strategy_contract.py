@@ -56,3 +56,27 @@ def test_duplicate_score_rejects_bool_and_non_finite_values(value: object) -> No
         _ = coerce_strategy_result(
             {"status": "DUPLICATE", "score": value, "reason": "invalid_score"},
         )
+
+
+def test_metadata_must_be_mapping_when_provided() -> None:
+    """Ensure non-mapping metadata values are rejected."""
+    with pytest.raises(StrategyContractError, match="metadata` must be a mapping"):
+        _ = coerce_strategy_result(
+            {
+                "status": "DISTINCT",
+                "reason": "invalid_metadata",
+                "metadata": ["not", "a", "mapping"],
+            },
+        )
+
+
+def test_metadata_keys_must_be_strings() -> None:
+    """Ensure metadata mappings with non-string keys are rejected."""
+    with pytest.raises(StrategyContractError, match="metadata` keys must be strings"):
+        _ = coerce_strategy_result(
+            {
+                "status": "ABSTAIN",
+                "reason": "invalid_metadata_keys",
+                "metadata": {1: "x"},
+            },
+        )
