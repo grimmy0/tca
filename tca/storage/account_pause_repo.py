@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
 from sqlalchemy import text
@@ -81,7 +81,7 @@ class AccountPauseRepository:
     ) -> AccountPauseRecord | None:
         """Set pause state for an account and return the updated payload."""
         if paused_at is None:
-            paused_at = datetime.now(timezone.utc)
+            paused_at = datetime.now(UTC)
         statement = text(
             """
             UPDATE telegram_accounts
@@ -173,6 +173,6 @@ def _coerce_optional_datetime(*, value: object) -> datetime | None:
                 details="invalid paused_at value",
             ) from exc
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
+            parsed = parsed.replace(tzinfo=UTC)
         return parsed
     raise AccountPauseDecodeError.from_details(details="invalid paused_at value")

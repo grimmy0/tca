@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -107,7 +107,7 @@ async def test_pause_reason_persisted(
     pause_repo, _, runtime = pause_runtime
     await _seed_account(runtime, account_id=1)
 
-    paused_at = datetime.now(timezone.utc)
+    paused_at = datetime.now(UTC)
     paused = await pause_repo.pause_account(
         account_id=1,
         reason="account-risk",

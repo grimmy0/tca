@@ -566,6 +566,10 @@ def build_output_schema(step_name: str) -> dict[str, object]:
         }
 
     if step_name == "review_fix_push":
+        covered_or_na: dict[str, object] = {
+            "type": "string",
+            "enum": ["covered", "n/a"],
+        }
         return {
             "type": "object",
             "additionalProperties": False,
@@ -574,6 +578,7 @@ def build_output_schema(step_name: str) -> dict[str, object]:
                 "REVIEW_FINDINGS_FIXED",
                 "REVIEW_FIX_COMMIT",
                 "PUSH_STATUS",
+                "REVIEW_CHECKLIST",
                 *common_required,
             ],
             "properties": {
@@ -581,6 +586,29 @@ def build_output_schema(step_name: str) -> dict[str, object]:
                 "REVIEW_FINDINGS_FIXED": {"type": "integer", "minimum": 0},
                 "REVIEW_FIX_COMMIT": {"type": "string", "pattern": sha_or_none},
                 "PUSH_STATUS": {"type": "string", "minLength": 2},
+                "REVIEW_CHECKLIST": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "security",
+                        "test_isolation",
+                        "migration_coverage",
+                        "exception_handling",
+                        "field_validation",
+                        "traceability_sha",
+                    ],
+                    "properties": {
+                        "security": covered_or_na,
+                        "test_isolation": covered_or_na,
+                        "migration_coverage": covered_or_na,
+                        "exception_handling": covered_or_na,
+                        "field_validation": covered_or_na,
+                        "traceability_sha": {
+                            "type": "string",
+                            "enum": ["verified"],
+                        },
+                    },
+                },
                 **common_fields,
             },
         }
@@ -1010,6 +1038,70 @@ def build_review_prompt(  # noqa: PLR0913
           unrelated to the reviewed commit) and rerun pre-commit until it passes.
         - Return only a strict JSON object matching the output schema.
 
+        Domain-specific review sub-checklists:
+        Work through each checklist below. Set the corresponding REVIEW_CHECKLIST
+        field to "covered" once you have verified or fixed the items, or "n/a" if
+        none of the touched files are in scope for that domain.
+
+        SECURITY (set "covered" or "n/a"):
+        - Any file written to disk that contains secrets or tokens: verify
+          .chmod(0o600) is called immediately after creation.
+        - Atomic write operations: if a side-effect (DB write, file write) partially
+          succeeds and then fails, verify the partial result is rolled back.
+        - Type coercion: verify bool is excluded before int in isinstance() checks
+          (bool is a subclass of int — `isinstance(True, int)` is True).
+        - asyncio.CancelledError: verify it is never caught inside a broad
+          `except Exception` or a tuple without being explicitly re-raised.
+        - Cryptographic inputs: verify key lengths, nonce lengths, and version
+          fields are validated before use; reject booleans in version fields.
+
+        TEST ISOLATION (set "covered" or "n/a"):
+        - Any test that calls create_app() or triggers DB startup: verify it sets
+          TCA_DB_PATH to a per-test tmp_path via monkeypatch.setenv.
+        - Any datetime/date constructor in test code: verify it uses
+          datetime.now(timezone.utc) + timedelta(...) instead of a hardcoded
+          year/month/day that will become stale over time.
+        - Any create-or-update operation: verify an idempotency test exists
+          (calling the operation twice produces the same result, not an error).
+        - New exception paths: verify there is a test that exercises the new branch.
+
+        MIGRATION COVERAGE (set "covered" or "n/a" if no migrations touched):
+        - Every upgrade() must have a corresponding downgrade test that confirms
+          all created tables/indexes/columns are removed on downgrade.
+        - Tables with natural compound keys: verify a UNIQUE constraint is present.
+        - String columns that act as enums: verify a CHECK constraint is present.
+        - FTS content tables: if the migration creates triggers but pre-existing
+          rows exist, verify a rebuild/backfill step is included.
+
+        API LAYER (set "covered" or "n/a" if no api/routes/ files touched):
+        - Pydantic string fields where empty is invalid: verify min_length=1 is set.
+        - POST/PUT handlers that create or update a record: verify the handler uses
+          the return value of the write call directly (no post-write re-read TOCTOU).
+        - Any new or modified endpoint: verify bearer auth test coverage exists.
+
+        EXCEPTION HANDLING (set "covered" or "n/a"):
+        - IntegrityError handling in repositories: verify the code inspects the
+          error message to distinguish duplicate-key errors from other constraint
+          violations before remapping to a domain exception.
+        - Duck-typed interface checks: verify callable(getattr(obj, "method", None))
+          is used instead of hasattr(obj, "method").
+        - Lifespan/startup hooks: verify each dependency is appended to a
+          started-list only after startup() succeeds, and shutdown iterates only
+          the started list.
+
+        FIELD VALIDATION (set "covered" or "n/a"):
+        - Pydantic model fields that accept user strings: verify min/max length
+          constraints are present where empty or oversized values are invalid.
+        - JSON value storage: verify non-finite floats (inf, nan) and boolean
+          values masquerading as integers are rejected at the storage boundary.
+
+        TRACEABILITY (traceability_sha must always be "verified"):
+        - The Execution record Commit: field in the plan for this item must contain
+          the real SHA of the implementation commit, not a placeholder (PENDING,
+          NONE, a plan-item code like C056, or a truncated/incorrect hash).
+        - The Execution record block must be positioned after the acceptance
+          criteria checklist, not before it.
+
         Context files:
         - {plan_path}
 
@@ -1018,6 +1110,13 @@ def build_review_prompt(  # noqa: PLR0913
         - REVIEW_FINDINGS_FIXED: <integer>
         - REVIEW_FIX_COMMIT: <sha|NONE>
         - PUSH_STATUS: <OK|FAILED: reason>
+        - REVIEW_CHECKLIST:
+            security: "covered" | "n/a"
+            test_isolation: "covered" | "n/a"
+            migration_coverage: "covered" | "n/a"
+            exception_handling: "covered" | "n/a"
+            field_validation: "covered" | "n/a"
+            traceability_sha: "verified"  (always required, never n/a)
         - QUESTIONS_ASKED: must be 0
         - SAFE_DEFAULT_DECISIONS: list of defaults used (empty list if none)
         - NO_VERIFY_USED: false

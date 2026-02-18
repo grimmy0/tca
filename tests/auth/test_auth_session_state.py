@@ -94,7 +94,7 @@ async def test_expired_session_is_rejected(
 
     with pytest.raises(
         AuthSessionExpiredError,
-        match="Auth session state expired for session_id='expired-session-1'.",
+        match=r"Auth session state expired for session_id='expired-session-1'\.",
     ):
         _ = await repository.get_session(session_id="expired-session-1")
 

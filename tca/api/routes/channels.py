@@ -2,20 +2,22 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from tca.storage import (
     ChannelRecord,
+    ChannelsRepository,
     ChannelStateRecord,
     ChannelStateRepository,
-    ChannelsRepository,
     StorageRuntime,
     WriterQueueProtocol,
 )
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 router = APIRouter()
 
@@ -146,9 +148,7 @@ async def patch_channel(
         updated_state: ChannelStateRecord | None
         if state_fields_set:
             current_state = await state_repository.get_state(channel_id=channel_id)
-            updated_paused_until = (
-                current_state.paused_until if current_state else None
-            )
+            updated_paused_until = current_state.paused_until if current_state else None
             updated_last_success_at = (
                 current_state.last_success_at if current_state else None
             )
@@ -178,7 +178,7 @@ async def patch_channel(
 async def delete_channel(
     channel_id: int,
     request: Request,
-    purge: bool = False,
+    purge: bool = False,  # noqa: FBT001, FBT002
 ) -> ChannelResponse:
     """Disable or purge one channel by id depending on query flag."""
     repository = _build_channels_repository(request)

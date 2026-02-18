@@ -129,7 +129,8 @@ def test_auth_verify_code_failed_login_creates_notification(
     if response.status_code != HTTPStatus.BAD_REQUEST:
         raise AssertionError
     payload = response.json()
-    if payload.get("detail") != "Telegram login failed. Retry after verifying credentials.":
+    expected_detail = "Telegram login failed. Retry after verifying credentials."
+    if payload.get("detail") != expected_detail:
         raise AssertionError
 
     notifications = _fetch_notifications(db_path=db_path)
@@ -162,7 +163,9 @@ def test_auth_failures_pause_existing_account(
     api_hash = "auth-risk"
     account_id = 42
     phone_number = "+15550006666"
-    mock_tg_client.responses["send_code_request"] = PhoneNumberInvalidError(request=None)
+    mock_tg_client.responses["send_code_request"] = PhoneNumberInvalidError(
+        request=None,
+    )
 
     app = create_app()
     app.state.telegram_auth_client_factory = _build_factory(

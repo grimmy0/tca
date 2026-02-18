@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import cast
+from typing import TYPE_CHECKING, Annotated, cast
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel
@@ -15,6 +14,9 @@ from tca.storage import (
     StorageRuntime,
     WriterQueueProtocol,
 )
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 router = APIRouter()
 
@@ -39,8 +41,8 @@ class NotificationResponse(BaseModel):
 )
 async def list_notifications(
     request: Request,
-    severity: list[str] | None = Query(default=None),
-    notification_type: list[str] | None = Query(default=None, alias="type"),
+    severity: Annotated[list[str] | None, Query()] = None,
+    notification_type: Annotated[list[str] | None, Query(alias="type")] = None,
 ) -> list[NotificationResponse]:
     """List notifications in recency order with optional filters."""
     repository = _build_notifications_repository(request)

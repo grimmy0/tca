@@ -11,8 +11,8 @@ import pytest
 from fastapi.testclient import TestClient
 from telethon.errors import ApiIdInvalidError
 
-from tca.auth import request_login_code
 from tca.api.app import create_app
+from tca.auth import request_login_code
 
 if TYPE_CHECKING:
     from pathlib import Path

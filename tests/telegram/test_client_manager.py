@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
-from fastapi import FastAPI
 
 from tca.api.app import StartupDependencies, create_app, lifespan
 from tca.telegram import (
@@ -15,6 +14,11 @@ from tca.telegram import (
     TelethonClientManager,
 )
 from tests.mocks.mock_telegram_client import MockTelegramClient
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from fastapi import FastAPI
 
 
 @dataclass(slots=True)
@@ -89,7 +93,8 @@ async def test_client_manager_connects_on_startup() -> None:
         pass
 
     if client.call_counts.get("connect") != 1:
-        raise AssertionError("Expected Telethon client to connect on startup.")
+        msg = "Expected Telethon client to connect on startup."
+        raise AssertionError(msg)
 
 
 @pytest.mark.asyncio
@@ -113,7 +118,8 @@ async def test_client_manager_disconnects_on_shutdown() -> None:
         pass
 
     if client.call_counts.get("disconnect") != 1:
-        raise AssertionError("Expected Telethon client to disconnect on shutdown.")
+        msg = "Expected Telethon client to disconnect on shutdown."
+        raise AssertionError(msg)
 
 
 def test_client_manager_does_not_create_client_on_get() -> None:
@@ -126,4 +132,5 @@ def test_client_manager_does_not_create_client_on_get() -> None:
         manager.get_client(account_id=999)
 
     if factory.calls != 0:
-        raise AssertionError("Client factory should not run on missing get.")
+        msg = "Client factory should not run on missing get."
+        raise AssertionError(msg)

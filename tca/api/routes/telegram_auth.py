@@ -12,28 +12,28 @@ from telethon import TelegramClient
 from telethon.errors import (
     ApiIdInvalidError,
     ConnectionApiIdInvalidError,
+    PasswordHashInvalidError,
+    PhoneCodeExpiredError,
+    PhoneCodeInvalidError,
     PhoneNumberBannedError,
     PhoneNumberFloodError,
     PhoneNumberInvalidError,
     PhoneNumberUnoccupiedError,
-    PhoneCodeExpiredError,
-    PhoneCodeInvalidError,
-    PasswordHashInvalidError,
     SessionPasswordNeededError,
 )
 from telethon.sessions import StringSession
 
 from tca.auth import (
+    SENSITIVE_OPERATION_LOCKED_MESSAGE,
     AuthSessionExpiredError,
     AuthSessionState,
     AuthSessionStateNotFoundError,
     AuthSessionStateRepository,
-    SENSITIVE_OPERATION_LOCKED_MESSAGE,
     SensitiveOperationLockedError,
     TelegramAccountStorage,
     TelegramSessionStorage,
-    require_sensitive_operation_unlock,
     request_login_code,
+    require_sensitive_operation_unlock,
     resolve_key_encryption_key,
 )
 from tca.ingest import record_account_risk_breach
@@ -47,14 +47,14 @@ logger = logging.getLogger(__name__)
 
 _AUTH_STATUS_CODE_SENT = "code_sent"
 _AUTH_STATUS_AUTHENTICATED = "authenticated"
-_AUTH_STATUS_PASSWORD_REQUIRED = "password_required"
+_AUTH_STATUS_PASSWORD_REQUIRED = "password_required"  # noqa: S105
 _INVALID_API_CREDENTIALS_DETAIL = "Invalid Telegram API credentials."
 _OTP_REQUEST_FAILED_DETAIL = "Unable to send Telegram login code."
 _INVALID_LOGIN_CODE_DETAIL = "Invalid Telegram login code."
 _EXPIRED_LOGIN_CODE_DETAIL = "Telegram login code expired."
-_INVALID_PASSWORD_DETAIL = "Invalid Telegram password."
-_MISSING_PASSWORD_SESSION_DETAIL = "Auth session missing Telegram session state."
-_PASSWORD_SESSION_CAPTURE_FAILED_DETAIL = "Unable to capture Telegram auth session."
+_INVALID_PASSWORD_DETAIL = "Invalid Telegram password."  # noqa: S105
+_MISSING_PASSWORD_SESSION_DETAIL = "Auth session missing Telegram session state."  # noqa: S105
+_PASSWORD_SESSION_CAPTURE_FAILED_DETAIL = "Unable to capture Telegram auth session."  # noqa: S105
 _SENSITIVE_OPERATION_LOCKED_DETAIL = SENSITIVE_OPERATION_LOCKED_MESSAGE
 _AUTH_REGISTRATION_BLOCKED_DETAIL = (
     "Telegram registration/login is blocked. Retry later."
@@ -216,7 +216,7 @@ async def start_telegram_auth(
     response_model=TelegramAuthVerifyCodeResponse,
     status_code=status.HTTP_200_OK,
 )
-async def verify_telegram_code(
+async def verify_telegram_code(  # noqa: C901
     payload: TelegramAuthVerifyCodeRequest,
     request: Request,
 ) -> TelegramAuthVerifyCodeResponse:
@@ -253,7 +253,7 @@ async def verify_telegram_code(
     except SessionPasswordNeededError:
         session_string = _extract_session_string(client)
         if not session_string:
-            raise _password_session_capture_error()
+            raise _password_session_capture_error() from None
         updated = await _update_auth_session_status(
             writer_queue=writer_queue,
             repository=repository,
@@ -327,7 +327,7 @@ async def verify_telegram_code(
     response_model=TelegramAuthVerifyPasswordResponse,
     status_code=status.HTTP_200_OK,
 )
-async def verify_telegram_password(
+async def verify_telegram_password(  # noqa: C901
     payload: TelegramAuthVerifyPasswordRequest,
     request: Request,
 ) -> TelegramAuthVerifyPasswordResponse:
@@ -575,8 +575,7 @@ def _auth_session_status_conflict_error(*, current_status: str) -> HTTPException
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail=(
-            "Auth session cannot accept login code when status is "
-            f"'{current_status}'."
+            f"Auth session cannot accept login code when status is '{current_status}'."
         ),
     )
 
@@ -589,13 +588,12 @@ def _auth_session_password_status_conflict_error(
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail=(
-            "Auth session cannot accept password when status is "
-            f"'{current_status}'."
+            f"Auth session cannot accept password when status is '{current_status}'."
         ),
     )
 
 
-async def _update_auth_session_status(
+async def _update_auth_session_status(  # noqa: PLR0913
     *,
     writer_queue: WriterQueueProtocol,
     repository: AuthSessionStateRepository,
@@ -654,7 +652,7 @@ def _build_settings_repository(request: Request) -> SettingsRepository:
     )
 
 
-async def _persist_authenticated_session(
+async def _persist_authenticated_session(  # noqa: PLR0913
     *,
     request: Request,
     writer_queue: WriterQueueProtocol,

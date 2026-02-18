@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import cast
 from uuid import uuid4
 
@@ -10,8 +10,8 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
 from tca.storage import (
-    ChannelStateRepository,
     ChannelsRepository,
+    ChannelStateRepository,
     PollJobsRepository,
     StorageRuntime,
     WriterQueueProtocol,
@@ -48,7 +48,7 @@ async def poll_now(channel_id: int, request: Request) -> PollNowResponse:
             raise _channel_disabled(channel_id=channel_id)
         state = await state_repository.get_state(channel_id=channel_id)
         paused_until = state.paused_until if state else None
-        if paused_until is not None and paused_until > datetime.now(timezone.utc):
+        if paused_until is not None and paused_until > datetime.now(UTC):
             raise _channel_paused(channel_id=channel_id, paused_until=paused_until)
         correlation_id = str(uuid4())
         job = await jobs_repository.enqueue_poll_job(
@@ -108,9 +108,7 @@ def _channel_disabled(*, channel_id: int) -> HTTPException:
 
 def _channel_paused(*, channel_id: int, paused_until: datetime) -> HTTPException:
     """Build deterministic rejection error for paused channels."""
-    detail = (
-        f"Channel '{channel_id}' is paused until {paused_until.isoformat()}."
-    )
+    detail = f"Channel '{channel_id}' is paused until {paused_until.isoformat()}."
     return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
 
 

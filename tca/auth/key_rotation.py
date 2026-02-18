@@ -34,8 +34,7 @@ class KeyRotationAccountNotFoundError(KeyRotationError):
     def for_account_id(cls, account_id: int) -> KeyRotationAccountNotFoundError:
         """Build deterministic missing-account error for rotation paths."""
         return cls(
-            "Unable to rotate keys: no account row exists for "
-            f"id={account_id}.",
+            f"Unable to rotate keys: no account row exists for id={account_id}.",
         )
 
 
@@ -72,14 +71,20 @@ class KeyRotationRepository:
             if existing.target_key_version == target_key_version:
                 return existing
             if existing.completed_at is None:
-                raise KeyRotationError(
+                msg = (
                     "Key rotation already in progress for target version "
-                    f"{existing.target_key_version}.",
+                    f"{existing.target_key_version}."
+                )
+                raise KeyRotationError(
+                    msg,
                 )
             if target_key_version <= existing.target_key_version:
-                raise KeyRotationError(
+                msg = (
                     "Key rotation target version must be greater than the "
-                    "completed target version.",
+                    "completed target version."
+                )
+                raise KeyRotationError(
+                    msg,
                 )
             reset_statement = text(
                 """
@@ -122,12 +127,12 @@ class KeyRotationRepository:
                     {"target_key_version": target_key_version},
                 )
                 await session.commit()
-            except IntegrityError as exc:
+            except IntegrityError:
                 await session.rollback()
                 state = await self.get_state()
                 if state is not None:
                     return state
-                raise exc
+                raise
         state = await self.get_state()
         if state is None:
             raise KeyRotationStateMissingError.default()
@@ -292,9 +297,11 @@ class KeyRotationRepository:
 def _coerce_int(*, value: object, field_name: str) -> int:
     if isinstance(value, int):
         return value
-    raise KeyRotationError(f"Expected integer for {field_name}.")
+    msg = f"Expected integer for {field_name}."
+    raise KeyRotationError(msg)
 
 
 def _validate_target_version(*, target_key_version: int) -> None:
     if target_key_version < 1:
-        raise KeyRotationError("Key rotation target version must be >= 1.")
+        msg = "Key rotation target version must be >= 1."
+        raise KeyRotationError(msg)

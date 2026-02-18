@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from json import JSONDecodeError
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from sqlalchemy import bindparam, text
 
@@ -100,7 +100,10 @@ class ChannelStateRepository:
             """,
         ).bindparams(bindparam("channel_ids", expanding=True))
         async with self._read_session_factory() as session:
-            result = await session.execute(statement, {"channel_ids": list(channel_ids)})
+            result = await session.execute(
+                statement,
+                {"channel_ids": list(channel_ids)},
+            )
             rows = result.mappings().all()
         state_map: dict[int, ChannelStateRecord] = {}
         for row in rows:
@@ -226,7 +229,7 @@ def _coerce_optional_datetime(*, value: object) -> datetime | None:
         return None
     if isinstance(value, datetime):
         if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
+            return value.replace(tzinfo=UTC)
         return value
     if isinstance(value, str):
         try:
@@ -236,7 +239,7 @@ def _coerce_optional_datetime(*, value: object) -> datetime | None:
                 details="invalid datetime value",
             ) from exc
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
+            parsed = parsed.replace(tzinfo=UTC)
         return parsed
     raise ChannelStateDecodeError.from_details(details="invalid datetime value")
 
@@ -331,16 +334,17 @@ def _parse_cursor_timestamp(value: str) -> datetime:
         value = f"{value[:-1]}+00:00"
     parsed = datetime.fromisoformat(value)
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed
 
 
 def _format_cursor_timestamp(value: datetime) -> str:
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    normalized = value.astimezone(timezone.utc)
+        value = value.replace(tzinfo=UTC)
+    normalized = value.astimezone(UTC)
     return normalized.isoformat().replace("+00:00", "Z")
 
 
 def _raise_invalid_json_constant(value: str) -> object:
-    raise ValueError(f"invalid numeric constant '{value}'")
+    msg = f"invalid numeric constant '{value}'"
+    raise ValueError(msg)

@@ -3,18 +3,21 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Callable
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
-from tca.storage import (
-    AccountPauseRepository,
-    ChannelStateRecord,
-    ChannelStateRepository,
-    NotificationsRepository,
-    SettingsRepository,
-    WriterQueueProtocol,
-)
 from tca.ingest.account_risk import record_account_risk_breach
+
+if TYPE_CHECKING:
+    from tca.storage import (
+        AccountPauseRepository,
+        ChannelStateRecord,
+        ChannelStateRepository,
+        NotificationsRepository,
+        SettingsRepository,
+        WriterQueueProtocol,
+    )
 
 TimeProvider = Callable[[], datetime]
 
@@ -26,12 +29,12 @@ logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _normalize_datetime(value: datetime) -> datetime:
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
+        return value.replace(tzinfo=UTC)
     return value
 
 
@@ -42,7 +45,7 @@ def _extract_wait_seconds(*, error: BaseException) -> int | None:
     return None
 
 
-async def handle_flood_wait(
+async def handle_flood_wait(  # noqa: PLR0913
     *,
     writer_queue: WriterQueueProtocol,
     state_repository: ChannelStateRepository,
@@ -57,7 +60,8 @@ async def handle_flood_wait(
     """Pause channel and optionally emit notification for flood wait errors."""
     wait_seconds = _extract_wait_seconds(error=error)
     if wait_seconds is None:
-        raise ValueError("Flood wait error missing wait seconds.")
+        msg = "Flood wait error missing wait seconds."
+        raise ValueError(msg)
     now = _normalize_datetime(_utc_now() if time_provider is None else time_provider())
     resume_at = now + timedelta(seconds=wait_seconds)
     should_notify = wait_seconds >= SIGNIFICANT_FLOOD_WAIT_SECONDS

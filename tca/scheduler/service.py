@@ -5,14 +5,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from typing import Callable
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from tca.storage import (
-    ChannelStateRepository,
     ChannelsRepository,
+    ChannelStateRepository,
     PollJobRecord,
     PollJobsRepository,
     SettingsRepository,
@@ -33,7 +33,7 @@ POLL_INTERVAL_SETTING_KEY = "scheduler.default_poll_interval_seconds"
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _default_correlation_id() -> str:
@@ -42,7 +42,7 @@ def _default_correlation_id() -> str:
 
 def _normalize_datetime(value: datetime) -> datetime:
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
+        return value.replace(tzinfo=UTC)
     return value
 
 
@@ -64,10 +64,9 @@ class SchedulerCoreLoop:
         """Run one scheduler tick and enqueue eligible channel jobs."""
         now = _normalize_datetime(self.time_provider())
         eligible = await self._select_eligible_channels(now=now)
-        jobs: list[PollJobRecord] = []
-        for channel_id in eligible:
-            jobs.append(await self._enqueue_job(channel_id=channel_id))
-        return jobs
+        return [
+            await self._enqueue_job(channel_id=channel_id) for channel_id in eligible
+        ]
 
     async def _select_eligible_channels(self, *, now: datetime) -> list[int]:
         channels = await self.channels_repository.list_schedulable_channels()
@@ -83,7 +82,10 @@ class SchedulerCoreLoop:
                 now=now,
             ):
                 continue
-            if self._is_due(state_last_success=state.last_success_at if state else None, now=now):
+            if self._is_due(
+                state_last_success=state.last_success_at if state else None,
+                now=now,
+            ):
                 eligible.append(channel_id)
         return eligible
 
@@ -220,7 +222,7 @@ class SchedulerService:
                     stop_event.wait(),
                     timeout=self.tick_interval_seconds,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
 
 

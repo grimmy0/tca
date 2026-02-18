@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -15,8 +15,8 @@ from tca.ingest.account_risk import ACCOUNT_RISK_PAUSE_REASON, ACCOUNT_RISK_THRE
 from tca.ingest.flood_wait import SIGNIFICANT_FLOOD_WAIT_SECONDS
 from tca.storage import (
     AccountPauseRepository,
-    ChannelStateRepository,
     ChannelsRepository,
+    ChannelStateRepository,
     NotificationsRepository,
     SettingsRepository,
     StorageRuntime,
@@ -26,8 +26,9 @@ from tca.storage import (
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable
-    from tests.mocks.mock_telegram_client import MockTelegramClient
     from pathlib import Path
+
+    from tests.mocks.mock_telegram_client import MockTelegramClient
 
 
 class RecordingWriterQueue:
@@ -36,6 +37,7 @@ class RecordingWriterQueue:
     submit_calls: int
 
     def __init__(self) -> None:
+        """Initialize with zero submit calls."""
         self.submit_calls = 0
 
     async def submit(self, operation: Callable[[], Awaitable[object]]) -> object:
@@ -245,7 +247,7 @@ async def test_flood_wait_marks_channel_paused_until_resume_time(
     )
 
     queue = RecordingWriterQueue()
-    now = datetime(2026, 2, 20, 9, 30, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 20, 9, 30, tzinfo=UTC)
     wait_seconds = 120
     exc = FloodWaitError(None)
     exc.seconds = wait_seconds
@@ -301,7 +303,7 @@ async def test_flood_wait_emits_notification_for_significant_pause(
     )
 
     queue = RecordingWriterQueue()
-    now = datetime(2026, 2, 20, 10, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 20, 10, 0, tzinfo=UTC)
     wait_seconds = SIGNIFICANT_FLOOD_WAIT_SECONDS + 5
     exc = FloodWaitError(None)
     exc.seconds = wait_seconds
@@ -356,7 +358,7 @@ async def test_flood_wait_records_account_risk_breach(
     )
 
     queue = RecordingWriterQueue()
-    now = datetime(2026, 2, 20, 11, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 20, 11, 0, tzinfo=UTC)
     exc = FloodWaitError(None)
     exc.seconds = 30
 

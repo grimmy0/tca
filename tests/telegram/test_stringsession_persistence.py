@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 BOOTSTRAP_TOKEN = "telegram-session-persist-token"  # noqa: S105
 
 
-def test_stringsession_persisted_and_reused(
+def test_stringsession_persisted_and_reused(  # noqa: C901
     tmp_path: Path,
     monkeypatch: object,
     mock_tg_client: MockTelegramClient,
@@ -105,7 +105,7 @@ def test_stringsession_persisted_and_reused(
 
     def _factory(account: object) -> MockTelegramClient:
         if not isinstance(account, _AccountLike):
-            raise AssertionError
+            raise AssertionError  # noqa: TRY004
         created_sessions.append(account.string_session)
         return MockTelegramClient(
             session=account.string_session,

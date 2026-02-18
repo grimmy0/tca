@@ -138,10 +138,13 @@ def test_verify_code_requires_password_updates_status(
     payload = response.json()
     if payload.get("status") != "password_required":
         raise AssertionError
-    if _fetch_session_status(
-        db_path=db_path,
-        session_id=session_id,
-    ) != "password_required":
+    if (
+        _fetch_session_status(
+            db_path=db_path,
+            session_id=session_id,
+        )
+        != "password_required"
+    ):
         raise AssertionError
     if (
         _fetch_session_telegram_session(
@@ -413,7 +416,7 @@ def _fetch_session_telegram_session(*, db_path: Path, session_id: str) -> str | 
     if row[0] is None:
         return None
     if not isinstance(row[0], str):
-        raise AssertionError
+        raise AssertionError  # noqa: TRY004
     return row[0]
 
 

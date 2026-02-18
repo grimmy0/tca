@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import itertools
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
-
-from collections.abc import Callable
 
 import pytest
 from sqlalchemy import text
@@ -14,8 +12,8 @@ from sqlalchemy import text
 from tca.config.settings import load_settings
 from tca.scheduler import SchedulerCoreLoop, SchedulerService
 from tca.storage import (
-    ChannelStateRepository,
     ChannelsRepository,
+    ChannelStateRepository,
     PollJobsRepository,
     StorageRuntime,
     create_storage_runtime,
@@ -23,7 +21,7 @@ from tca.storage import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Callable
     from pathlib import Path
 
 
@@ -140,7 +138,7 @@ async def test_next_run_at_selection_uses_last_success_at(
         is_enabled=True,
     )
 
-    now = datetime(2026, 2, 18, 12, 0, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 18, 12, 0, 0, tzinfo=UTC)
     await _seed_state(
         scheduler_runtime,
         channel_id=1,
@@ -174,8 +172,8 @@ async def test_naive_last_success_at_is_normalized(
         is_enabled=True,
     )
 
-    now = datetime(2026, 2, 18, 13, 0, 0, tzinfo=timezone.utc)
-    naive_last_success = datetime(2026, 2, 18, 12, 55, 0)
+    now = datetime(2026, 2, 18, 13, 0, 0, tzinfo=UTC)
+    naive_last_success = datetime(2026, 2, 18, 12, 55, 0)  # noqa: DTZ001
     await _seed_state(
         scheduler_runtime,
         channel_id=1,
@@ -212,7 +210,7 @@ async def test_disabled_channels_are_excluded_from_scheduler(
         is_enabled=False,
     )
 
-    now = datetime(2026, 2, 18, 12, 15, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 18, 12, 15, 0, tzinfo=UTC)
     await _seed_state(
         scheduler_runtime,
         channel_id=10,
@@ -254,7 +252,7 @@ async def test_paused_channels_are_skipped_by_scheduler(
         is_enabled=True,
     )
 
-    now = datetime(2026, 2, 18, 12, 45, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 18, 12, 45, 0, tzinfo=UTC)
     await _seed_state(
         scheduler_runtime,
         channel_id=20,
@@ -280,7 +278,7 @@ async def test_scheduler_service_starts_and_stops_cleanly(
     scheduler_runtime: StorageRuntime,
 ) -> None:
     """Ensure scheduler lifecycle hooks start and stop without errors."""
-    now = datetime(2026, 2, 18, 12, 30, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 18, 12, 30, 0, tzinfo=UTC)
     service = SchedulerService(
         runtime_provider=lambda: scheduler_runtime,
         poll_interval_seconds=300,
@@ -336,7 +334,7 @@ async def _seed_account(runtime: StorageRuntime, *, account_id: int) -> None:
         await session.commit()
 
 
-async def _seed_channel(
+async def _seed_channel(  # noqa: PLR0913
     runtime: StorageRuntime,
     *,
     channel_id: int,

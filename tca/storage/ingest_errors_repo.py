@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
 from sqlalchemy import text
@@ -111,11 +111,20 @@ class IngestErrorsRepository:
 def _decode_ingest_error_row(row: object) -> IngestErrorRecord:
     row_map = cast("Mapping[str, object]", row)
     error_id = _coerce_int(value=row_map.get("id"), field="id")
-    channel_id = _coerce_optional_int(value=row_map.get("channel_id"), field="channel_id")
+    channel_id = _coerce_optional_int(
+        value=row_map.get("channel_id"),
+        field="channel_id",
+    )
     stage = _coerce_str(value=row_map.get("stage"), field="stage")
     error_code = _coerce_str(value=row_map.get("error_code"), field="error_code")
-    error_message = _coerce_str(value=row_map.get("error_message"), field="error_message")
-    payload_ref = _coerce_optional_str(value=row_map.get("payload_ref"), field="payload_ref")
+    error_message = _coerce_str(
+        value=row_map.get("error_message"),
+        field="error_message",
+    )
+    payload_ref = _coerce_optional_str(
+        value=row_map.get("payload_ref"),
+        field="payload_ref",
+    )
     created_at = _coerce_datetime(value=row_map.get("created_at"))
     return IngestErrorRecord(
         error_id=error_id,
@@ -171,6 +180,6 @@ def _coerce_datetime(*, value: object) -> datetime:
                 details="invalid created_at value",
             ) from exc
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
+            parsed = parsed.replace(tzinfo=UTC)
         return parsed
     raise IngestErrorDecodeError.from_details(details="missing created_at value")

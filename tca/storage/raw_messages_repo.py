@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from json import JSONDecodeError
 from typing import TYPE_CHECKING, cast
 
@@ -153,7 +153,9 @@ def _coerce_int(*, value: object, field: str) -> int:
         return value
     if isinstance(value, str) and value.isdigit():
         return int(value)
-    raise RawMessagePayloadDecodeError.from_details(details=f"missing integer `{field}`")
+    raise RawMessagePayloadDecodeError.from_details(
+        details=f"missing integer `{field}`",
+    )
 
 
 def _coerce_str(*, value: object, field: str) -> str:
@@ -173,6 +175,6 @@ def _coerce_datetime(*, value: object, field: str) -> datetime:
                 details=f"invalid `{field}` value",
             ) from exc
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
+            parsed = parsed.replace(tzinfo=UTC)
         return parsed
     raise RawMessagePayloadDecodeError.from_details(details=f"missing `{field}`")

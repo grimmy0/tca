@@ -123,7 +123,7 @@ async def test_interrupted_rotation_resumes_at_next_pending_row(
     )
     next_id = await resumed.next_pending_account_id()
 
-    if next_id != 2:
+    if next_id != 2:  # noqa: PLR2004
         raise AssertionError
 
 
@@ -167,7 +167,7 @@ async def test_begin_rotation_resets_after_completion(
     next_state = await repository.begin_rotation(target_key_version=3)
 
     if (
-        next_state.target_key_version != 3
+        next_state.target_key_version != 3  # noqa: PLR2004
         or next_state.last_rotated_account_id != 0
         or next_state.completed_at is not None
     ):
@@ -210,5 +210,5 @@ async def test_mark_account_rotated_is_idempotent(
     await repository.mark_account_rotated(account_id=2)
     state = await repository.get_state()
 
-    if state is None or state.last_rotated_account_id != 2:
+    if state is None or state.last_rotated_account_id != 2:  # noqa: PLR2004
         raise AssertionError

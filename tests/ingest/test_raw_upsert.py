@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, TypeVar, cast
 import pytest
 from sqlalchemy import text
 
+from tca.config.settings import load_settings
 from tca.ingest import upsert_raw_message
 from tca.storage import (
     RawMessageRecord,
@@ -16,7 +17,6 @@ from tca.storage import (
     create_storage_runtime,
     dispose_storage_runtime,
 )
-from tca.config.settings import load_settings
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable

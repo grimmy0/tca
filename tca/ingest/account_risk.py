@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Callable
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
-from tca.storage import (
-    AccountPauseRecord,
-    AccountPauseRepository,
-    NotificationsRepository,
-    SettingsRepository,
-    WriterQueueProtocol,
-)
-from tca.storage.settings_repo import JSONValue
+if TYPE_CHECKING:
+    from tca.storage import (
+        AccountPauseRecord,
+        AccountPauseRepository,
+        NotificationsRepository,
+        SettingsRepository,
+        WriterQueueProtocol,
+    )
+    from tca.storage.settings_repo import JSONValue
 
 TimeProvider = Callable[[], datetime]
 
@@ -25,12 +27,12 @@ ACCOUNT_RISK_THRESHOLD = 3
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _normalize_datetime(value: datetime) -> datetime:
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
+        return value.replace(tzinfo=UTC)
     return value
 
 
@@ -65,7 +67,7 @@ def _filter_recent(breaches: list[datetime], *, now: datetime) -> list[datetime]
     return [breach for breach in breaches if breach >= cutoff]
 
 
-async def record_account_risk_breach(
+async def record_account_risk_breach(  # noqa: PLR0913
     *,
     writer_queue: WriterQueueProtocol,
     settings_repository: SettingsRepository,

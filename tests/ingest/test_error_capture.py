@@ -130,7 +130,8 @@ async def test_ingest_pipeline_continues_after_recoverable_errors(
     queue = RecordingWriterQueue()
 
     async def _fail() -> str:
-        raise RuntimeError("recoverable-error")
+        msg = "recoverable-error"
+        raise RuntimeError(msg)
 
     result = await execute_with_ingest_error_capture(
         operation=_fail,
@@ -181,7 +182,7 @@ async def test_ingest_pipeline_does_not_swallow_cancellation(
     queue = RecordingWriterQueue()
 
     async def _cancel() -> None:
-        raise asyncio.CancelledError()
+        raise asyncio.CancelledError
 
     with pytest.raises(asyncio.CancelledError):
         await execute_with_ingest_error_capture(

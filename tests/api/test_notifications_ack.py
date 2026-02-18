@@ -52,7 +52,7 @@ def test_acknowledge_notification_updates_state_atomically(
         raise AssertionError
 
     payload = cast("dict[str, object]", response.json())
-    if payload.get("id") != 101:
+    if payload.get("id") != 101:  # noqa: PLR2004
         raise AssertionError
     if payload.get("is_acknowledged") is not True:
         raise AssertionError
@@ -119,7 +119,7 @@ def test_acknowledge_notification_is_idempotent(
         raise AssertionError
 
 
-def _insert_notification(
+def _insert_notification(  # noqa: PLR0913
     db_path: object,
     *,
     notification_id: int,
@@ -186,14 +186,14 @@ def _auth_headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {BOOTSTRAP_TOKEN}"}
 
 
-def _as_path(value: object) -> "Path":
+def _as_path(value: object) -> Path:
     """Narrow input to Path for temp dir handling."""
     if not isinstance(value, Path):
         raise TypeError
     return value
 
 
-def _as_monkeypatch(value: object) -> "MonkeyPatchLike":
+def _as_monkeypatch(value: object) -> MonkeyPatchLike:
     """Narrow monkeypatch fixture object to setenv-capable helper."""
     if not isinstance(value, MonkeyPatchLike):
         raise TypeError

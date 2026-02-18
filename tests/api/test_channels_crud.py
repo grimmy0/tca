@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import Protocol, cast, runtime_checkable
 from unittest.mock import patch
@@ -161,8 +161,8 @@ def test_patch_channel_persists_polling_state_updates(
         (_as_path(tmp_path) / "channels-patch-bootstrap-token.txt").as_posix(),
     )
 
-    paused_until = datetime(2026, 2, 16, 10, 30, tzinfo=timezone.utc)
-    last_success_at = datetime(2026, 2, 16, 9, 15, tzinfo=timezone.utc)
+    paused_until = datetime(2026, 2, 16, 10, 30, tzinfo=UTC)
+    last_success_at = datetime(2026, 2, 16, 9, 15, tzinfo=UTC)
 
     app = create_app()
     auth_headers = _auth_headers()
@@ -219,7 +219,7 @@ def _insert_account_fixture(db_path: object, *, account_id: int) -> None:
         connection.commit()
 
 
-def _insert_channel_fixture(
+def _insert_channel_fixture(  # noqa: PLR0913
     db_path: object,
     *,
     channel_id: int,
@@ -294,7 +294,7 @@ class _MonkeyPatch(Protocol):
 
 @runtime_checkable
 class _PathLike(Protocol):
-    def __truediv__(self, name: str) -> "_PathLike":
+    def __truediv__(self, name: str) -> _PathLike:
         """Join path fragments with /."""
 
     def as_posix(self) -> str:

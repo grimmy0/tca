@@ -73,11 +73,14 @@ def _decode_poll_job_row(row: object) -> PollJobRecord:
     channel_id = row_map.get("channel_id")
     correlation_id = row_map.get("correlation_id")
     if not isinstance(job_id, int):
-        raise PollJobsRepositoryError("Poll job row missing id.")
+        msg = "Poll job row missing id."
+        raise PollJobsRepositoryError(msg)
     if not isinstance(channel_id, int):
-        raise PollJobsRepositoryError("Poll job row missing channel_id.")
+        msg = "Poll job row missing channel_id."
+        raise PollJobsRepositoryError(msg)
     if not isinstance(correlation_id, str):
-        raise PollJobsRepositoryError("Poll job row missing correlation_id.")
+        msg = "Poll job row missing correlation_id."
+        raise PollJobsRepositoryError(msg)
     return PollJobRecord(
         job_id=job_id,
         channel_id=channel_id,

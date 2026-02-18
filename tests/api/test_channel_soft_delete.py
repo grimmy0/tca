@@ -173,7 +173,7 @@ def _insert_account_fixture(db_path: object, *, account_id: int) -> None:
         connection.commit()
 
 
-def _insert_channel_fixture(
+def _insert_channel_fixture(  # noqa: PLR0913
     db_path: object,
     *,
     channel_id: int,
@@ -282,7 +282,7 @@ class _MonkeyPatch(Protocol):
 
 @runtime_checkable
 class _PathLike(Protocol):
-    def __truediv__(self, name: str) -> "_PathLike":
+    def __truediv__(self, name: str) -> _PathLike:
         """Join path fragments with /."""
 
     def as_posix(self) -> str:

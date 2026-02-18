@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Callable, Protocol
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Protocol
 
 from tca.storage import ChannelCursor
 
@@ -76,7 +77,7 @@ async def fetch_recent_messages(
     return [message async for message in client.iter_messages(channel, limit=limit)]
 
 
-async def fetch_bounded_messages(
+async def fetch_bounded_messages(  # noqa: PLR0913
     client: PagedMessageFetchClient,
     channel: object,
     *,
@@ -98,7 +99,9 @@ async def fetch_bounded_messages(
             ),
         )
 
-    offset_id = cursor.next_offset_id if cursor and cursor.next_offset_id is not None else None
+    offset_id = (
+        cursor.next_offset_id if cursor and cursor.next_offset_id is not None else None
+    )
     most_recent_id = cursor.last_message_id if cursor else None
     messages: list[object] = []
     pages_fetched = 0
@@ -160,11 +163,12 @@ async def upsert_raw_message(
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _extract_message_id(message: object) -> int:
     message_id = getattr(message, "id", None)
     if isinstance(message_id, int):
         return message_id
-    raise ValueError("message missing integer id")
+    msg = "message missing integer id"
+    raise ValueError(msg)

@@ -103,7 +103,7 @@ class TelethonClientManager:
         return self._register_account(account)
 
     def _register_account(self, account: TelegramAccount) -> TelegramClientProtocol:
-        """Internal registration helper to reuse existing clients."""
+        """Register an account, reusing an existing client if already present."""
         client = self.clients.get(account.account_id)
         if client is None:
             client = self.client_factory(account)

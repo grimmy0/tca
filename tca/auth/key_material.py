@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import base64
 import secrets
+from typing import TYPE_CHECKING
 
-from tca.storage import WriterQueueProtocol
 from tca.storage.settings_repo import SettingAlreadyExistsError, SettingsRepository
 
 from .kdf import ARGON2ID_SALT_BYTES, derive_key_encryption_key
 from .unlock_modes import UnlockState, get_sensitive_operation_secret
+
+if TYPE_CHECKING:
+    from tca.storage import WriterQueueProtocol
 
 AUTH_KEY_SALT_SETTING = "auth.kek_salt"
 

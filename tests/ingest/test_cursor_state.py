@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -11,9 +11,9 @@ from sqlalchemy import text
 from tca.config.settings import load_settings
 from tca.storage import (
     ChannelCursor,
+    ChannelsRepository,
     ChannelStateDecodeError,
     ChannelStateRepository,
-    ChannelsRepository,
     StorageRuntime,
     create_storage_runtime,
     dispose_storage_runtime,
@@ -131,7 +131,7 @@ async def test_cursor_updates_after_successful_poll(
     cursor = ChannelCursor(
         last_message_id=451,
         next_offset_id=None,
-        last_polled_at=datetime(2026, 2, 15, 18, 30, tzinfo=timezone.utc),
+        last_polled_at=datetime(2026, 2, 15, 18, 30, tzinfo=UTC),
     )
 
     updated = await state_repo.update_cursor(channel_id=channel.id, cursor=cursor)
@@ -162,7 +162,7 @@ async def test_cursor_read_resumes_from_previous_state(
     cursor = ChannelCursor(
         last_message_id=998,
         next_offset_id=990,
-        last_polled_at=datetime(2026, 2, 16, 9, 15, tzinfo=timezone.utc),
+        last_polled_at=datetime(2026, 2, 16, 9, 15, tzinfo=UTC),
     )
     _ = await state_repo.update_cursor(channel_id=channel.id, cursor=cursor)
 

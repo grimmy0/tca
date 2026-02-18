@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -15,8 +15,8 @@ from tca.scheduler.service import (
     _resolve_poll_interval_seconds,
 )
 from tca.storage import (
-    ChannelStateRepository,
     ChannelsRepository,
+    ChannelStateRepository,
     PollJobsRepository,
     SettingsRepository,
     StorageRuntime,
@@ -58,19 +58,19 @@ def test_next_run_at_within_jitter_bounds() -> None:
     """Ensure jittered next run stays within +/-20% interval bounds."""
     interval_seconds = 300
     jitter_ratio = 0.2
-    last_success = datetime(2026, 2, 18, 12, 0, 0, tzinfo=timezone.utc)
-    rng = random.Random(1337)
+    last_success = datetime(2026, 2, 18, 12, 0, 0, tzinfo=UTC)
+    rng = random.Random(1337)  # noqa: S311
 
     core_loop = SchedulerCoreLoop(
-        channels_repository=cast(ChannelsRepository, object()),
-        state_repository=cast(ChannelStateRepository, object()),
-        jobs_repository=cast(PollJobsRepository, object()),
+        channels_repository=cast("ChannelsRepository", object()),
+        state_repository=cast("ChannelStateRepository", object()),
+        jobs_repository=cast("PollJobsRepository", object()),
         poll_interval_seconds=interval_seconds,
         jitter_ratio=jitter_ratio,
         jitter_rng=rng,
     )
 
-    next_run_at = core_loop._compute_next_run_at(state_last_success=last_success)
+    next_run_at = core_loop._compute_next_run_at(state_last_success=last_success)  # noqa: SLF001
     lower_bound = last_success + timedelta(
         seconds=interval_seconds * (1 - jitter_ratio),
     )
@@ -84,27 +84,27 @@ def test_next_run_at_within_jitter_bounds() -> None:
 def test_jitter_is_deterministic_with_seeded_rng() -> None:
     """Ensure seeded RNG yields deterministic jitter results."""
     interval_seconds = 300
-    last_success = datetime(2026, 2, 18, 12, 0, 0, tzinfo=timezone.utc)
+    last_success = datetime(2026, 2, 18, 12, 0, 0, tzinfo=UTC)
 
-    rng_left = random.Random(2026)
-    rng_right = random.Random(2026)
+    rng_left = random.Random(2026)  # noqa: S311
+    rng_right = random.Random(2026)  # noqa: S311
     left = SchedulerCoreLoop(
-        channels_repository=cast(ChannelsRepository, object()),
-        state_repository=cast(ChannelStateRepository, object()),
-        jobs_repository=cast(PollJobsRepository, object()),
+        channels_repository=cast("ChannelsRepository", object()),
+        state_repository=cast("ChannelStateRepository", object()),
+        jobs_repository=cast("PollJobsRepository", object()),
         poll_interval_seconds=interval_seconds,
         jitter_rng=rng_left,
     )
     right = SchedulerCoreLoop(
-        channels_repository=cast(ChannelsRepository, object()),
-        state_repository=cast(ChannelStateRepository, object()),
-        jobs_repository=cast(PollJobsRepository, object()),
+        channels_repository=cast("ChannelsRepository", object()),
+        state_repository=cast("ChannelStateRepository", object()),
+        jobs_repository=cast("PollJobsRepository", object()),
         poll_interval_seconds=interval_seconds,
         jitter_rng=rng_right,
     )
 
-    left_next = left._compute_next_run_at(state_last_success=last_success)
-    right_next = right._compute_next_run_at(state_last_success=last_success)
+    left_next = left._compute_next_run_at(state_last_success=last_success)  # noqa: SLF001
+    right_next = right._compute_next_run_at(state_last_success=last_success)  # noqa: SLF001
     if left_next != right_next:
         raise AssertionError
 
@@ -127,5 +127,5 @@ async def test_poll_interval_resolves_from_settings(
         repository=repository,
         default_value=DEFAULT_POLL_INTERVAL_SECONDS,
     )
-    if resolved != 120:
+    if resolved != 120:  # noqa: PLR2004
         raise AssertionError

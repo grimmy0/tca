@@ -24,3 +24,15 @@ uv run python scripts/check_api_response_models.py
 
 echo "Checking TestClient context-manager conventions..."
 uv run python scripts/check_testclient_context.py
+
+echo "Checking execution-record SHAs in implementation plan..."
+uv run python scripts/check_execution_record_shas.py
+
+echo "Checking migration downgrade test coverage..."
+uv run python scripts/check_migration_downgrade_coverage.py
+
+echo "Checking async exception handling for broad catches..."
+uv run python scripts/check_broad_exception_catch.py
+
+echo "Checking test files for hardcoded future-year datetime literals..."
+uv run python scripts/check_hardcoded_test_dates.py

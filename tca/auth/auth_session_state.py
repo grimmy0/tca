@@ -74,7 +74,7 @@ class AuthSessionStateRepository:
         self._read_session_factory = read_session_factory
         self._write_session_factory = write_session_factory
 
-    async def create_session(
+    async def create_session(  # noqa: PLR0913
         self,
         *,
         session_id: str,
@@ -204,13 +204,19 @@ def _decode_row(row: object) -> AuthSessionState:
     """Decode a row mapping into an AuthSessionState."""
     row_map = cast("Mapping[str, object]", cast("object", row))
     return AuthSessionState(
-        session_id=_coerce_str(value=row_map.get("session_id"), field_name="session_id"),
+        session_id=_coerce_str(
+            value=row_map.get("session_id"),
+            field_name="session_id",
+        ),
         phone_number=_coerce_str(
             value=row_map.get("phone_number"),
             field_name="phone_number",
         ),
         status=_coerce_str(value=row_map.get("status"), field_name="status"),
-        expires_at=_coerce_int(value=row_map.get("expires_at"), field_name="expires_at"),
+        expires_at=_coerce_int(
+            value=row_map.get("expires_at"),
+            field_name="expires_at",
+        ),
         telegram_session=_coerce_optional_str(
             value=row_map.get("telegram_session"),
             field_name="telegram_session",
@@ -222,7 +228,8 @@ def _coerce_str(*, value: object, field_name: str) -> str:
     """Normalize and validate a string column value."""
     if isinstance(value, str):
         return value
-    raise AuthSessionStateError(f"Auth session state missing `{field_name}` value.")
+    msg = f"Auth session state missing `{field_name}` value."
+    raise AuthSessionStateError(msg)
 
 
 def _coerce_int(*, value: object, field_name: str) -> int:
@@ -231,7 +238,8 @@ def _coerce_int(*, value: object, field_name: str) -> int:
         return value
     if isinstance(value, str) and value.isdigit():
         return int(value)
-    raise AuthSessionStateError(f"Auth session state missing `{field_name}` value.")
+    msg = f"Auth session state missing `{field_name}` value."
+    raise AuthSessionStateError(msg)
 
 
 def _coerce_optional_str(*, value: object, field_name: str) -> str | None:
@@ -240,7 +248,8 @@ def _coerce_optional_str(*, value: object, field_name: str) -> str | None:
         return None
     if isinstance(value, str):
         return value
-    raise AuthSessionStateError(f"Auth session state invalid `{field_name}` value.")
+    msg = f"Auth session state invalid `{field_name}` value."
+    raise AuthSessionStateError(msg)
 
 
 def _now_epoch() -> int:

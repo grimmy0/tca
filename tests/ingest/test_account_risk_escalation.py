@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -37,6 +37,7 @@ class RecordingWriterQueue:
     submit_calls: int
 
     def __init__(self) -> None:
+        """Initialize with zero submit calls."""
         self.submit_calls = 0
 
     async def submit(self, operation: Callable[[], Awaitable[object]]) -> object:
@@ -210,7 +211,7 @@ async def test_account_risk_escalation_pauses_account_on_repeated_breaches(
     await _seed_account(runtime, account_id=7)
 
     queue = RecordingWriterQueue()
-    now = datetime(2026, 2, 22, 10, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 22, 10, 0, tzinfo=UTC)
 
     for idx in range(ACCOUNT_RISK_THRESHOLD - 1):
         paused = await record_account_risk_breach(
@@ -257,7 +258,7 @@ async def test_account_risk_escalation_emits_notification_once(
     await _seed_account(runtime, account_id=9)
 
     queue = RecordingWriterQueue()
-    now = datetime(2026, 2, 22, 11, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 22, 11, 0, tzinfo=UTC)
 
     for idx in range(ACCOUNT_RISK_THRESHOLD):
         _ = await record_account_risk_breach(
@@ -316,7 +317,7 @@ async def test_account_risk_escalation_blocks_schedulable_channels_until_resume(
         raise AssertionError
 
     queue = RecordingWriterQueue()
-    now = datetime(2026, 2, 22, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 22, 12, 0, tzinfo=UTC)
 
     for idx in range(ACCOUNT_RISK_THRESHOLD):
         _ = await record_account_risk_breach(

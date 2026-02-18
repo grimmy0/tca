@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
 from sqlalchemy import bindparam, text
 
-from tca.storage.settings_repo import JSONValue
-
 if TYPE_CHECKING:
     from tca.storage.db import SessionFactory
+    from tca.storage.settings_repo import JSONValue
 
 
 @dataclass(slots=True, frozen=True)
@@ -212,8 +211,9 @@ def _decode_payload_json(payload_json: object) -> JSONValue | None:
     if payload_json is None:
         return None
     if not isinstance(payload_json, str):
+        msg = "Notification payload_json is not a string."
         raise NotificationsRepositoryError(
-            "Notification payload_json is not a string.",
+            msg,
         )
     return cast("JSONValue", json.loads(payload_json))
 
@@ -227,13 +227,17 @@ def _decode_row(row: object) -> NotificationRecord:
     message = row_map.get("message")
     payload_json = row_map.get("payload_json")
     if not isinstance(notification_id, int):
-        raise NotificationsRepositoryError("Notification row missing id.")
+        msg = "Notification row missing id."
+        raise NotificationsRepositoryError(msg)
     if not isinstance(notification_type, str):
-        raise NotificationsRepositoryError("Notification row missing type.")
+        msg = "Notification row missing type."
+        raise NotificationsRepositoryError(msg)
     if not isinstance(severity, str):
-        raise NotificationsRepositoryError("Notification row missing severity.")
+        msg = "Notification row missing severity."
+        raise NotificationsRepositoryError(msg)
     if not isinstance(message, str):
-        raise NotificationsRepositoryError("Notification row missing message.")
+        msg = "Notification row missing message."
+        raise NotificationsRepositoryError(msg)
     payload = _decode_payload_json(payload_json)
     return NotificationRecord(
         notification_id=notification_id,
@@ -257,16 +261,21 @@ def _decode_list_row(row: object) -> NotificationListRecord:
     created_at = row_map.get("created_at")
 
     if not isinstance(notification_id, int):
-        raise NotificationsRepositoryError("Notification row missing id.")
+        msg = "Notification row missing id."
+        raise NotificationsRepositoryError(msg)
     if not isinstance(notification_type, str):
-        raise NotificationsRepositoryError("Notification row missing type.")
+        msg = "Notification row missing type."
+        raise NotificationsRepositoryError(msg)
     if not isinstance(severity, str):
-        raise NotificationsRepositoryError("Notification row missing severity.")
+        msg = "Notification row missing severity."
+        raise NotificationsRepositoryError(msg)
     if not isinstance(message, str):
-        raise NotificationsRepositoryError("Notification row missing message.")
+        msg = "Notification row missing message."
+        raise NotificationsRepositoryError(msg)
     if not isinstance(is_acknowledged, (bool, int)):
+        msg = "Notification row missing is_acknowledged flag."
         raise NotificationsRepositoryError(
-            "Notification row missing is_acknowledged flag.",
+            msg,
         )
     acknowledged_at_value = _coerce_optional_datetime(value=acknowledged_at)
     created_at_value = _coerce_datetime(value=created_at)
@@ -291,13 +300,15 @@ def _coerce_datetime(*, value: object) -> datetime:
         try:
             parsed = datetime.fromisoformat(value)
         except ValueError as exc:
+            msg = "Notification row invalid created_at."
             raise NotificationsRepositoryError(
-                "Notification row invalid created_at.",
+                msg,
             ) from exc
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
+            parsed = parsed.replace(tzinfo=UTC)
         return parsed
-    raise NotificationsRepositoryError("Notification row missing created_at.")
+    msg = "Notification row missing created_at."
+    raise NotificationsRepositoryError(msg)
 
 
 def _coerce_optional_datetime(*, value: object) -> datetime | None:
@@ -309,10 +320,12 @@ def _coerce_optional_datetime(*, value: object) -> datetime | None:
         try:
             parsed = datetime.fromisoformat(value)
         except ValueError as exc:
+            msg = "Notification row invalid acknowledged_at."
             raise NotificationsRepositoryError(
-                "Notification row invalid acknowledged_at.",
+                msg,
             ) from exc
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
+            parsed = parsed.replace(tzinfo=UTC)
         return parsed
-    raise NotificationsRepositoryError("Notification row invalid acknowledged_at.")
+    msg = "Notification row invalid acknowledged_at."
+    raise NotificationsRepositoryError(msg)

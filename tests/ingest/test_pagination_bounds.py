@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -44,7 +44,7 @@ class ScriptedPageClient:
 
 
 def _fixed_time() -> datetime:
-    return datetime(2026, 2, 16, 12, 0, tzinfo=timezone.utc)
+    return datetime(2026, 2, 16, 12, 0, tzinfo=UTC)
 
 
 @pytest.mark.asyncio
@@ -68,9 +68,9 @@ async def test_pagination_stops_on_page_limit() -> None:
         time_provider=_fixed_time,
     )
 
-    if len(result.messages) != 6:
+    if len(result.messages) != 6:  # noqa: PLR2004
         raise AssertionError
-    if result.cursor.next_offset_id != 25:
+    if result.cursor.next_offset_id != 25:  # noqa: PLR2004
         raise AssertionError
     if client.call_offsets != [None, 28]:
         raise AssertionError
@@ -97,9 +97,9 @@ async def test_pagination_stops_on_message_limit_and_sets_offset() -> None:
         time_provider=_fixed_time,
     )
 
-    if len(result.messages) != 5:
+    if len(result.messages) != 5:  # noqa: PLR2004
         raise AssertionError
-    if result.cursor.next_offset_id != 6:
+    if result.cursor.next_offset_id != 6:  # noqa: PLR2004
         raise AssertionError
     if client.call_offsets != [None, 8]:
         raise AssertionError
@@ -111,7 +111,7 @@ async def test_pagination_resumes_from_stored_offset() -> None:
     cursor = ChannelCursor(
         last_message_id=300,
         next_offset_id=200,
-        last_polled_at=datetime(2026, 2, 15, 8, 0, tzinfo=timezone.utc),
+        last_polled_at=datetime(2026, 2, 15, 8, 0, tzinfo=UTC),
     )
     client = ScriptedPageClient(pages=[[FakeMessage(199), FakeMessage(198)]])
 
@@ -125,11 +125,11 @@ async def test_pagination_resumes_from_stored_offset() -> None:
         time_provider=_fixed_time,
     )
 
-    if not client.call_offsets or client.call_offsets[0] != 200:
+    if not client.call_offsets or client.call_offsets[0] != 200:  # noqa: PLR2004
         raise AssertionError
     if result.cursor.next_offset_id is not None:
         raise AssertionError
-    if result.cursor.last_message_id != 300:
+    if result.cursor.last_message_id != 300:  # noqa: PLR2004
         raise AssertionError
 
 
@@ -150,5 +150,5 @@ async def test_pagination_uses_lowest_id_for_offset() -> None:
         time_provider=_fixed_time,
     )
 
-    if result.cursor.next_offset_id != 5:
+    if result.cursor.next_offset_id != 5:  # noqa: PLR2004
         raise AssertionError

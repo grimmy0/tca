@@ -3,20 +3,22 @@
 from __future__ import annotations
 
 import asyncio
-from enum import Enum
-from typing import TYPE_CHECKING, Callable, TypeVar
-
-from tca.storage import IngestErrorsRepository, WriterQueueProtocol
+from enum import StrEnum
+from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable
+    from collections.abc import Awaitable, Callable
 
-    from tca.storage import IngestErrorRecord
+    from tca.storage import (
+        IngestErrorRecord,
+        IngestErrorsRepository,
+        WriterQueueProtocol,
+    )
 
 T = TypeVar("T")
 
 
-class IngestErrorStage(str, Enum):
+class IngestErrorStage(StrEnum):
     """Allowed ingest error stages persisted for ops visibility."""
 
     FETCH = "fetch"
@@ -35,13 +37,15 @@ def normalize_ingest_error_stage(stage: str | IngestErrorStage) -> str:
     elif isinstance(stage, str):
         value = stage.strip().lower()
     else:
-        raise ValueError("Ingest error stage must be a string or IngestErrorStage.")
+        msg = "Ingest error stage must be a string or IngestErrorStage."
+        raise TypeError(msg)
     if value not in ALLOWED_INGEST_ERROR_STAGES:
-        raise ValueError(f"Invalid ingest error stage: {stage!r}")
+        msg = f"Invalid ingest error stage: {stage!r}"
+        raise ValueError(msg)
     return value
 
 
-async def capture_ingest_error(
+async def capture_ingest_error(  # noqa: PLR0913
     *,
     writer_queue: WriterQueueProtocol,
     errors_repository: IngestErrorsRepository,
@@ -66,7 +70,7 @@ async def capture_ingest_error(
     return await writer_queue.submit(_persist)
 
 
-async def execute_with_ingest_error_capture(
+async def execute_with_ingest_error_capture[T](  # noqa: PLR0913
     *,
     operation: Callable[[], Awaitable[T]],
     writer_queue: WriterQueueProtocol,

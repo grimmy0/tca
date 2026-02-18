@@ -12,8 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import PlainTextResponse, Response
 
 from tca.api.bearer_auth import require_bearer_auth
-from tca.api.routes.channels import router as channels_router
 from tca.api.routes.channel_groups import router as channel_groups_router
+from tca.api.routes.channels import router as channels_router
 from tca.api.routes.health import router as health_router
 from tca.api.routes.jobs import router as jobs_router
 from tca.api.routes.notifications import router as notifications_router

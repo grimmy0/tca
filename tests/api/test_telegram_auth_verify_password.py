@@ -38,7 +38,7 @@ def test_verify_password_finalizes_login(
     api_id = 4242
     api_hash = "hash-for-password"
     phone_number = "+15550009999"
-    password = "correct-password"
+    password = "correct-password"  # noqa: S105
     expected_session = "telegram-password-session"
     mock_tg_client.session = _FakeStringSession(expected_session)
     mock_tg_client.responses["sign_in"] = SessionPasswordNeededError(request=None)
@@ -99,7 +99,7 @@ def test_verify_password_finalizes_login(
         raise AssertionError
     if payload.get("session_id") != session_id:
         raise AssertionError
-    if mock_tg_client.call_counts.get("sign_in") != 2:
+    if mock_tg_client.call_counts.get("sign_in") != 2:  # noqa: PLR2004
         raise AssertionError
     if expected_session not in session_strings:
         raise AssertionError
@@ -185,10 +185,13 @@ def test_verify_password_wrong_password_returns_retryable_error(
     payload = password_response.json()
     if payload.get("detail") != "Invalid Telegram password.":
         raise AssertionError
-    if _fetch_session_status(
-        db_path=db_path,
-        session_id=session_id,
-    ) != "password_required":
+    if (
+        _fetch_session_status(
+            db_path=db_path,
+            session_id=session_id,
+        )
+        != "password_required"
+    ):
         raise AssertionError
 
 
@@ -369,7 +372,7 @@ def _fetch_session_telegram_session(*, db_path: Path, session_id: str) -> str | 
     if row[0] is None:
         return None
     if not isinstance(row[0], str):
-        raise AssertionError
+        raise AssertionError  # noqa: TRY004
     return row[0]
 
 
