@@ -47,6 +47,10 @@ QUOTA_EXHAUSTION_PATTERNS = (
     re.compile(r"\byou(?:'ve| have) reached .*limit\b", re.IGNORECASE),
     re.compile(r"\bout of credits?\b", re.IGNORECASE),
 )
+FORBIDDEN_GIT_NO_VERIFY_PATTERN = re.compile(
+    r"\bgit\b[^\n\r]*\s--no-verify(?:\s|$)",
+    re.IGNORECASE,
+)
 CODEX_OPTION_5_MIN_VERSION = (0, 102, 0)
 ASK_FOR_APPROVAL_FLAG = "--ask-for-approval"
 
@@ -462,6 +466,15 @@ def detect_rate_limit_issue(*texts: str) -> RateLimitIssue | None:
     return None
 
 
+def detect_forbidden_no_verify_usage(*texts: str) -> str | None:
+    """Return the first output line that suggests forbidden `git ... --no-verify`."""
+    for text in texts:
+        for line in text.splitlines():
+            if FORBIDDEN_GIT_NO_VERIFY_PATTERN.search(line):
+                return line.strip()
+    return None
+
+
 def compute_full_jitter_backoff_seconds(
     *,
     attempt: int,
@@ -514,12 +527,20 @@ def wait_for_retryable_rate_limit(  # noqa: PLR0913
 def build_output_schema(step_name: str) -> dict[str, object]:
     """Build strict JSON Schema for the step's final response."""
     sha_or_none = r"^(?:[0-9a-f]{7,40}|NONE)$"
+    common_required = [
+        "QUESTIONS_ASKED",
+        "SAFE_DEFAULT_DECISIONS",
+        "NO_VERIFY_USED",
+        "PRECOMMIT_ALL_FILES_STATUS",
+    ]
     common_fields: dict[str, object] = {
         "QUESTIONS_ASKED": {"type": "integer", "enum": [0]},
         "SAFE_DEFAULT_DECISIONS": {
             "type": "array",
             "items": {"type": "string"},
         },
+        "NO_VERIFY_USED": {"type": "boolean", "enum": [False]},
+        "PRECOMMIT_ALL_FILES_STATUS": {"type": "string", "enum": ["PASSED"]},
     }
 
     if step_name == "implement":
@@ -532,8 +553,7 @@ def build_output_schema(step_name: str) -> dict[str, object]:
                 "IMPLEMENTED_TITLE",
                 "IMPLEMENTATION_COMMIT",
                 "IMPLEMENTATION_SUMMARY",
-                "QUESTIONS_ASKED",
-                "SAFE_DEFAULT_DECISIONS",
+                *common_required,
             ],
             "properties": {
                 "STATUS": {"type": "string", "enum": ["PLAN_IS_DONE", "IMPLEMENTED"]},
@@ -554,8 +574,7 @@ def build_output_schema(step_name: str) -> dict[str, object]:
                 "REVIEW_FINDINGS_FIXED",
                 "REVIEW_FIX_COMMIT",
                 "PUSH_STATUS",
-                "QUESTIONS_ASKED",
-                "SAFE_DEFAULT_DECISIONS",
+                *common_required,
             ],
             "properties": {
                 "REVIEW_TARGET_COMMIT": {"type": "string", "minLength": 7},
@@ -574,12 +593,27 @@ def build_output_schema(step_name: str) -> dict[str, object]:
                 "DOCS_REVIEW_FILES_CHANGED",
                 "DOCS_REVIEW_COMMIT",
                 "PUSH_STATUS",
-                "QUESTIONS_ASKED",
-                "SAFE_DEFAULT_DECISIONS",
+                *common_required,
             ],
             "properties": {
                 "DOCS_REVIEW_FILES_CHANGED": {"type": "integer", "minimum": 0},
                 "DOCS_REVIEW_COMMIT": {"type": "string", "pattern": sha_or_none},
+                "PUSH_STATUS": {"type": "string", "minLength": 2},
+                **common_fields,
+            },
+        }
+
+    if step_name == "precommit_repair":
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "PRECOMMIT_REPAIR_COMMIT",
+                "PUSH_STATUS",
+                *common_required,
+            ],
+            "properties": {
+                "PRECOMMIT_REPAIR_COMMIT": {"type": "string", "pattern": sha_or_none},
                 "PUSH_STATUS": {"type": "string", "minLength": 2},
                 **common_fields,
             },
@@ -808,8 +842,7 @@ def build_implementation_prompt(
             Task:
             1. Inspect {plan_path} and verify whether any acceptance criterion
                remains unchecked.
-            2. If no pending criteria remain, make no file changes and return
-               STATUS=PLAN_IS_DONE in JSON.
+            2. If no pending criteria remain, return STATUS=PLAN_IS_DONE in JSON.
             3. If you find pending criteria, implement exactly the first pending
                plan item,
                update plan traceability, run relevant checks, and commit it.
@@ -823,8 +856,15 @@ def build_implementation_prompt(
             - Never request clarification or approval.
             - Resolve ambiguity autonomously using safe defaults that keep progress:
               choose the smallest reversible low-risk change that unblocks next work.
-            - Never stage or commit unrelated pre-existing working-tree changes.
-            - If unrelated dirty files exist, leave them untouched.
+            - If unrelated dirty files exist at start, leave them untouched unless
+              pre-commit requires fixing them.
+            - You may include unrelated files in a commit only when required to make
+              `uv run pre-commit run --all-files` pass.
+            - Strictly forbidden: using --no-verify in any git command.
+            - Do not bypass hooks or disable checks.
+            - Run `uv run pre-commit run --all-files` before any commit.
+            - If pre-commit reports issues, fix ALL reported issues (including files
+              unrelated to the current item) and rerun pre-commit until it passes.
             - Return only a strict JSON object matching the output schema.
 
             Required JSON fields:
@@ -835,6 +875,8 @@ def build_implementation_prompt(
             - IMPLEMENTATION_SUMMARY: short reason no work remains
             - QUESTIONS_ASKED: must be 0
             - SAFE_DEFAULT_DECISIONS: list of defaults used (empty list if none)
+            - NO_VERIFY_USED: false
+            - PRECOMMIT_ALL_FILES_STATUS: PASSED
             """,
             ).strip()
             + "\n"
@@ -877,9 +919,16 @@ def build_implementation_prompt(
         11. Never request clarification or approval.
         12. Resolve ambiguity autonomously using safe defaults that keep progress:
             choose the smallest reversible low-risk change that unblocks next work.
-        13. Never stage or commit unrelated pre-existing working-tree changes.
-        14. If unrelated dirty files exist, leave them untouched.
-        15. Return only a strict JSON object matching the output schema.
+        13. If unrelated dirty files exist at start, leave them untouched unless
+            pre-commit requires fixing them.
+        14. You may include unrelated files in a commit only when required to make
+            `uv run pre-commit run --all-files` pass.
+        15. Strictly forbidden: using --no-verify in any git command.
+        16. Do not bypass hooks or disable checks.
+        17. Run `uv run pre-commit run --all-files` before any commit.
+        18. If pre-commit reports issues, fix ALL reported issues (including files
+            unrelated to the current item) and rerun pre-commit until it passes.
+        19. Return only a strict JSON object matching the output schema.
 
         Required JSON fields:
         - STATUS: PLAN_IS_DONE or IMPLEMENTED
@@ -889,6 +938,8 @@ def build_implementation_prompt(
         - IMPLEMENTATION_SUMMARY: <short summary>
         - QUESTIONS_ASKED: must be 0
         - SAFE_DEFAULT_DECISIONS: list of defaults used (empty list if none)
+        - NO_VERIFY_USED: false
+        - PRECOMMIT_ALL_FILES_STATUS: PASSED
         """,
     ).strip()
     return (
@@ -948,7 +999,15 @@ def build_review_prompt(  # noqa: PLR0913
         - Never ask the user any question.
         - Never request clarification or approval.
         - Resolve ambiguity autonomously using safest unblocking defaults.
-        - Never stage or commit unrelated pre-existing working-tree changes.
+        - If unrelated dirty files exist at start, leave them untouched unless
+          pre-commit requires fixing them.
+        - You may include unrelated files in a commit only when required to make
+          `uv run pre-commit run --all-files` pass.
+        - Strictly forbidden: using --no-verify in any git command.
+        - Do not bypass hooks or disable checks.
+        - Run `uv run pre-commit run --all-files` before any commit.
+        - If pre-commit reports issues, fix ALL reported issues (including files
+          unrelated to the reviewed commit) and rerun pre-commit until it passes.
         - Return only a strict JSON object matching the output schema.
 
         Context files:
@@ -961,6 +1020,8 @@ def build_review_prompt(  # noqa: PLR0913
         - PUSH_STATUS: <OK|FAILED: reason>
         - QUESTIONS_ASKED: must be 0
         - SAFE_DEFAULT_DECISIONS: list of defaults used (empty list if none)
+        - NO_VERIFY_USED: false
+        - PRECOMMIT_ALL_FILES_STATUS: PASSED
         """,
         ).strip()
         + "\n"
@@ -1001,11 +1062,16 @@ def build_docs_review_prompt(*, repo_root: Path) -> str:
           task-oriented structure, concrete examples, no filler.
         - Preserve existing doc structure and formatting conventions.
         - Only change what needs changing — no cosmetic rewrites.
-        - Do not modify any non-documentation files.
+        - Keep changes docs-focused unless pre-commit requires fixes in other files.
         - If all docs are already accurate, make no changes and push nothing.
         - Never ask the user any question.
         - Never request clarification or approval.
         - Resolve ambiguity autonomously using safe defaults.
+        - Strictly forbidden: using --no-verify in any git command.
+        - Do not bypass hooks or disable checks.
+        - Run `uv run pre-commit run --all-files` before any commit.
+        - If pre-commit reports issues, fix ALL reported issues (including files
+          unrelated to the docs scope) and rerun pre-commit until it passes.
         - Return only a strict JSON object matching the output schema.
 
         Required JSON fields:
@@ -1014,10 +1080,217 @@ def build_docs_review_prompt(*, repo_root: Path) -> str:
         - PUSH_STATUS: <OK|FAILED: reason|SKIPPED>
         - QUESTIONS_ASKED: must be 0
         - SAFE_DEFAULT_DECISIONS: list of defaults used (empty list if none)
+        - NO_VERIFY_USED: false
+        - PRECOMMIT_ALL_FILES_STATUS: PASSED
         """,
         ).strip()
         + "\n"
     )
+
+
+def truncate_precommit_output_for_prompt(
+    *,
+    output: str,
+    max_lines: int = 200,
+    max_chars: int = 12_000,
+) -> str:
+    """Trim pre-commit output to a compact excerpt suitable for prompt context."""
+    lines = output.splitlines()
+    if len(lines) > max_lines:
+        lines = lines[-max_lines:]
+    excerpt = "\n".join(lines).strip()
+    if len(excerpt) > max_chars:
+        excerpt = excerpt[-max_chars:]
+    if not excerpt:
+        return "(no pre-commit output captured)"
+    return excerpt
+
+
+def build_precommit_repair_prompt(
+    *,
+    repo_root: Path,
+    precommit_output_excerpt: str,
+) -> str:
+    """Create a strict remediation prompt for repository-wide pre-commit failures."""
+    return (
+        textwrap.dedent(
+            f"""
+        You are running in repository: {repo_root}
+
+        Objective:
+        Make `uv run pre-commit run --all-files` pass for the entire repository.
+
+        Latest pre-commit output excerpt:
+        {precommit_output_excerpt}
+
+        Required workflow:
+        1. Run `uv run pre-commit run --all-files`.
+        2. Fix every reported issue across all files.
+        3. Re-run `uv run pre-commit run --all-files`.
+        4. Repeat until it exits with code 0.
+        5. Commit the required fixes in one commit (if changes exist).
+        6. Push current branch to its upstream if a commit was created.
+
+        Hard constraints:
+        - Never ask the user any question.
+        - Never request clarification or approval.
+        - Resolve ambiguity autonomously using the safest reversible default.
+        - Strictly forbidden: using --no-verify in any git command.
+        - Do not bypass hooks or disable checks.
+        - Return only a strict JSON object matching the output schema.
+
+        Required JSON fields:
+        - PRECOMMIT_REPAIR_COMMIT: <sha|NONE>
+        - PUSH_STATUS: <OK|FAILED: reason|SKIPPED>
+        - QUESTIONS_ASKED: must be 0
+        - SAFE_DEFAULT_DECISIONS: list of defaults used (empty list if none)
+        - NO_VERIFY_USED: false
+        - PRECOMMIT_ALL_FILES_STATUS: PASSED
+        """,
+        ).strip()
+        + "\n"
+    )
+
+
+def enforce_no_verify_policy_or_fail(
+    *,
+    logger: TeeLogger,
+    step_name: str,
+    output: str,
+    last_message: str,
+) -> bool:
+    """Return False when output suggests forbidden `git ... --no-verify` usage."""
+    matched_line = detect_forbidden_no_verify_usage(output, last_message)
+    if matched_line is None:
+        return True
+    logger.log(
+        "ERROR: forbidden '--no-verify' usage detected during "
+        f"'{step_name}'. Matched line: {matched_line}",
+    )
+    return False
+
+
+def enforce_precommit_policy(  # noqa: C901, PLR0911, PLR0913
+    *,
+    uv_bin: str,
+    codex_bin: str,
+    repo_root: Path,
+    model: str | None,
+    cycle_number: int,
+    logs_root: Path,
+    logger: TeeLogger,
+    codex_exec_cooldown_seconds: float,
+    retryable_rate_limit_max_retries: int,
+    retryable_rate_limit_backoff_base_seconds: float,
+    retryable_rate_limit_backoff_max_seconds: float,
+    quota_wait_interval: float,
+    max_quota_waits: int,
+    explicit_never_approval: bool,
+    precommit_repair_max_attempts: int,
+) -> int | None:
+    """Enforce repo-wide pre-commit pass with autonomous Codex repair attempts."""
+    for check_attempt in range(1, precommit_repair_max_attempts + 1):
+        precommit_result = run_stream(
+            command=[uv_bin, "run", "pre-commit", "run", "--all-files"],
+            cwd=repo_root,
+            stdin_text=None,
+            logger=logger,
+            label=f"precommit.all_files.attempt{check_attempt}",
+        )
+        if precommit_result.returncode == 0:
+            logger.log("Policy gate passed: pre-commit all-files is clean.")
+            return None
+
+        logger.log(
+            "Policy gate failed: pre-commit reported repository-wide issues "
+            f"(attempt {check_attempt}/{precommit_repair_max_attempts}).",
+        )
+        if check_attempt == precommit_repair_max_attempts:
+            logger.log(
+                "ERROR: pre-commit policy enforcement exhausted repair attempts.",
+            )
+            return 1
+
+        repair_prompt = build_precommit_repair_prompt(
+            repo_root=repo_root,
+            precommit_output_excerpt=truncate_precommit_output_for_prompt(
+                output=precommit_result.output,
+            ),
+        )
+        repair_retryable_attempt = 0
+        while True:
+            repair_result = run_codex_step(
+                codex_bin=codex_bin,
+                repo_root=repo_root,
+                model=model,
+                cycle_number=cycle_number,
+                step_name="precommit_repair",
+                prompt=repair_prompt,
+                logs_root=logs_root,
+                logger=logger,
+                codex_exec_cooldown_seconds=codex_exec_cooldown_seconds,
+                explicit_never_approval=explicit_never_approval,
+            )
+            if not enforce_no_verify_policy_or_fail(
+                logger=logger,
+                step_name="precommit_repair",
+                output=repair_result.output,
+                last_message=repair_result.last_message,
+            ):
+                return 1
+            if repair_result.returncode == 0:
+                logger.log(
+                    "Pre-commit repair step completed; re-checking pre-commit.",
+                )
+                break
+
+            rate_limit_issue = detect_rate_limit_issue(
+                repair_result.output,
+                repair_result.last_message,
+            )
+            if rate_limit_issue is not None and rate_limit_issue.retryable:
+                repair_retryable_attempt += 1
+                if wait_for_retryable_rate_limit(
+                    logger=logger,
+                    step_name="precommit_repair",
+                    matched_line=rate_limit_issue.line,
+                    attempt=repair_retryable_attempt,
+                    max_attempts=retryable_rate_limit_max_retries,
+                    backoff_base_seconds=retryable_rate_limit_backoff_base_seconds,
+                    backoff_max_seconds=retryable_rate_limit_backoff_max_seconds,
+                ):
+                    continue
+                return graceful_quota_exit(
+                    logger=logger,
+                    step_name="precommit_repair",
+                    matched_line=rate_limit_issue.line,
+                )
+            if rate_limit_issue is not None:
+                if wait_for_quota_reset(
+                    codex_bin=codex_bin,
+                    repo_root=repo_root,
+                    model=model,
+                    logger=logger,
+                    interval=quota_wait_interval,
+                    max_attempts=max_quota_waits,
+                    step_name="precommit_repair",
+                    matched_line=rate_limit_issue.line,
+                    explicit_never_approval=explicit_never_approval,
+                ):
+                    continue
+                return graceful_quota_exit(
+                    logger=logger,
+                    step_name="precommit_repair",
+                    matched_line=rate_limit_issue.line,
+                )
+            logger.log(
+                f"ERROR: precommit_repair step failed with code "
+                f"{repair_result.returncode}.",
+            )
+            return repair_result.returncode
+
+    logger.log("ERROR: pre-commit policy loop exited unexpectedly.")
+    return 1
 
 
 def run_docs_review(  # noqa: PLR0913
@@ -1035,7 +1308,7 @@ def run_docs_review(  # noqa: PLR0913
     quota_wait_interval: float,
     max_quota_waits: int,
     explicit_never_approval: bool,
-) -> None:
+) -> int | None:
     """Run a docs review step with quota retry.
 
     Non-critical: logs warnings on failure.
@@ -1056,9 +1329,17 @@ def run_docs_review(  # noqa: PLR0913
             codex_exec_cooldown_seconds=codex_exec_cooldown_seconds,
             explicit_never_approval=explicit_never_approval,
         )
+        if not enforce_no_verify_policy_or_fail(
+            logger=logger,
+            step_name="docs_review",
+            output=result.output,
+            last_message=result.last_message,
+        ):
+            logger.log("ERROR: Docs review used forbidden --no-verify.")
+            return 1
         if result.returncode == 0:
             logger.log("Docs review step completed successfully.")
-            return
+            return None
         rate_limit_issue = detect_rate_limit_issue(result.output, result.last_message)
         if rate_limit_issue is not None and rate_limit_issue.retryable:
             retryable_attempt += 1
@@ -1076,7 +1357,7 @@ def run_docs_review(  # noqa: PLR0913
                 "WARNING: Docs review retryable rate limit retries exhausted "
                 "— skipping.",
             )
-            return
+            return None
         if rate_limit_issue is not None:
             if wait_for_quota_reset(
                 codex_bin=codex_bin,
@@ -1094,12 +1375,12 @@ def run_docs_review(  # noqa: PLR0913
                 "WARNING: Docs review quota exhausted — skipping. "
                 f"Matched: {rate_limit_issue.line}",
             )
-            return
+            return None
         logger.log(
             f"WARNING: Docs review step failed with code {result.returncode} "
             "— skipping (non-critical).",
         )
-        return
+        return None
 
 
 def run_codex_step(  # noqa: PLR0913
@@ -1236,6 +1517,15 @@ def parse_args() -> argparse.Namespace:
         help="Optional fixed delay before each codex exec request.",
     )
     parser.add_argument(
+        "--precommit-repair-max-attempts",
+        type=int,
+        default=20,
+        help=(
+            "Max policy-enforcement loops for `uv run pre-commit run --all-files`. "
+            "Each failed check triggers an autonomous repair step until clean."
+        ),
+    )
+    parser.add_argument(
         "--retryable-rate-limit-max-retries",
         type=int,
         default=6,
@@ -1315,6 +1605,9 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
         logger.log(f"sleep_seconds={args.sleep_seconds}")
         logger.log(f"codex_exec_cooldown_seconds={args.codex_exec_cooldown_seconds}")
         logger.log(
+            f"precommit_repair_max_attempts={args.precommit_repair_max_attempts}",
+        )
+        logger.log(
             "retryable_rate_limit="
             f"max_retries={args.retryable_rate_limit_max_retries}, "
             f"base={args.retryable_rate_limit_backoff_base_seconds}, "
@@ -1351,11 +1644,16 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                 "ERROR: --retryable-rate-limit-backoff-max-seconds must be >= 0.",
             )
             return 1
+        if args.precommit_repair_max_attempts < 1:
+            logger.log("ERROR: --precommit-repair-max-attempts must be >= 1.")
+            return 1
 
         codex_bin = resolve_executable(args.codex_bin)
         git_bin = resolve_executable(args.git_bin)
+        uv_bin = resolve_executable("uv")
         logger.log(f"resolved codex_bin={codex_bin}")
         logger.log(f"resolved git_bin={git_bin}")
+        logger.log(f"resolved uv_bin={uv_bin}")
         codex_capabilities = detect_codex_capabilities(
             codex_bin=codex_bin,
             repo_root=repo_root,
@@ -1485,6 +1783,13 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                     codex_exec_cooldown_seconds=args.codex_exec_cooldown_seconds,
                     explicit_never_approval=explicit_never_approval,
                 )
+                if not enforce_no_verify_policy_or_fail(
+                    logger=logger,
+                    step_name="implement",
+                    output=implement_result.output,
+                    last_message=implement_result.last_message,
+                ):
+                    return 1
                 if implement_result.returncode == 0:
                     break
 
@@ -1538,7 +1843,7 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
             if is_plan_done(implement_result.last_message):
                 logger.log("Codex returned PLAN IS DONE.")
                 if args.docs_review_interval > 0:
-                    run_docs_review(
+                    docs_review_exit = run_docs_review(
                         codex_bin=codex_bin,
                         repo_root=repo_root,
                         model=args.model,
@@ -1559,6 +1864,33 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                         max_quota_waits=args.max_quota_waits,
                         explicit_never_approval=explicit_never_approval,
                     )
+                    if docs_review_exit is not None:
+                        return docs_review_exit
+                precommit_policy_exit = enforce_precommit_policy(
+                    uv_bin=uv_bin,
+                    codex_bin=codex_bin,
+                    repo_root=repo_root,
+                    model=args.model,
+                    cycle_number=cycle_number,
+                    logs_root=logs_root,
+                    logger=logger,
+                    codex_exec_cooldown_seconds=args.codex_exec_cooldown_seconds,
+                    retryable_rate_limit_max_retries=(
+                        args.retryable_rate_limit_max_retries
+                    ),
+                    retryable_rate_limit_backoff_base_seconds=(
+                        args.retryable_rate_limit_backoff_base_seconds
+                    ),
+                    retryable_rate_limit_backoff_max_seconds=(
+                        args.retryable_rate_limit_backoff_max_seconds
+                    ),
+                    quota_wait_interval=args.quota_wait_interval,
+                    max_quota_waits=args.max_quota_waits,
+                    explicit_never_approval=explicit_never_approval,
+                    precommit_repair_max_attempts=args.precommit_repair_max_attempts,
+                )
+                if precommit_policy_exit is not None:
+                    return precommit_policy_exit
                 logger.log("Stopping automation loop.")
                 _ = sys.stdout.write("PLAN IS DONE\n")
                 return 0
@@ -1657,6 +1989,13 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                     codex_exec_cooldown_seconds=args.codex_exec_cooldown_seconds,
                     explicit_never_approval=explicit_never_approval,
                 )
+                if not enforce_no_verify_policy_or_fail(
+                    logger=logger,
+                    step_name="review_fix_push",
+                    output=review_result.output,
+                    last_message=review_result.last_message,
+                ):
+                    return 1
                 if review_result.returncode == 0:
                     break
                 rate_limit_issue = detect_rate_limit_issue(
@@ -1755,7 +2094,7 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                 args.docs_review_interval > 0
                 and cycle_number % args.docs_review_interval == 0
             ):
-                run_docs_review(
+                docs_review_exit = run_docs_review(
                     codex_bin=codex_bin,
                     repo_root=repo_root,
                     model=args.model,
@@ -1776,6 +2115,34 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                     max_quota_waits=args.max_quota_waits,
                     explicit_never_approval=explicit_never_approval,
                 )
+                if docs_review_exit is not None:
+                    return docs_review_exit
+
+            precommit_policy_exit = enforce_precommit_policy(
+                uv_bin=uv_bin,
+                codex_bin=codex_bin,
+                repo_root=repo_root,
+                model=args.model,
+                cycle_number=cycle_number,
+                logs_root=logs_root,
+                logger=logger,
+                codex_exec_cooldown_seconds=args.codex_exec_cooldown_seconds,
+                retryable_rate_limit_max_retries=(
+                    args.retryable_rate_limit_max_retries
+                ),
+                retryable_rate_limit_backoff_base_seconds=(
+                    args.retryable_rate_limit_backoff_base_seconds
+                ),
+                retryable_rate_limit_backoff_max_seconds=(
+                    args.retryable_rate_limit_backoff_max_seconds
+                ),
+                quota_wait_interval=args.quota_wait_interval,
+                max_quota_waits=args.max_quota_waits,
+                explicit_never_approval=explicit_never_approval,
+                precommit_repair_max_attempts=args.precommit_repair_max_attempts,
+            )
+            if precommit_policy_exit is not None:
+                return precommit_policy_exit
 
             if args.sleep_seconds > 0:
                 logger.log(
