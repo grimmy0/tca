@@ -1322,11 +1322,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Execute strategies in configured order with short-circuit semantics.
 - Acceptance criteria:
-  - [ ] First `DUPLICATE` short-circuits evaluation.
-  - [ ] First `DISTINCT` short-circuits evaluation.
-  - [ ] All-`ABSTAIN` path returns `DISTINCT(no_strategy_match)`.
+  - [x] First `DUPLICATE` short-circuits evaluation. [Tests: tests/dedupe/test_chain_execution.py::test_first_duplicate_short_circuits_evaluation]
+  - [x] First `DISTINCT` short-circuits evaluation. [Tests: tests/dedupe/test_chain_execution.py::test_first_distinct_short_circuits_evaluation]
+  - [x] All-`ABSTAIN` path returns `DISTINCT(no_strategy_match)`. [Tests: tests/dedupe/test_chain_execution.py::test_all_abstain_returns_distinct_no_strategy_match]
 - Verification:
   - `uv run pytest -q tests/dedupe/test_chain_execution.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/dedupe/test_chain_execution.py` passed.
 
 ### C067 - Implement Cluster Create/Add Member Flow
 

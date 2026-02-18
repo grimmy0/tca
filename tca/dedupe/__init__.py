@@ -17,6 +17,11 @@ from .exact_url_strategy import (
     EXACT_URL_MISSING_REASON,
     evaluate_exact_url,
 )
+from .strategy_chain import (
+    NO_STRATEGY_MATCH_REASON,
+    StrategyChain,
+    execute_strategy_chain,
+)
 from .strategy_contract import (
     STRATEGY_STATUSES,
     AbstainResult,
@@ -49,6 +54,7 @@ __all__ = [
     "EXACT_URL_MISMATCH_REASON",
     "EXACT_URL_MISSING_REASON",
     "MAX_CANDIDATES_DEFAULT",
+    "NO_STRATEGY_MATCH_REASON",
     "STRATEGY_STATUSES",
     "TITLE_SIMILARITY_MATCH_REASON",
     "TITLE_SIMILARITY_MISMATCH_REASON",
@@ -59,6 +65,7 @@ __all__ = [
     "DistinctResult",
     "DuplicateResult",
     "StrategyCallable",
+    "StrategyChain",
     "StrategyContractError",
     "StrategyMetadata",
     "StrategyResult",
@@ -70,6 +77,7 @@ __all__ = [
     "evaluate_content_hash",
     "evaluate_exact_url",
     "evaluate_title_similarity",
+    "execute_strategy_chain",
     "run_strategy",
     "select_candidates",
 ]
