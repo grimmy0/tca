@@ -37,6 +37,7 @@ from .db import (
 )
 from .dedupe_clusters_repo import (
     ClusterAssignmentResult,
+    ClusterMergeResult,
     DedupeClustersRepository,
 )
 from .ingest_errors_repo import (
@@ -112,6 +113,7 @@ __all__ = [
     "ChannelsRepository",
     "ChannelsRepositoryError",
     "ClusterAssignmentResult",
+    "ClusterMergeResult",
     "DedupeClustersRepository",
     "IngestErrorDecodeError",
     "IngestErrorRecord",

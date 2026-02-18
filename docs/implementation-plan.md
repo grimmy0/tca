@@ -1354,11 +1354,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Merge multiple matched clusters into smallest `cluster_id` target.
 - Acceptance criteria:
-  - [ ] All members move to target cluster in one transaction.
-  - [ ] Source clusters are removed/marked merged as per schema.
-  - [ ] Merge decision event is recorded.
+  - [x] All members move to target cluster in one transaction. [Tests: tests/dedupe/test_cluster_merge.py::test_merge_moves_all_members_to_smallest_target_cluster]
+  - [x] Source clusters are removed/marked merged as per schema. [Tests: tests/dedupe/test_cluster_merge.py::test_merge_removes_source_clusters_per_schema]
+  - [x] Merge decision event is recorded. [Tests: tests/dedupe/test_cluster_merge.py::test_merge_records_cluster_merge_decision_event]
 - Verification:
   - `uv run pytest -q tests/dedupe/test_cluster_merge.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/dedupe/test_cluster_merge.py` passed.
 
 ### C069 - Implement Representative Recompute Logic
 
