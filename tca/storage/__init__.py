@@ -35,6 +35,10 @@ from .db import (
     create_write_engine,
     dispose_storage_runtime,
 )
+from .dedupe_clusters_repo import (
+    ClusterAssignmentResult,
+    DedupeClustersRepository,
+)
 from .ingest_errors_repo import (
     IngestErrorDecodeError,
     IngestErrorRecord,
@@ -107,6 +111,8 @@ __all__ = [
     "ChannelStateRepositoryError",
     "ChannelsRepository",
     "ChannelsRepositoryError",
+    "ClusterAssignmentResult",
+    "DedupeClustersRepository",
     "IngestErrorDecodeError",
     "IngestErrorRecord",
     "IngestErrorsRepository",

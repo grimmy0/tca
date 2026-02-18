@@ -1338,11 +1338,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Create new cluster for unmatched items and add memberships.
 - Acceptance criteria:
-  - [ ] New item without match creates exactly one cluster.
-  - [ ] Membership row created for each item-cluster link.
-  - [ ] Duplicate membership insertion is prevented.
+  - [x] New item without match creates exactly one cluster. [Tests: tests/dedupe/test_cluster_create.py::test_new_item_without_match_creates_exactly_one_cluster]
+  - [x] Membership row created for each item-cluster link. [Tests: tests/dedupe/test_cluster_create.py::test_membership_row_created_for_each_item_cluster_link]
+  - [x] Duplicate membership insertion is prevented. [Tests: tests/dedupe/test_cluster_create.py::test_duplicate_membership_insertion_is_prevented]
 - Verification:
   - `uv run pytest -q tests/dedupe/test_cluster_create.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/dedupe/test_cluster_create.py` passed.
 
 ### C068 - Implement Cluster Merge Flow
 
