@@ -1461,7 +1461,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/ui/test_shell.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `NONE`
+  - Commit: `c11d670bb69408982603cd9adbe24fe6b3e5c767`
   - Verification summary:
     - `uv run pytest -q tests/ui/test_shell.py` passed.
 
