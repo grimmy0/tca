@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from pathlib import Path
 from typing import Protocol, cast, runtime_checkable
 from unittest.mock import patch
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tca.api.app import create_app
+from tca.api.routes.thread import router as thread_router
 
 BOOTSTRAP_TOKEN = "thread-api-token"  # noqa: S105
 EXPECTED_OK_STATUS = HTTPStatus.OK
@@ -68,7 +71,7 @@ def test_get_thread_returns_cluster_entries_with_duplicate_counts(
             item_id=101,
             channel_id=10,
             message_id=1001,
-            published_at="2026-02-16T12:00:00+00:00",
+            published_at=_iso_utc(hours_ago=0),
             title="Primary",
             body="Body",
             canonical_url="https://example.com/a",
@@ -78,7 +81,7 @@ def test_get_thread_returns_cluster_entries_with_duplicate_counts(
             item_id=102,
             channel_id=11,
             message_id=1002,
-            published_at="2026-02-16T11:00:00+00:00",
+            published_at=_iso_utc(hours_ago=1),
             title="Duplicate",
             body=None,
             canonical_url=None,
@@ -88,7 +91,7 @@ def test_get_thread_returns_cluster_entries_with_duplicate_counts(
             item_id=201,
             channel_id=11,
             message_id=2001,
-            published_at="2026-02-15T12:00:00+00:00",
+            published_at=_iso_utc(hours_ago=24),
             title="Secondary",
             body=None,
             canonical_url=None,
@@ -220,6 +223,16 @@ def test_get_thread_requires_bearer_auth(
         raise AssertionError
 
 
+def test_get_thread_raises_when_storage_runtime_missing() -> None:
+    """Ensure newly added runtime resolution error path is exercised."""
+    app = FastAPI()
+    app.include_router(thread_router)
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.get("/thread")
+    if response.status_code != HTTPStatus.INTERNAL_SERVER_ERROR:
+        raise AssertionError
+
+
 def _insert_account(db_path: object, *, account_id: int) -> None:
     """Insert one telegram account fixture row."""
     with sqlite3.connect(_as_path(db_path).as_posix()) as connection:
@@ -333,6 +346,11 @@ def _insert_member(
 def _auth_headers() -> dict[str, str]:
     """Build Authorization header for tests."""
     return {"Authorization": f"Bearer {BOOTSTRAP_TOKEN}"}
+
+
+def _iso_utc(*, hours_ago: int) -> str:
+    """Build ISO8601 UTC timestamp offset from current time."""
+    return (datetime.now(UTC) - timedelta(hours=hours_ago)).isoformat()
 
 
 def _as_path(value: object) -> Path:
