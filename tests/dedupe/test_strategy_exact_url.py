@@ -53,3 +53,18 @@ def test_missing_url_data_returns_abstain_with_reason_code() -> None:
         raise AssertionError
     if result["reason"] != EXACT_URL_MISSING_REASON:
         raise AssertionError
+
+
+def test_matching_canonical_urls_override_hash_mismatch() -> None:
+    """Matching canonical URLs should DUPLICATE even if hashes disagree."""
+    result = evaluate_exact_url(
+        left_canonical_url="https://example.com/post?a=1&b=2",
+        right_canonical_url="https://example.com/post?a=1&b=2",
+        left_canonical_url_hash="abc123",
+        right_canonical_url_hash="def456",
+    )
+
+    if result["status"] != "DUPLICATE":
+        raise AssertionError
+    if result["reason"] != EXACT_URL_MATCH_REASON:
+        raise AssertionError

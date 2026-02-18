@@ -17,14 +17,18 @@ def evaluate_exact_url(
     right_canonical_url_hash: str | None,
 ) -> StrategyResult:
     """Compare two items by canonical URL hash/value and return strategy result."""
+    compared_any = False
+
     if left_canonical_url_hash is not None and right_canonical_url_hash is not None:
+        compared_any = True
         if left_canonical_url_hash == right_canonical_url_hash:
             return duplicate(score=1.0, reason=EXACT_URL_MATCH_REASON)
-        return distinct(reason=EXACT_URL_MISMATCH_REASON)
 
     if left_canonical_url is not None and right_canonical_url is not None:
+        compared_any = True
         if left_canonical_url == right_canonical_url:
             return duplicate(score=1.0, reason=EXACT_URL_MATCH_REASON)
-        return distinct(reason=EXACT_URL_MISMATCH_REASON)
 
+    if compared_any:
+        return distinct(reason=EXACT_URL_MISMATCH_REASON)
     return abstain(reason=EXACT_URL_MISSING_REASON)
