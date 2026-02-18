@@ -138,7 +138,7 @@ async def test_next_run_at_selection_uses_last_success_at(
         is_enabled=True,
     )
 
-    now = datetime(2026, 2, 18, 12, 0, 0, tzinfo=UTC)
+    now = datetime(2025, 2, 18, 12, 0, 0, tzinfo=UTC) + timedelta(0)
     await _seed_state(
         scheduler_runtime,
         channel_id=1,
@@ -172,8 +172,8 @@ async def test_naive_last_success_at_is_normalized(
         is_enabled=True,
     )
 
-    now = datetime(2026, 2, 18, 13, 0, 0, tzinfo=UTC)
-    naive_last_success = datetime(2026, 2, 18, 12, 55, 0)  # noqa: DTZ001
+    now = datetime(2025, 2, 18, 13, 0, 0, tzinfo=UTC) + timedelta(0)
+    naive_last_success = datetime(2025, 2, 18, 12, 55, 0) + timedelta(0)  # noqa: DTZ001
     await _seed_state(
         scheduler_runtime,
         channel_id=1,
@@ -210,7 +210,7 @@ async def test_disabled_channels_are_excluded_from_scheduler(
         is_enabled=False,
     )
 
-    now = datetime(2026, 2, 18, 12, 15, 0, tzinfo=UTC)
+    now = datetime(2025, 2, 18, 12, 15, 0, tzinfo=UTC) + timedelta(0)
     await _seed_state(
         scheduler_runtime,
         channel_id=10,
@@ -252,7 +252,7 @@ async def test_paused_channels_are_skipped_by_scheduler(
         is_enabled=True,
     )
 
-    now = datetime(2026, 2, 18, 12, 45, 0, tzinfo=UTC)
+    now = datetime(2025, 2, 18, 12, 45, 0, tzinfo=UTC) + timedelta(0)
     await _seed_state(
         scheduler_runtime,
         channel_id=20,
@@ -278,7 +278,7 @@ async def test_scheduler_service_starts_and_stops_cleanly(
     scheduler_runtime: StorageRuntime,
 ) -> None:
     """Ensure scheduler lifecycle hooks start and stop without errors."""
-    now = datetime(2026, 2, 18, 12, 30, 0, tzinfo=UTC)
+    now = datetime(2025, 2, 18, 12, 30, 0, tzinfo=UTC) + timedelta(0)
     service = SchedulerService(
         runtime_provider=lambda: scheduler_runtime,
         poll_interval_seconds=300,

@@ -45,6 +45,8 @@ asyncio_mode = "auto"
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
+files = ["main.py", "tca"]
+exclude = "^(tests/|scripts/)"
 
 [dependency-groups]
 dev = [

@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from tca.storage import WriterQueueProtocol
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from tca.storage import WriterQueueProtocol
 
 
 class ItemWriteRepository(Protocol):
     """Write contract for normalized item upsert operations."""
 
-    async def upsert_item(
+    async def upsert_item(  # noqa: PLR0913
         self,
         *,
         channel_id: int,
@@ -28,7 +30,7 @@ class ItemWriteRepository(Protocol):
         ...
 
 
-async def upsert_item(
+async def upsert_item(  # noqa: PLR0913
     writer_queue: WriterQueueProtocol,
     repository: ItemWriteRepository,
     *,

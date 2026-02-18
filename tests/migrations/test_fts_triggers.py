@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 from typing import cast
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 C016_REVISION = "8f3a7b0c1d2e"
 C017_REVISION = "a1f6e7c9d2b4"
@@ -73,6 +75,20 @@ def test_upgrade_from_c016_rebuilds_preexisting_items(tmp_path: Path) -> None:
     typed_post_upgrade = cast("list[SQLiteRowIdRow]", post_upgrade_rows)
     if {row[0] for row in typed_post_upgrade} != {item_rowid}:
         raise AssertionError
+
+
+def test_downgrade_from_c017_removes_items_fts_table(tmp_path: Path) -> None:
+    """Ensure downgrade to C016 removes FTS5 table introduced by C017."""
+    db_path = tmp_path / "c017-downgrade.sqlite3"
+    _upgrade_to_revision(db_path, C017_REVISION)
+    _run_alembic_command(db_path, ("downgrade", C016_REVISION))
+
+    with (
+        sqlite3.connect(db_path.as_posix()) as connection,
+        connection,
+        pytest.raises(sqlite3.OperationalError),
+    ):
+        _ = connection.execute("SELECT count(*) FROM items_fts").fetchone()
 
 
 def test_update_modifies_fts_searchable_text(tmp_path: Path) -> None:

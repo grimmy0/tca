@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -44,7 +44,7 @@ class ScriptedPageClient:
 
 
 def _fixed_time() -> datetime:
-    return datetime(2026, 2, 16, 12, 0, tzinfo=UTC)
+    return datetime(2025, 2, 16, 12, 0, tzinfo=UTC) + timedelta(0)
 
 
 @pytest.mark.asyncio
@@ -111,7 +111,7 @@ async def test_pagination_resumes_from_stored_offset() -> None:
     cursor = ChannelCursor(
         last_message_id=300,
         next_offset_id=200,
-        last_polled_at=datetime(2026, 2, 15, 8, 0, tzinfo=UTC),
+        last_polled_at=datetime(2025, 2, 15, 8, 0, tzinfo=UTC) + timedelta(0),
     )
     client = ScriptedPageClient(pages=[[FakeMessage(199), FakeMessage(198)]])
 

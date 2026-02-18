@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from json import JSONDecodeError
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from sqlalchemy import bindparam, text
 
@@ -203,11 +203,12 @@ class ChannelStateRepository:
         return _decode_state_row(row)
 
 
-def _decode_state_row(row: Mapping[str, object]) -> ChannelStateRecord:
-    channel_id = _coerce_int(value=row.get("channel_id"))
-    cursor = _decode_cursor_json(value=row.get("cursor_json"))
-    paused_until = _coerce_optional_datetime(value=row.get("paused_until"))
-    last_success_at = _coerce_optional_datetime(value=row.get("last_success_at"))
+def _decode_state_row(row: object) -> ChannelStateRecord:
+    row_map = cast("Mapping[str, object]", row)
+    channel_id = _coerce_int(value=row_map.get("channel_id"))
+    cursor = _decode_cursor_json(value=row_map.get("cursor_json"))
+    paused_until = _coerce_optional_datetime(value=row_map.get("paused_until"))
+    last_success_at = _coerce_optional_datetime(value=row_map.get("last_success_at"))
     return ChannelStateRecord(
         channel_id=channel_id,
         cursor=cursor,
@@ -263,9 +264,12 @@ def _decode_cursor_json(*, value: object) -> ChannelCursor | None:
             details="missing text `cursor_json`",
         )
     try:
-        decoded = json.loads(
-            value,
-            parse_constant=_raise_invalid_json_constant,
+        decoded = cast(
+            "object",
+            json.loads(
+                value,
+                parse_constant=_raise_invalid_json_constant,
+            ),
         )
     except (JSONDecodeError, ValueError) as exc:
         raise ChannelStateDecodeError.from_details(
@@ -273,28 +277,29 @@ def _decode_cursor_json(*, value: object) -> ChannelCursor | None:
         ) from exc
     if not isinstance(decoded, dict):
         raise ChannelStateDecodeError.from_details(details="cursor_json must be object")
-    if "last_message_id" not in decoded:
+    decoded_map = cast("dict[str, object]", decoded)
+    if "last_message_id" not in decoded_map:
         raise ChannelStateDecodeError.from_details(
             details="cursor_json missing `last_message_id`",
         )
-    if "next_offset_id" not in decoded:
+    if "next_offset_id" not in decoded_map:
         raise ChannelStateDecodeError.from_details(
             details="cursor_json missing `next_offset_id`",
         )
-    if "last_polled_at" not in decoded:
+    if "last_polled_at" not in decoded_map:
         raise ChannelStateDecodeError.from_details(
             details="cursor_json missing `last_polled_at`",
         )
     last_message_id = _coerce_optional_int(
-        value=decoded.get("last_message_id"),
+        value=decoded_map.get("last_message_id"),
         field="last_message_id",
     )
     next_offset_id = _coerce_optional_int(
-        value=decoded.get("next_offset_id"),
+        value=decoded_map.get("next_offset_id"),
         field="next_offset_id",
     )
     last_polled_at = _coerce_cursor_datetime(
-        value=decoded.get("last_polled_at"),
+        value=decoded_map.get("last_polled_at"),
         field="last_polled_at",
     )
     return ChannelCursor(

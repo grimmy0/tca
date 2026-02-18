@@ -84,7 +84,7 @@ async def record_account_risk_breach(  # noqa: PLR0913
         pause_state = await pause_repository.get_pause_state(account_id=account_id)
         if pause_state is None:
             return None
-        if pause_state is not None and pause_state.paused_at is not None:
+        if pause_state.paused_at is not None:
             return pause_state
 
         setting_key = _state_key(account_id)
@@ -114,7 +114,7 @@ async def record_account_risk_breach(  # noqa: PLR0913
         if paused is None:
             return None
 
-        await notifications_repository.create(
+        _ = await notifications_repository.create(
             notification_type=ACCOUNT_RISK_NOTIFICATION_TYPE,
             severity=ACCOUNT_RISK_NOTIFICATION_SEVERITY,
             message=(
@@ -142,4 +142,4 @@ async def _upsert_state(
 ) -> None:
     value = _encode_state(breaches)
     if await settings_repository.update(key=key, value=value) is None:
-        await settings_repository.create(key=key, value=value)
+        _ = await settings_repository.create(key=key, value=value)

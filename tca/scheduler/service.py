@@ -214,11 +214,13 @@ class SchedulerService:
             return
         while not stop_event.is_set():
             try:
-                await core_loop.run_once()
-            except Exception:
+                _ = await core_loop.run_once()
+            except Exception as exc:
+                if isinstance(exc, asyncio.CancelledError):
+                    raise
                 logger.exception("Scheduler loop tick failed")
             try:
-                await asyncio.wait_for(
+                _ = await asyncio.wait_for(
                     stop_event.wait(),
                     timeout=self.tick_interval_seconds,
                 )

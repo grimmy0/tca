@@ -35,12 +35,15 @@ class TelegramClientProtocol(Protocol):
 
     async def connect(self) -> None:
         """Connect to Telegram."""
+        ...
 
     async def disconnect(self) -> None:
         """Disconnect from Telegram."""
+        ...
 
     def is_connected(self) -> bool:
         """Return True when the client is currently connected."""
+        ...
 
 
 class AccountLoaderProtocol(Protocol):
@@ -48,6 +51,7 @@ class AccountLoaderProtocol(Protocol):
 
     async def __call__(self) -> list[TelegramAccount]:
         """Return a list of accounts to register."""
+        ...
 
 
 class ClientFactoryProtocol(Protocol):
@@ -55,6 +59,7 @@ class ClientFactoryProtocol(Protocol):
 
     def __call__(self, account: TelegramAccount) -> TelegramClientProtocol:
         """Create a client for the supplied account."""
+        ...
 
 
 async def _empty_account_loader() -> list[TelegramAccount]:
@@ -69,19 +74,23 @@ def _unsupported_client_factory(account: TelegramAccount) -> TelegramClientProto
     raise TelethonClientManagerError(message)
 
 
+def _new_client_map() -> dict[int, TelegramClientProtocol]:
+    return {}
+
+
 @dataclass(slots=True)
 class TelethonClientManager:
     """Manage Telethon clients and lifecycle integration."""
 
     account_loader: AccountLoaderProtocol = field(default=_empty_account_loader)
     client_factory: ClientFactoryProtocol = field(default=_unsupported_client_factory)
-    clients: dict[int, TelegramClientProtocol] = field(default_factory=dict)
+    clients: dict[int, TelegramClientProtocol] = field(default_factory=_new_client_map)
 
     async def startup(self) -> None:
         """Register and connect all configured Telegram clients."""
         accounts = await self.account_loader()
         for account in accounts:
-            self._register_account(account)
+            _ = self._register_account(account)
         for client in self.clients.values():
             if not client.is_connected():
                 await client.connect()

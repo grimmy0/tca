@@ -58,7 +58,7 @@ def test_next_run_at_within_jitter_bounds() -> None:
     """Ensure jittered next run stays within +/-20% interval bounds."""
     interval_seconds = 300
     jitter_ratio = 0.2
-    last_success = datetime(2026, 2, 18, 12, 0, 0, tzinfo=UTC)
+    last_success = datetime(2025, 2, 18, 12, 0, 0, tzinfo=UTC) + timedelta(0)
     rng = random.Random(1337)  # noqa: S311
 
     core_loop = SchedulerCoreLoop(
@@ -84,7 +84,7 @@ def test_next_run_at_within_jitter_bounds() -> None:
 def test_jitter_is_deterministic_with_seeded_rng() -> None:
     """Ensure seeded RNG yields deterministic jitter results."""
     interval_seconds = 300
-    last_success = datetime(2026, 2, 18, 12, 0, 0, tzinfo=UTC)
+    last_success = datetime(2025, 2, 18, 12, 0, 0, tzinfo=UTC) + timedelta(0)
 
     rng_left = random.Random(2026)  # noqa: S311
     rng_right = random.Random(2026)  # noqa: S311

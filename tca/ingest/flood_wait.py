@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -72,7 +73,7 @@ async def handle_flood_wait(  # noqa: PLR0913
             paused_until=resume_at,
         )
         if should_notify:
-            await notifications_repository.create(
+            _ = await notifications_repository.create(
                 notification_type=FLOOD_WAIT_NOTIFICATION_TYPE,
                 severity=FLOOD_WAIT_NOTIFICATION_SEVERITY,
                 message=(
@@ -94,7 +95,7 @@ async def handle_flood_wait(  # noqa: PLR0913
         and pause_repository is not None
     ):
         try:
-            await record_account_risk_breach(
+            _ = await record_account_risk_breach(
                 writer_queue=writer_queue,
                 settings_repository=settings_repository,
                 pause_repository=pause_repository,
@@ -103,7 +104,9 @@ async def handle_flood_wait(  # noqa: PLR0913
                 breach_reason="flood-wait",
                 time_provider=time_provider,
             )
-        except Exception:
+        except Exception as exc:
+            if isinstance(exc, asyncio.CancelledError):
+                raise
             logger.exception(
                 "Failed to record account risk breach after flood wait for account %s",
                 account_id,

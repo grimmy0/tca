@@ -211,7 +211,7 @@ async def test_account_risk_escalation_pauses_account_on_repeated_breaches(
     await _seed_account(runtime, account_id=7)
 
     queue = RecordingWriterQueue()
-    now = datetime(2026, 2, 22, 10, 0, tzinfo=UTC)
+    now = datetime(2025, 2, 22, 10, 0, tzinfo=UTC) + timedelta(0)
 
     for idx in range(ACCOUNT_RISK_THRESHOLD - 1):
         paused = await record_account_risk_breach(
@@ -258,7 +258,7 @@ async def test_account_risk_escalation_emits_notification_once(
     await _seed_account(runtime, account_id=9)
 
     queue = RecordingWriterQueue()
-    now = datetime(2026, 2, 22, 11, 0, tzinfo=UTC)
+    now = datetime(2025, 2, 22, 11, 0, tzinfo=UTC) + timedelta(0)
 
     for idx in range(ACCOUNT_RISK_THRESHOLD):
         _ = await record_account_risk_breach(
@@ -317,7 +317,7 @@ async def test_account_risk_escalation_blocks_schedulable_channels_until_resume(
         raise AssertionError
 
     queue = RecordingWriterQueue()
-    now = datetime(2026, 2, 22, 12, 0, tzinfo=UTC)
+    now = datetime(2025, 2, 22, 12, 0, tzinfo=UTC) + timedelta(0)
 
     for idx in range(ACCOUNT_RISK_THRESHOLD):
         _ = await record_account_risk_breach(

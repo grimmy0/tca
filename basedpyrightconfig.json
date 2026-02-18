@@ -1,9 +1,1 @@
-{
-  "include": [
-    "main.py",
-    "tca",
-    "tests"
-  ],
-  "pythonVersion": "3.12",
-  "typeCheckingMode": "all"
-}
+{"include": ["main.py", "tca"], "pythonVersion": "3.12", "typeCheckingMode": "all"}

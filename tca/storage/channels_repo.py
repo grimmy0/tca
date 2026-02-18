@@ -304,31 +304,41 @@ class ChannelsRepository:
                 cluster_statement,
                 {"channel_id": channel_id},
             )
-            cluster_ids = [int(value) for value in cluster_result.scalars().all()]
+            cluster_rows = cast("list[object]", cluster_result.scalars().all())
+            cluster_ids = [
+                _coerce_count_int(value=value, field="cluster_id")
+                for value in cluster_rows
+            ]
 
             item_result = await session.execute(
                 item_count_statement,
                 {"channel_id": channel_id},
             )
-            item_count = int(item_result.scalar_one())
+            item_count = _coerce_count_int(
+                value=cast("object", item_result.scalar_one()),
+                field="item_count",
+            )
 
             raw_result = await session.execute(
                 raw_count_statement,
                 {"channel_id": channel_id},
             )
-            raw_count = int(raw_result.scalar_one())
+            raw_count = _coerce_count_int(
+                value=cast("object", raw_result.scalar_one()),
+                field="raw_count",
+            )
 
-            await session.execute(
+            _ = await session.execute(
                 delete_statement,
                 {"channel_id": channel_id},
             )
 
             if cluster_ids:
-                await session.execute(
+                _ = await session.execute(
                     recompute_statement,
                     {"cluster_ids": cluster_ids},
                 )
-                await session.execute(
+                _ = await session.execute(
                     delete_empty_statement,
                     {"cluster_ids": cluster_ids},
                 )
@@ -344,7 +354,7 @@ class ChannelsRepository:
                 separators=(",", ":"),
                 sort_keys=True,
             )
-            await session.execute(
+            _ = await session.execute(
                 audit_statement,
                 {
                     "type": "channel_purged",
@@ -501,3 +511,11 @@ def _decode_is_enabled(*, value: object) -> bool:
     if type(value) is int and value in {0, 1}:
         return bool(value)
     raise ChannelDecodeError.from_details(details="`is_enabled` must be boolean")
+
+
+def _coerce_count_int(*, value: object, field: str) -> int:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    raise ChannelDecodeError.from_details(details=f"invalid `{field}` value")

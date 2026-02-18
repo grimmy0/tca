@@ -34,11 +34,8 @@ def normalize_ingest_error_stage(stage: str | IngestErrorStage) -> str:
     """Normalize ingest error stage to persisted enum values."""
     if isinstance(stage, IngestErrorStage):
         value = stage.value
-    elif isinstance(stage, str):
-        value = stage.strip().lower()
     else:
-        msg = "Ingest error stage must be a string or IngestErrorStage."
-        raise TypeError(msg)
+        value = stage.strip().lower()
     if value not in ALLOWED_INGEST_ERROR_STAGES:
         msg = f"Invalid ingest error stage: {stage!r}"
         raise ValueError(msg)
@@ -87,7 +84,7 @@ async def execute_with_ingest_error_capture[T](  # noqa: PLR0913
     except recoverable_errors as exc:
         if isinstance(exc, asyncio.CancelledError):
             raise
-        await capture_ingest_error(
+        _ = await capture_ingest_error(
             writer_queue=writer_queue,
             errors_repository=errors_repository,
             channel_id=channel_id,

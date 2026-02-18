@@ -247,7 +247,7 @@ async def test_flood_wait_marks_channel_paused_until_resume_time(
     )
 
     queue = RecordingWriterQueue()
-    now = datetime(2026, 2, 20, 9, 30, tzinfo=UTC)
+    now = datetime(2025, 2, 20, 9, 30, tzinfo=UTC) + timedelta(0)
     wait_seconds = 120
     exc = FloodWaitError(None)
     exc.seconds = wait_seconds
@@ -303,7 +303,7 @@ async def test_flood_wait_emits_notification_for_significant_pause(
     )
 
     queue = RecordingWriterQueue()
-    now = datetime(2026, 2, 20, 10, 0, tzinfo=UTC)
+    now = datetime(2025, 2, 20, 10, 0, tzinfo=UTC) + timedelta(0)
     wait_seconds = SIGNIFICANT_FLOOD_WAIT_SECONDS + 5
     exc = FloodWaitError(None)
     exc.seconds = wait_seconds
@@ -358,7 +358,7 @@ async def test_flood_wait_records_account_risk_breach(
     )
 
     queue = RecordingWriterQueue()
-    now = datetime(2026, 2, 20, 11, 0, tzinfo=UTC)
+    now = datetime(2025, 2, 20, 11, 0, tzinfo=UTC) + timedelta(0)
     exc = FloodWaitError(None)
     exc.seconds = 30
 

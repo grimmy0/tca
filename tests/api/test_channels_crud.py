@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import Protocol, cast, runtime_checkable
 from unittest.mock import patch
@@ -161,8 +161,8 @@ def test_patch_channel_persists_polling_state_updates(
         (_as_path(tmp_path) / "channels-patch-bootstrap-token.txt").as_posix(),
     )
 
-    paused_until = datetime(2026, 2, 16, 10, 30, tzinfo=UTC)
-    last_success_at = datetime(2026, 2, 16, 9, 15, tzinfo=UTC)
+    paused_until = datetime(2025, 2, 16, 10, 30, tzinfo=UTC) + timedelta(0)
+    last_success_at = datetime(2025, 2, 16, 9, 15, tzinfo=UTC) + timedelta(0)
 
     app = create_app()
     auth_headers = _auth_headers()

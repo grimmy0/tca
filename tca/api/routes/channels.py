@@ -133,6 +133,11 @@ async def patch_channel(
         updated_is_enabled = (
             payload.is_enabled if "is_enabled" in fields_set else current.is_enabled
         )
+        if updated_is_enabled is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Field `is_enabled` cannot be null.",
+            )
 
         updated = await repository.update_channel(
             channel_id=channel_id,

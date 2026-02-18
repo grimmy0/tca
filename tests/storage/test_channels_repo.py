@@ -114,6 +114,7 @@ async def test_channel_create_and_update_work(
         channel_id=created.id,
         name="alpha-updated",
         username=None,
+        is_enabled=created.is_enabled,
     )
     if updated is None:
         raise AssertionError

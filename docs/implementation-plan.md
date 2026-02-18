@@ -1184,7 +1184,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/normalize/test_items_upsert.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `TO_FILL_BY_COMMIT_HASH`
+  - Commit: `NONE`
   - Verification summary:
     - `uv run pytest -q tests/normalize/test_items_upsert.py` passed.
 
@@ -1193,11 +1193,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Normalize URLs and strip tracking query params.
 - Acceptance criteria:
-  - [ ] Known tracking params are removed.
-  - [ ] Semantically equivalent URLs normalize identically.
-  - [ ] Non-URL text input is handled safely.
+  - [x] Known tracking params are removed. [Tests: tests/normalize/test_url_canonicalization.py::test_known_tracking_params_are_removed]
+  - [x] Semantically equivalent URLs normalize identically. [Tests: tests/normalize/test_url_canonicalization.py::test_semantically_equivalent_urls_normalize_identically]
+  - [x] Non-URL text input is handled safely. [Tests: tests/normalize/test_url_canonicalization.py::test_non_url_text_input_is_handled_safely]
 - Verification:
   - `uv run pytest -q tests/normalize/test_url_canonicalization.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/normalize/test_url_canonicalization.py` passed.
 
 ### C059 - Implement Hash Normalization Pipeline
 

@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import secrets
 from typing import Protocol, cast
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
-from telethon import TelegramClient
-from telethon.errors import (
+from telethon import TelegramClient  # pyright: ignore[reportMissingTypeStubs]
+from telethon.errors import (  # pyright: ignore[reportMissingTypeStubs]
     ApiIdInvalidError,
     ConnectionApiIdInvalidError,
     PasswordHashInvalidError,
@@ -21,7 +22,7 @@ from telethon.errors import (
     PhoneNumberUnoccupiedError,
     SessionPasswordNeededError,
 )
-from telethon.sessions import StringSession
+from telethon.sessions import StringSession  # pyright: ignore[reportMissingTypeStubs]
 
 from tca.auth import (
     SENSITIVE_OPERATION_LOCKED_MESSAGE,
@@ -39,7 +40,7 @@ from tca.auth import (
 from tca.ingest import record_account_risk_breach
 from tca.storage import AccountPauseRepository, StorageRuntime, WriterQueueProtocol
 from tca.storage.notifications_repo import NotificationsRepository
-from tca.storage.settings_repo import SettingsRepository
+from tca.storage.settings_repo import JSONValue, SettingsRepository
 
 router = APIRouter()
 
@@ -117,8 +118,9 @@ class TelegramAuthVerifyPasswordResponse(BaseModel):
 class TelegramAuthClientProtocol(Protocol):
     """Minimum client surface for OTP login requests."""
 
-    async def send_code_request(self, phone: str) -> object:
+    async def send_code_request(self, phone: str) -> bool:
         """Request an OTP code for the provided phone number."""
+        ...
 
     async def sign_in(
         self,
@@ -128,19 +130,24 @@ class TelegramAuthClientProtocol(Protocol):
         bot_token: str | None = None,
     ) -> object:
         """Sign in with provided credentials."""
+        ...
 
     async def connect(self) -> None:
         """Connect to Telegram."""
+        ...
 
     async def disconnect(self) -> None:
         """Disconnect from Telegram."""
+        ...
 
     def is_connected(self) -> bool:
         """Return True when the client is currently connected."""
+        ...
 
     @property
     def session(self) -> object | None:
         """Return the underlying session object, if available."""
+        ...
 
 
 class TelegramAuthClientFactory(Protocol):
@@ -153,6 +160,7 @@ class TelegramAuthClientFactory(Protocol):
         session_string: str | None = None,
     ) -> TelegramAuthClientProtocol:
         """Create a Telegram client instance."""
+        ...
 
 
 @router.post(
@@ -479,10 +487,8 @@ def _default_auth_client_factory(
 ) -> TelegramAuthClientProtocol:
     """Create a Telethon client using in-memory StringSession."""
     session_obj = StringSession(session_string) if session_string else StringSession()
-    return cast(
-        "TelegramAuthClientProtocol",
-        TelegramClient(session_obj, api_id, api_hash),
-    )
+    client = TelegramClient(session_obj, api_id, api_hash)
+    return cast("TelegramAuthClientProtocol", cast("object", client))
 
 
 def _generate_session_id() -> str:
@@ -717,10 +723,11 @@ def _resolve_auth_client_factory(request: Request) -> TelegramAuthClientFactory:
     factory_obj = getattr(state_obj, "telegram_auth_client_factory", None)
     if factory_obj is None:
         return _default_auth_client_factory
-    if not callable(factory_obj):
+    candidate = cast("object", factory_obj)
+    if not callable(candidate):
         message = "Invalid Telegram auth client factory on app.state."
         raise TypeError(message)
-    return cast("TelegramAuthClientFactory", factory_obj)
+    return cast("TelegramAuthClientFactory", candidate)
 
 
 def _resolve_storage_runtime(request: Request) -> StorageRuntime:
@@ -843,7 +850,7 @@ async def _record_auth_failure_risk_breach(
         write_session_factory=runtime.write_session_factory,
     )
     try:
-        await record_account_risk_breach(
+        _ = await record_account_risk_breach(
             writer_queue=writer_queue,
             settings_repository=settings_repository,
             pause_repository=pause_repository,
@@ -851,7 +858,9 @@ async def _record_auth_failure_risk_breach(
             account_id=account_id,
             breach_reason="auth-failure",
         )
-    except Exception:
+    except Exception as exc:
+        if isinstance(exc, asyncio.CancelledError):
+            raise
         logger.exception(
             "Failed to record account risk breach for phone number %s",
             phone_number,
@@ -888,7 +897,7 @@ def _auth_failure_http_error(
 def _map_auth_error_notification(
     *,
     error: BaseException,
-) -> tuple[str, str, str, dict[str, object]]:
+) -> tuple[str, str, str, dict[str, JSONValue]]:
     """Map auth errors into notification details with retry guidance."""
     if isinstance(error, (PhoneNumberBannedError, PhoneNumberFloodError)):
         retry_hint = (
@@ -916,7 +925,7 @@ def _build_retry_payload(
     *,
     error: BaseException,
     retry_hint: str,
-) -> dict[str, object]:
+) -> dict[str, JSONValue]:
     """Build notification payload containing retry guidance."""
     retry_after_seconds = _extract_retry_after_seconds(error=error)
     if retry_after_seconds is None:

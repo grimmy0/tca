@@ -112,7 +112,7 @@ class TelegramAccountStorage:
                 row = result.mappings().one()
             await session.commit()
 
-        row_map = cast("Mapping[str, object]", cast("object", row))
+        row_map = cast("Mapping[str, object]", row)
         return _coerce_int(value=row_map.get("id"), field_name="id")
 
     async def list_accounts(
@@ -157,7 +157,7 @@ class TelegramAccountStorage:
             row = result.mappings().one_or_none()
         if row is None:
             return None
-        row_map = cast("Mapping[str, object]", cast("object", row))
+        row_map = cast("Mapping[str, object]", row)
         return _coerce_int(value=row_map.get("id"), field_name="id")
 
 
@@ -166,7 +166,7 @@ def _decode_account_row(
     *,
     key_encryption_key: bytes,
 ) -> TelegramAccountRecord:
-    row_map = cast("Mapping[str, object]", cast("object", row))
+    row_map = cast("Mapping[str, object]", row)
     account_id = _coerce_int(value=row_map.get("id"), field_name="id")
     api_id = _coerce_int(value=row_map.get("api_id"), field_name="api_id")
     api_hash_payload = _coerce_blob_bytes(value=row_map.get("api_hash_encrypted"))

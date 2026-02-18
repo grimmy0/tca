@@ -488,7 +488,7 @@ def compute_full_jitter_backoff_seconds(
     if upper_bound <= 0.0:
         return 0.0
     # Use a cryptographic RNG to satisfy strict linting.
-    jitter_fraction = secrets.randbelow(1_000_000) / 1_000_000
+    jitter_fraction = float(secrets.randbelow(1_000_000)) / 1_000_000
     return jitter_fraction * upper_bound
 
 

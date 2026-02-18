@@ -98,7 +98,7 @@ class KeyRotationRepository:
                 """,
             )
             async with self._write_session_factory() as session:
-                await session.execute(
+                _ = await session.execute(
                     reset_statement,
                     {"target_key_version": target_key_version},
                 )
@@ -122,7 +122,7 @@ class KeyRotationRepository:
         )
         async with self._write_session_factory() as session:
             try:
-                await session.execute(
+                _ = await session.execute(
                     statement,
                     {"target_key_version": target_key_version},
                 )
@@ -240,7 +240,7 @@ class KeyRotationRepository:
                 field_name="key_version",
             )
             if key_version < state.target_key_version:
-                await session.execute(
+                _ = await session.execute(
                     update_statement,
                     {
                         "account_id": account_id,
@@ -249,7 +249,7 @@ class KeyRotationRepository:
                 )
             new_last = max(state.last_rotated_account_id, account_id)
             if new_last != state.last_rotated_account_id:
-                await session.execute(
+                _ = await session.execute(
                     progress_statement,
                     {"account_id": new_last},
                 )
@@ -289,7 +289,7 @@ class KeyRotationRepository:
             if pending is not None:
                 await session.rollback()
                 return False
-            await session.execute(complete_statement)
+            _ = await session.execute(complete_statement)
             await session.commit()
         return True
 

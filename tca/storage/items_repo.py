@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
 from sqlalchemy import text
@@ -51,7 +51,7 @@ class ItemsRepository:
         self._read_session_factory = read_session_factory
         self._write_session_factory = write_session_factory
 
-    async def upsert_item(
+    async def upsert_item(  # noqa: PLR0913
         self,
         *,
         channel_id: int,
@@ -91,7 +91,10 @@ class ItemsRepository:
             )
             ON CONFLICT(channel_id, message_id)
             DO UPDATE SET
-                raw_message_id = COALESCE(items.raw_message_id, excluded.raw_message_id),
+                raw_message_id = COALESCE(
+                    items.raw_message_id,
+                    excluded.raw_message_id
+                ),
                 published_at = excluded.published_at,
                 title = excluded.title,
                 body = excluded.body,
@@ -152,11 +155,22 @@ def _decode_item_row(row: object) -> ItemRecord:
         title=_coerce_optional_str(value=row_map.get("title")),
         body=_coerce_optional_str(value=row_map.get("body")),
         canonical_url=_coerce_optional_str(value=row_map.get("canonical_url")),
-        canonical_url_hash=_coerce_optional_str(value=row_map.get("canonical_url_hash")),
+        canonical_url_hash=_coerce_optional_str(
+            value=row_map.get("canonical_url_hash"),
+        ),
         content_hash=_coerce_optional_str(value=row_map.get("content_hash")),
-        dedupe_state=_coerce_str(value=row_map.get("dedupe_state"), field="dedupe_state"),
-        created_at=_coerce_datetime(value=row_map.get("created_at"), field="created_at"),
-        updated_at=_coerce_datetime(value=row_map.get("updated_at"), field="updated_at"),
+        dedupe_state=_coerce_str(
+            value=row_map.get("dedupe_state"),
+            field="dedupe_state",
+        ),
+        created_at=_coerce_datetime(
+            value=row_map.get("created_at"),
+            field="created_at",
+        ),
+        updated_at=_coerce_datetime(
+            value=row_map.get("updated_at"),
+            field="updated_at",
+        ),
     )
 
 
@@ -165,7 +179,8 @@ def _coerce_int(*, value: object, field: str) -> int:
         return value
     if isinstance(value, str) and value.isdigit():
         return int(value)
-    raise ItemsRepositoryError(f"missing integer `{field}`")
+    msg = f"missing integer `{field}`"
+    raise ItemsRepositoryError(msg)
 
 
 def _coerce_optional_int(*, value: object, field: str) -> int | None:
@@ -175,13 +190,15 @@ def _coerce_optional_int(*, value: object, field: str) -> int | None:
         return value
     if isinstance(value, str) and value.isdigit():
         return int(value)
-    raise ItemsRepositoryError(f"invalid `{field}` value")
+    msg = f"invalid `{field}` value"
+    raise ItemsRepositoryError(msg)
 
 
 def _coerce_str(*, value: object, field: str) -> str:
     if isinstance(value, str):
         return value
-    raise ItemsRepositoryError(f"missing `{field}`")
+    msg = f"missing `{field}`"
+    raise ItemsRepositoryError(msg)
 
 
 def _coerce_optional_str(*, value: object) -> str | None:
@@ -189,16 +206,17 @@ def _coerce_optional_str(*, value: object) -> str | None:
         return None
     if isinstance(value, str):
         return value
-    raise ItemsRepositoryError("invalid string value")
+    msg = "invalid string value"
+    raise ItemsRepositoryError(msg)
 
 
 def _coerce_datetime(*, value: object, field: str) -> datetime:
     if isinstance(value, datetime):
         return value
     if isinstance(value, str):
-        parsed = _parse_datetime(value, field=field)
-        return parsed
-    raise ItemsRepositoryError(f"missing `{field}`")
+        return _parse_datetime(value, field=field)
+    msg = f"missing `{field}`"
+    raise ItemsRepositoryError(msg)
 
 
 def _coerce_optional_datetime(*, value: object, field: str) -> datetime | None:
@@ -207,16 +225,17 @@ def _coerce_optional_datetime(*, value: object, field: str) -> datetime | None:
     if isinstance(value, datetime):
         return value
     if isinstance(value, str):
-        parsed = _parse_datetime(value, field=field)
-        return parsed
-    raise ItemsRepositoryError(f"invalid `{field}` value")
+        return _parse_datetime(value, field=field)
+    msg = f"invalid `{field}` value"
+    raise ItemsRepositoryError(msg)
 
 
 def _parse_datetime(value: str, *, field: str) -> datetime:
     try:
         parsed = datetime.fromisoformat(value)
     except ValueError as exc:
-        raise ItemsRepositoryError(f"invalid `{field}` value") from exc
+        msg = f"invalid `{field}` value"
+        raise ItemsRepositoryError(msg) from exc
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed

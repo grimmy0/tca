@@ -202,7 +202,7 @@ class AuthSessionStateRepository:
 
 def _decode_row(row: object) -> AuthSessionState:
     """Decode a row mapping into an AuthSessionState."""
-    row_map = cast("Mapping[str, object]", cast("object", row))
+    row_map = cast("Mapping[str, object]", row)
     return AuthSessionState(
         session_id=_coerce_str(
             value=row_map.get("session_id"),
