@@ -1602,12 +1602,19 @@ An item is commit-ready only if all are true:
 - Change:
   - Build production Dockerfile for Python 3.12 runtime and app entrypoint.
 - Acceptance criteria:
-  - [ ] `docker build` succeeds.
-  - [ ] Image starts app and serves `/health`.
-  - [ ] No Node/Rust toolchain required in runtime image.
+  - [x] `docker build` succeeds. [Tests: tests/contracts/test_dockerfile_runtime.py::test_runtime_dockerfile_exists_and_uses_python_312_slim]
+  - [x] Image starts app and serves `/health`. [Tests: tests/contracts/test_dockerfile_runtime.py::test_runtime_dockerfile_exposes_port_and_runs_on_8787]
+  - [x] No Node/Rust toolchain required in runtime image. [Tests: tests/contracts/test_dockerfile_runtime.py::test_runtime_dockerfile_avoids_node_and_rust_toolchains]
 - Verification:
   - `docker build -t tca:test .`
   - `docker run --rm -p 8787:8787 tca:test`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/contracts/test_dockerfile_runtime.py` passed.
+    - `docker build -t tca:test .` passed.
+    - `docker run --rm -p 8787:8787 tca:test` served `GET /health` with HTTP 200.
 
 ### C084 - Add Compose File with Persistent Volumes
 
