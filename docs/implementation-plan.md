@@ -1377,7 +1377,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/dedupe/test_representative_selection.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `NONE`
+  - Commit: `d4b973e93e94a11ac9fdc339b84034a8ddd1232f`
   - Verification summary:
     - `uv run pytest -q tests/dedupe/test_representative_selection.py` passed.
 
