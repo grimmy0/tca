@@ -232,6 +232,66 @@ async def test_backup_job_cancellation_propagates_without_notification(
         raise AssertionError
 
 
+@pytest.mark.asyncio
+async def test_backup_job_cleanup_failure_creates_notification(
+    tmp_path: Path,
+    notifications_runtime: StorageRuntime,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cleanup failures should be remapped and recorded as backup failures."""
+    source_db_path = tmp_path / "source-cleanup-failure.sqlite3"
+    _create_source_database(db_path=source_db_path)
+    fixed_now = datetime.now(UTC).replace(hour=5, minute=30, second=0, microsecond=0)
+    backup_dir = tmp_path / "cleanup-failure-backups"
+    expected_file_name = f"tca-{fixed_now.strftime('%Y%m%d')}.db"
+    job = NightlySQLiteBackupJob(
+        read_session_factory=notifications_runtime.read_session_factory,
+        write_session_factory=notifications_runtime.write_session_factory,
+        db_path=source_db_path,
+        backup_dir=backup_dir,
+        now_provider=lambda: fixed_now,
+    )
+
+    def _raise_cleanup_failure(*, backup_dir: Path, retain_count: int) -> None:
+        _ = (backup_dir, retain_count)
+        msg = "forced cleanup failure"
+        raise PermissionError(msg)
+
+    monkeypatch.setattr(
+        "tca.ops.backup_job._cleanup_old_backups",
+        _raise_cleanup_failure,
+    )
+
+    with pytest.raises(NightlySQLiteBackupError):
+        _ = await job.run_once()
+
+    repository = NotificationsRepository(
+        read_session_factory=notifications_runtime.read_session_factory,
+        write_session_factory=notifications_runtime.write_session_factory,
+    )
+    notifications = await repository.list_notifications()
+    if len(notifications) != 1:
+        raise AssertionError
+    notification = notifications[0]
+    if notification.type != BACKUP_FAILURE_NOTIFICATION_TYPE:
+        raise AssertionError
+    if notification.severity != BACKUP_FAILURE_NOTIFICATION_SEVERITY:
+        raise AssertionError
+    if notification.message != BACKUP_FAILURE_NOTIFICATION_MESSAGE:
+        raise AssertionError
+    if notification.payload is None:
+        raise AssertionError
+    if not isinstance(notification.payload, dict):
+        raise TypeError
+    if (
+        notification.payload.get("backup_path")
+        != (backup_dir / expected_file_name).as_posix()
+    ):
+        raise AssertionError
+    if notification.payload.get("error_type") != "PermissionError":
+        raise AssertionError
+
+
 def _create_source_database(*, db_path: Path) -> None:
     with sqlite3.connect(db_path.as_posix()) as connection:
         connection.execute(

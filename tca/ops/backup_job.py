@@ -84,11 +84,22 @@ class NightlySQLiteBackupJob:
             msg = "Nightly SQLite backup job failed."
             raise NightlySQLiteBackupError(msg) from exc
         retain_count = await self._resolve_retain_count()
-        await asyncio.to_thread(
-            _cleanup_old_backups,
-            backup_dir=self._backup_dir,
-            retain_count=retain_count,
-        )
+        try:
+            await asyncio.to_thread(
+                _cleanup_old_backups,
+                backup_dir=self._backup_dir,
+                retain_count=retain_count,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            await self._create_failure_notification(
+                backup_path=backup_path,
+                run_at=run_at,
+                error=exc,
+            )
+            msg = "Nightly SQLite backup job failed."
+            raise NightlySQLiteBackupError(msg) from exc
         return BackupJobRunSummary(
             backup_path=backup_path,
             integrity_check_result=integrity_check_result,

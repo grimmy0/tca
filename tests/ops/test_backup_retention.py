@@ -7,6 +7,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
 from tca.config.settings import load_settings
 from tca.ops.backup_job import NightlySQLiteBackupJob
@@ -183,6 +184,59 @@ async def test_backup_retention_uses_updated_setting_without_restart(
 
     names_after_second_run = _list_backup_names(backup_dir=backup_dir)
     if names_after_second_run != [_backup_name_for_date(second_run_date)]:
+        raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_backup_retention_falls_back_to_default_when_setting_lookup_fails(
+    tmp_path: Path,
+    runtime_with_settings: StorageRuntime,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Retention cleanup should use default count if settings read fails."""
+    source_db_path = tmp_path / "retention-source-default-fallback.sqlite3"
+    _create_source_database(db_path=source_db_path)
+    backup_dir = tmp_path / "retention-backups-default-fallback"
+    run_at = datetime.now(UTC).replace(hour=5, minute=0, second=0, microsecond=0)
+    run_date = run_at.date()
+    _create_placeholder_backups(
+        backup_dir=backup_dir,
+        names=tuple(
+            _backup_name_for_date(run_date - timedelta(days=days_ago))
+            for days_ago in range(20, 0, -1)
+        ),
+    )
+    _ = await SettingsRepository(
+        read_session_factory=runtime_with_settings.read_session_factory,
+        write_session_factory=runtime_with_settings.write_session_factory,
+    ).create(key="backup.retain_count", value=1)
+    job = NightlySQLiteBackupJob(
+        read_session_factory=runtime_with_settings.read_session_factory,
+        write_session_factory=runtime_with_settings.write_session_factory,
+        db_path=source_db_path,
+        backup_dir=backup_dir,
+        now_provider=lambda: run_at,
+    )
+
+    async def _raise_sqlalchemy_error(
+        self: SettingsRepository,
+        *,
+        key: str,
+    ) -> None:
+        _ = (self, key)
+        msg = "forced settings lookup failure"
+        raise SQLAlchemyError(msg)
+
+    monkeypatch.setattr(SettingsRepository, "get_by_key", _raise_sqlalchemy_error)
+
+    _ = await job.run_once()
+
+    names = _list_backup_names(backup_dir=backup_dir)
+    expected_names = [
+        _backup_name_for_date(run_date - timedelta(days=days_ago))
+        for days_ago in range(13, -1, -1)
+    ]
+    if names != expected_names:
         raise AssertionError
 
 
