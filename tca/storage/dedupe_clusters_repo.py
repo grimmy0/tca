@@ -101,7 +101,10 @@ class DedupeClustersRepository:
 
 
 def _coerce_int(*, value: object, field: str) -> int:
+    if isinstance(value, bool):
+        msg = f"missing integer `{field}`"
+        raise TypeError(msg)
     if isinstance(value, int):
         return value
     msg = f"missing integer `{field}`"
-    raise RuntimeError(msg)
+    raise TypeError(msg)

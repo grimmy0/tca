@@ -1345,7 +1345,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/dedupe/test_cluster_create.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `NONE`
+  - Commit: `c1f6806fba115270d8f44cb418351128059e8f83`
   - Verification summary:
     - `uv run pytest -q tests/dedupe/test_cluster_create.py` passed.
 

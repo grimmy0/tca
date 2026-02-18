@@ -14,6 +14,7 @@ from tca.storage import (
     create_storage_runtime,
     dispose_storage_runtime,
 )
+from tca.storage.dedupe_clusters_repo import _coerce_int
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -23,10 +24,12 @@ if TYPE_CHECKING:
 @pytest.fixture
 async def cluster_repository(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[tuple[DedupeClustersRepository, StorageRuntime]]:
     """Build repository and minimal schema for cluster assignment tests."""
     db_path = tmp_path / "cluster-create.sqlite3"
-    settings = load_settings({"TCA_DB_PATH": db_path.as_posix()})
+    monkeypatch.setenv("TCA_DB_PATH", db_path.as_posix())
+    settings = load_settings()
     runtime = create_storage_runtime(settings)
 
     async with runtime.write_engine.begin() as connection:
@@ -248,6 +251,12 @@ async def test_duplicate_membership_insertion_is_prevented(
 
     if count != 1:
         raise AssertionError
+
+
+def test_coerce_int_rejects_bool_values() -> None:
+    """Boolean values must never pass integer coercion checks."""
+    with pytest.raises(TypeError, match="missing integer `id`"):
+        _ = _coerce_int(value=True, field="id")
 
 
 async def _insert_channel_fixtures(runtime: StorageRuntime) -> None:
