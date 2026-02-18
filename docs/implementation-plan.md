@@ -1306,11 +1306,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Implement horizon filter + blocking keys + max candidate cap (`50`).
 - Acceptance criteria:
-  - [ ] Candidates outside horizon are excluded.
-  - [ ] Blocking key filters reduce candidate set deterministically.
-  - [ ] Candidate count never exceeds cap.
+  - [x] Candidates outside horizon are excluded. [Tests: tests/dedupe/test_candidate_selection.py::test_candidates_outside_horizon_are_excluded]
+  - [x] Blocking key filters reduce candidate set deterministically. [Tests: tests/dedupe/test_candidate_selection.py::test_blocking_keys_reduce_candidate_set_deterministically]
+  - [x] Candidate count never exceeds cap. [Tests: tests/dedupe/test_candidate_selection.py::test_candidate_count_never_exceeds_cap]
 - Verification:
   - `uv run pytest -q tests/dedupe/test_candidate_selection.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/dedupe/test_candidate_selection.py` passed.
 
 ### C066 - Implement Ordered Strategy Chain Engine
 

@@ -1,5 +1,10 @@
 """Deduplication module for TCA."""
 
+from .candidate_selection import (
+    MAX_CANDIDATES_DEFAULT,
+    CandidateRecord,
+    select_candidates,
+)
 from .content_hash_strategy import (
     CONTENT_HASH_MATCH_REASON,
     CONTENT_HASH_MISMATCH_REASON,
@@ -43,12 +48,14 @@ __all__ = [
     "EXACT_URL_MATCH_REASON",
     "EXACT_URL_MISMATCH_REASON",
     "EXACT_URL_MISSING_REASON",
+    "MAX_CANDIDATES_DEFAULT",
     "STRATEGY_STATUSES",
     "TITLE_SIMILARITY_MATCH_REASON",
     "TITLE_SIMILARITY_MISMATCH_REASON",
     "TITLE_SIMILARITY_SHORT_TITLE_REASON",
     "TITLE_SIMILARITY_THRESHOLD_DEFAULT",
     "AbstainResult",
+    "CandidateRecord",
     "DistinctResult",
     "DuplicateResult",
     "StrategyCallable",
@@ -64,4 +71,5 @@ __all__ = [
     "evaluate_exact_url",
     "evaluate_title_similarity",
     "run_strategy",
+    "select_candidates",
 ]
