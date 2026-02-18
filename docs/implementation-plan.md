@@ -1413,7 +1413,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/thread/test_thread_query.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `NONE`
+  - Commit: `aeb3e5b9aa74695a89fa217b8ddef7195b5fb7fc`
   - Verification summary:
     - `uv run pytest -q tests/thread/test_thread_query.py` passed.
 

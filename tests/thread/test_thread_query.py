@@ -11,9 +11,11 @@ from tca.config.settings import load_settings
 from tca.storage import (
     StorageRuntime,
     ThreadQueryRepository,
+    ThreadQueryRepositoryError,
     create_storage_runtime,
     dispose_storage_runtime,
 )
+from tca.storage.thread_query_repo import _decode_thread_entry_row
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -310,6 +312,47 @@ async def test_pagination_returns_deterministic_pages(
         raise AssertionError
     if second_run != first_run:
         raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_list_entries_rejects_invalid_paging_values(
+    storage_runtime: StorageRuntime,
+) -> None:
+    """Paging values should reject bool and non-positive integers."""
+    repository = _build_repository(storage_runtime=storage_runtime)
+
+    with pytest.raises(ThreadQueryRepositoryError, match="invalid `page` value"):
+        _ = await repository.list_entries(page=True, page_size=10)
+
+    with pytest.raises(
+        ThreadQueryRepositoryError,
+        match="invalid `page_size` value",
+    ):
+        _ = await repository.list_entries(page=1, page_size=0)
+
+
+@pytest.mark.asyncio
+async def test_list_entries_raises_on_invalid_duplicate_count_payload() -> None:
+    """Decode should fail when duplicate_count cannot be parsed as int."""
+    invalid_row = {
+        "cluster_id": 1,
+        "cluster_key": "cluster-1",
+        "representative_item_id": 1,
+        "representative_published_at": None,
+        "representative_title": None,
+        "representative_body": None,
+        "representative_canonical_url": None,
+        "representative_channel_id": 1,
+        "representative_channel_name": "alpha",
+        "representative_channel_username": None,
+        "duplicate_count": "not-a-number",
+    }
+
+    with pytest.raises(
+        ThreadQueryRepositoryError,
+        match="invalid `duplicate_count` value",
+    ):
+        _ = _decode_thread_entry_row(invalid_row)
 
 
 def _build_repository(*, storage_runtime: StorageRuntime) -> ThreadQueryRepository:
