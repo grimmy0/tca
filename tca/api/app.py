@@ -14,6 +14,7 @@ from starlette.responses import PlainTextResponse, Response
 from tca.api.bearer_auth import require_bearer_auth
 from tca.api.routes.channel_groups import router as channel_groups_router
 from tca.api.routes.channels import router as channels_router
+from tca.api.routes.dedupe_decisions import router as dedupe_decisions_router
 from tca.api.routes.health import router as health_router
 from tca.api.routes.jobs import router as jobs_router
 from tca.api.routes.notifications import router as notifications_router
@@ -287,6 +288,10 @@ def create_app() -> FastAPI:
     )
     app.include_router(
         thread_router,
+        dependencies=protected_route_dependencies,
+    )
+    app.include_router(
+        dedupe_decisions_router,
         dependencies=protected_route_dependencies,
     )
 

@@ -1438,11 +1438,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Add endpoint for explainability (`/dedupe/decisions/{item_id}` or equivalent).
 - Acceptance criteria:
-  - [ ] Returns full strategy decision trace for target item.
-  - [ ] Unknown item returns `404`.
-  - [ ] Response schema is stable and documented.
+  - [x] Returns full strategy decision trace for target item. [Tests: tests/api/test_dedupe_decisions_api.py::test_get_dedupe_decisions_returns_full_strategy_trace]
+  - [x] Unknown item returns `404`. [Tests: tests/api/test_dedupe_decisions_api.py::test_get_dedupe_decisions_returns_404_for_unknown_item]
+  - [x] Response schema is stable and documented. [Tests: tests/api/test_dedupe_decisions_api.py::test_get_dedupe_decisions_openapi_schema_is_explicit_and_stable]
 - Verification:
   - `uv run pytest -q tests/api/test_dedupe_decisions_api.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/api/test_dedupe_decisions_api.py` passed.
 
 ### C074 - Implement Minimal UI Shell (Jinja2 + HTMX + Pico)
 

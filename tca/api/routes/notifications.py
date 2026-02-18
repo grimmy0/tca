@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, cast
+from datetime import datetime  # noqa: TC003
+from typing import Annotated, cast
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel
@@ -14,9 +15,6 @@ from tca.storage import (
     StorageRuntime,
     WriterQueueProtocol,
 )
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 router = APIRouter()
 
