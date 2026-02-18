@@ -1290,11 +1290,16 @@ An item is commit-ready only if all are true:
   - Add RapidFuzz token-set ratio strategy with default threshold `0.92`.
   - Add short-title guard (`<3 tokens` => `ABSTAIN`).
 - Acceptance criteria:
-  - [ ] Above-threshold pair returns `DUPLICATE`.
-  - [ ] Below-threshold pair returns non-duplicate decision.
-  - [ ] Short-title cases return `ABSTAIN`.
+  - [x] Above-threshold pair returns `DUPLICATE`. [Tests: tests/dedupe/test_strategy_title_similarity.py::test_above_threshold_pair_returns_duplicate]
+  - [x] Below-threshold pair returns non-duplicate decision. [Tests: tests/dedupe/test_strategy_title_similarity.py::test_below_threshold_pair_returns_non_duplicate_decision]
+  - [x] Short-title cases return `ABSTAIN`. [Tests: tests/dedupe/test_strategy_title_similarity.py::test_short_title_cases_return_abstain]
 - Verification:
   - `uv run pytest -q tests/dedupe/test_strategy_title_similarity.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/dedupe/test_strategy_title_similarity.py` passed.
 
 ### C065 - Implement Candidate Selection Stage
 

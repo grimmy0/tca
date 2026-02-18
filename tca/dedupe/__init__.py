@@ -28,6 +28,13 @@ from .strategy_contract import (
     duplicate,
     run_strategy,
 )
+from .title_similarity_strategy import (
+    TITLE_SIMILARITY_MATCH_REASON,
+    TITLE_SIMILARITY_MISMATCH_REASON,
+    TITLE_SIMILARITY_SHORT_TITLE_REASON,
+    TITLE_SIMILARITY_THRESHOLD_DEFAULT,
+    evaluate_title_similarity,
+)
 
 __all__ = [
     "CONTENT_HASH_MATCH_REASON",
@@ -37,6 +44,10 @@ __all__ = [
     "EXACT_URL_MISMATCH_REASON",
     "EXACT_URL_MISSING_REASON",
     "STRATEGY_STATUSES",
+    "TITLE_SIMILARITY_MATCH_REASON",
+    "TITLE_SIMILARITY_MISMATCH_REASON",
+    "TITLE_SIMILARITY_SHORT_TITLE_REASON",
+    "TITLE_SIMILARITY_THRESHOLD_DEFAULT",
     "AbstainResult",
     "DistinctResult",
     "DuplicateResult",
@@ -51,5 +62,6 @@ __all__ = [
     "duplicate",
     "evaluate_content_hash",
     "evaluate_exact_url",
+    "evaluate_title_similarity",
     "run_strategy",
 ]
