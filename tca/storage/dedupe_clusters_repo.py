@@ -168,6 +168,52 @@ class DedupeClustersRepository:
         )
         resolve_event_item_statement = text(
             """
+            SELECT id
+            FROM dedupe_clusters
+            WHERE id = :target_cluster_id
+            """,
+        )
+        recompute_representative_statement = text(
+            """
+            WITH ranked AS (
+                SELECT
+                    members.cluster_id AS cluster_id,
+                    items.id AS item_id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY members.cluster_id
+                        ORDER BY
+                            CASE
+                                WHEN COALESCE(items.canonical_url, '') != '' THEN 0
+                                ELSE 1
+                            END,
+                            (
+                                COALESCE(LENGTH(items.title), 0)
+                                + COALESCE(LENGTH(items.body), 0)
+                            ) DESC,
+                            CASE
+                                WHEN items.published_at IS NULL THEN 1
+                                ELSE 0
+                            END,
+                            items.published_at ASC,
+                            items.id ASC
+                    ) AS row_rank
+                FROM dedupe_members AS members
+                INNER JOIN items
+                    ON items.id = members.item_id
+                WHERE members.cluster_id IN :cluster_ids
+            )
+            UPDATE dedupe_clusters
+            SET representative_item_id = (
+                SELECT ranked.item_id
+                FROM ranked
+                WHERE ranked.cluster_id = dedupe_clusters.id
+                  AND ranked.row_rank = 1
+            )
+            WHERE id IN :cluster_ids
+            """,
+        ).bindparams(bindparam("cluster_ids", expanding=True))
+        resolve_representative_item_statement = text(
+            """
             SELECT representative_item_id AS item_id
             FROM dedupe_clusters
             WHERE id = :target_cluster_id
@@ -275,8 +321,26 @@ class DedupeClustersRepository:
                 {"source_cluster_ids": source_cluster_ids},
             )
 
-            event_item_id: object | None = None
-            event_item_id = cast("object | None", target_cluster_row["item_id"])
+            _ = await session.execute(
+                recompute_representative_statement,
+                {"cluster_ids": [target_cluster_id]},
+            )
+
+            representative_row = (
+                (
+                    await session.execute(
+                        resolve_representative_item_statement,
+                        {"target_cluster_id": target_cluster_id},
+                    )
+                )
+                .mappings()
+                .one()
+            )
+
+            event_item_id: object | None = cast(
+                "object | None",
+                representative_row["item_id"],
+            )
 
             if event_item_id is None:
                 fallback_item_row = (

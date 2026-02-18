@@ -243,7 +243,7 @@ class ChannelsRepository:
                         PARTITION BY members.cluster_id
                         ORDER BY
                             CASE
-                                WHEN items.canonical_url IS NOT NULL THEN 0
+                                WHEN COALESCE(items.canonical_url, '') != '' THEN 0
                                 ELSE 1
                             END,
                             (

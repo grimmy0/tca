@@ -1370,11 +1370,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Recompute representative item using deterministic priority rules.
 - Acceptance criteria:
-  - [ ] Rule order matches design exactly.
-  - [ ] Ties resolve by lowest `item_id`.
-  - [ ] Recompute runs after merge and purge operations.
+  - [x] Rule order matches design exactly. [Tests: tests/dedupe/test_representative_selection.py::test_representative_rule_order_matches_design_after_merge]
+  - [x] Ties resolve by lowest `item_id`. [Tests: tests/dedupe/test_representative_selection.py::test_merge_recompute_prefers_lowest_item_id_on_full_tie]
+  - [x] Recompute runs after merge and purge operations. [Tests: tests/dedupe/test_representative_selection.py::test_representative_rule_order_matches_design_after_merge, tests/dedupe/test_representative_selection.py::test_recompute_runs_after_purge_operation]
 - Verification:
   - `uv run pytest -q tests/dedupe/test_representative_selection.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/dedupe/test_representative_selection.py` passed.
 
 ### C070 - Persist Dedupe Decision Explainability Records
 
