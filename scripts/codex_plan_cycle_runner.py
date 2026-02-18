@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import shlex
 import shutil
@@ -31,6 +32,8 @@ QUOTA_ERROR_PATTERNS = (
     re.compile(r"\bout of credits?\b", re.IGNORECASE),
     re.compile(r"\b429\b", re.IGNORECASE),
 )
+CODEX_OPTION_5_MIN_VERSION = (0, 102, 0)
+ASK_FOR_APPROVAL_FLAG = "--ask-for-approval"
 
 
 @dataclass(frozen=True)
@@ -107,6 +110,17 @@ class CodexStepResult:
     prompt_path: Path
     output_path: Path
     last_message_path: Path
+
+
+@dataclass(frozen=True)
+class CodexCliCapabilities:
+    """Detected Codex CLI capabilities relevant for automation settings."""
+
+    version_text: str
+    parsed_version: tuple[int, int, int] | None
+    supports_ask_for_approval_flag: bool
+    enable_option_5: bool
+    option_5_warning: str | None
 
 
 class TeeLogger:
@@ -317,8 +331,84 @@ def read_last_message(last_message_path: Path) -> str:
     return last_message_path.read_text(encoding="utf-8").strip()
 
 
+def parse_codex_version(version_output: str) -> tuple[int, int, int] | None:
+    """Extract semantic version from `codex --version` output."""
+    match = re.search(r"\bcodex-cli\s+(\d+)\.(\d+)\.(\d+)\b", version_output)
+    if match is None:
+        return None
+    major, minor, patch = match.groups()
+    return (int(major), int(minor), int(patch))
+
+
+def version_to_text(version: tuple[int, int, int] | None) -> str:
+    """Render semantic version tuple for logs."""
+    if version is None:
+        return "unknown"
+    return ".".join(str(part) for part in version)
+
+
+def detect_codex_capabilities(
+    *,
+    codex_bin: str,
+    repo_root: Path,
+    logger: TeeLogger,
+) -> CodexCliCapabilities:
+    """Probe Codex CLI support for option 5 and return an enable/disable decision."""
+    version_result = run_capture(
+        command=[codex_bin, "--version"],
+        cwd=repo_root,
+        logger=logger,
+        label="codex.version",
+    )
+    help_result = run_capture(
+        command=[codex_bin, "--help"],
+        cwd=repo_root,
+        logger=logger,
+        label="codex.help",
+    )
+    parsed_version = parse_codex_version(version_result.output)
+    supports_ask_for_approval_flag = ASK_FOR_APPROVAL_FLAG in help_result.output
+
+    warning: str | None = None
+    enable_option_5 = True
+    if parsed_version is None:
+        warning = (
+            "WARNING: Could not parse Codex CLI version. "
+            "Disabling option 5 and continuing with options 1 and 2 only."
+        )
+        enable_option_5 = False
+    elif parsed_version < CODEX_OPTION_5_MIN_VERSION:
+        warning = (
+            "WARNING: Codex CLI version is below required minimum for option 5 "
+            f"(found {version_to_text(parsed_version)}, "
+            f"required >= {version_to_text(CODEX_OPTION_5_MIN_VERSION)}). "
+            "Continuing with options 1 and 2 only."
+        )
+        enable_option_5 = False
+    elif not supports_ask_for_approval_flag:
+        warning = (
+            "WARNING: Codex CLI does not advertise --ask-for-approval support. "
+            "Disabling option 5 and continuing with options 1 and 2 only."
+        )
+        enable_option_5 = False
+
+    return CodexCliCapabilities(
+        version_text=version_to_text(parsed_version),
+        parsed_version=parsed_version,
+        supports_ask_for_approval_flag=supports_ask_for_approval_flag,
+        enable_option_5=enable_option_5,
+        option_5_warning=warning,
+    )
+
+
 def is_plan_done(last_message: str) -> bool:
     """Return True when codex replied with PLAN IS DONE sentinel."""
+    try:
+        payload = json.loads(last_message)
+    except json.JSONDecodeError:
+        payload = None
+    if isinstance(payload, dict) and payload.get("STATUS") == "PLAN_IS_DONE":
+        return True
     stripped = last_message.strip()
     if stripped == "PLAN IS DONE":
         return True
@@ -335,27 +425,127 @@ def detect_quota_issue(*texts: str) -> str | None:
     return None
 
 
+def build_output_schema(step_name: str) -> dict[str, object]:
+    """Build strict JSON Schema for the step's final response."""
+    sha_or_none = r"^(?:[0-9a-f]{7,40}|NONE)$"
+    common_fields: dict[str, object] = {
+        "QUESTIONS_ASKED": {"type": "integer", "enum": [0]},
+        "SAFE_DEFAULT_DECISIONS": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+    }
+
+    if step_name == "implement":
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "STATUS",
+                "IMPLEMENTED_ITEM",
+                "IMPLEMENTED_TITLE",
+                "IMPLEMENTATION_COMMIT",
+                "IMPLEMENTATION_SUMMARY",
+                "QUESTIONS_ASKED",
+                "SAFE_DEFAULT_DECISIONS",
+            ],
+            "properties": {
+                "STATUS": {"type": "string", "enum": ["PLAN_IS_DONE", "IMPLEMENTED"]},
+                "IMPLEMENTED_ITEM": {"type": "string", "minLength": 1},
+                "IMPLEMENTED_TITLE": {"type": "string", "minLength": 1},
+                "IMPLEMENTATION_COMMIT": {"type": "string", "pattern": sha_or_none},
+                "IMPLEMENTATION_SUMMARY": {"type": "string", "minLength": 1},
+                **common_fields,
+            },
+        }
+
+    if step_name == "review_fix_push":
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "REVIEW_TARGET_COMMIT",
+                "REVIEW_FINDINGS_FIXED",
+                "REVIEW_FIX_COMMIT",
+                "PUSH_STATUS",
+                "QUESTIONS_ASKED",
+                "SAFE_DEFAULT_DECISIONS",
+            ],
+            "properties": {
+                "REVIEW_TARGET_COMMIT": {"type": "string", "minLength": 7},
+                "REVIEW_FINDINGS_FIXED": {"type": "integer", "minimum": 0},
+                "REVIEW_FIX_COMMIT": {"type": "string", "pattern": sha_or_none},
+                "PUSH_STATUS": {"type": "string", "minLength": 2},
+                **common_fields,
+            },
+        }
+
+    if step_name == "docs_review":
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "DOCS_REVIEW_FILES_CHANGED",
+                "DOCS_REVIEW_COMMIT",
+                "PUSH_STATUS",
+                "QUESTIONS_ASKED",
+                "SAFE_DEFAULT_DECISIONS",
+            ],
+            "properties": {
+                "DOCS_REVIEW_FILES_CHANGED": {"type": "integer", "minimum": 0},
+                "DOCS_REVIEW_COMMIT": {"type": "string", "pattern": sha_or_none},
+                "PUSH_STATUS": {"type": "string", "minLength": 2},
+                **common_fields,
+            },
+        }
+
+    message = f"Unsupported step name for output schema: {step_name}"
+    raise ValueError(message)
+
+
+def build_codex_exec_command(
+    *,
+    codex_bin: str,
+    repo_root: Path,
+    model: str | None,
+    explicit_never_approval: bool,
+) -> list[str]:
+    """Create baseline codex exec command with optional explicit approval policy."""
+    command: list[str] = [codex_bin]
+    if explicit_never_approval:
+        command.extend(["-a", "never"])
+    command.extend(
+        [
+            "exec",
+            "--dangerously-bypass-approvals-and-sandbox",
+            "--skip-git-repo-check",
+            "--color",
+            "never",
+            "--cd",
+            str(repo_root),
+        ],
+    )
+    if model is not None:
+        command.extend(["--model", model])
+    return command
+
+
 def run_quota_probe(
     *,
     codex_bin: str,
     repo_root: Path,
     model: str | None,
     logger: TeeLogger,
+    explicit_never_approval: bool,
 ) -> bool:
     """Run a minimal codex exec to test whether API limits have reset."""
-    command: list[str] = [
-        codex_bin,
-        "exec",
-        "--dangerously-bypass-approvals-and-sandbox",
-        "--skip-git-repo-check",
-        "--color",
-        "never",
-        "--cd",
-        str(repo_root),
-        "-",
-    ]
-    if model is not None:
-        command.extend(["--model", model])
+    command = build_codex_exec_command(
+        codex_bin=codex_bin,
+        repo_root=repo_root,
+        model=model,
+        explicit_never_approval=explicit_never_approval,
+    )
+    command.append("-")
     try:
         completed = subprocess.run(  # noqa: S603
             command,
@@ -392,6 +582,7 @@ def wait_for_quota_reset(  # noqa: PLR0913
     max_attempts: int,
     step_name: str,
     matched_line: str,
+    explicit_never_approval: bool,
 ) -> bool:
     """Sleep-and-probe until quota resets. Returns True if recovered."""
     if max_attempts <= 0:
@@ -408,6 +599,7 @@ def wait_for_quota_reset(  # noqa: PLR0913
             repo_root=repo_root,
             model=model,
             logger=logger,
+            explicit_never_approval=explicit_never_approval,
         ):
             logger.log("Quota probe succeeded - resuming.")
             return True
@@ -514,8 +706,8 @@ def build_implementation_prompt(
             Task:
             1. Inspect {plan_path} and verify whether any acceptance criterion
                remains unchecked.
-            2. If no pending criteria remain, make no file changes and output exactly:
-            PLAN IS DONE
+            2. If no pending criteria remain, make no file changes and return
+               STATUS=PLAN_IS_DONE in JSON.
             3. If you find pending criteria, implement exactly the first pending
                plan item,
                update plan traceability, run relevant checks, and commit it.
@@ -525,6 +717,22 @@ def build_implementation_prompt(
             - Follow architecture constraints from {design_path}.
             - Do not batch multiple plan items.
             - Do not push in this step.
+            - Never ask the user any question.
+            - Never request clarification or approval.
+            - Resolve ambiguity autonomously using safe defaults that keep progress:
+              choose the smallest reversible low-risk change that unblocks next work.
+            - Never stage or commit unrelated pre-existing working-tree changes.
+            - If unrelated dirty files exist, leave them untouched.
+            - Return only a strict JSON object matching the output schema.
+
+            Required JSON fields:
+            - STATUS: PLAN_IS_DONE
+            - IMPLEMENTED_ITEM: NONE
+            - IMPLEMENTED_TITLE: NONE
+            - IMPLEMENTATION_COMMIT: NONE
+            - IMPLEMENTATION_SUMMARY: short reason no work remains
+            - QUESTIONS_ASKED: must be 0
+            - SAFE_DEFAULT_DECISIONS: list of defaults used (empty list if none)
             """,
             ).strip()
             + "\n"
@@ -532,28 +740,27 @@ def build_implementation_prompt(
 
     unchecked = format_criteria(item.unchecked_criteria)
     verification_commands = format_verification_commands(item.verification_commands)
-    return (
-        textwrap.dedent(
-            f"""
-        You are running in repository: {repo_root}
+    template = textwrap.dedent(
+        """
+        You are running in repository: __REPO_ROOT__
 
         Primary objective:
-        Implement exactly one commit-atomic item from {plan_path}.
+        Implement exactly one commit-atomic item from __PLAN_PATH__.
 
-        Target item (already selected):
-        - ID: {item.identifier}
-        - Title: {item.title}
-        - Header line: {item.header_line}
+        Target item (already chosen):
+        - ID: __ITEM_ID__
+        - Title: __ITEM_TITLE__
+        - Header line: __ITEM_HEADER_LINE__
 
         Unchecked acceptance criteria for target item:
-        {unchecked}
+        __UNCHECKED_CRITERIA__
 
         Verification commands listed in the target item:
-        {verification_commands}
+        __VERIFICATION_COMMANDS__
 
         Hard constraints:
-        1. Read {plan_path} and {design_path}.
-        2. Implement ONLY {item.identifier}. Do not start any later plan item.
+        1. Read __PLAN_PATH__ and __DESIGN_PATH__.
+        2. Implement ONLY __ITEM_ID__. Do not start any later plan item.
         3. Update the target item criteria to [x] with explicit
            [Tests: tests/...::test_...]
            mappings on completed criteria.
@@ -563,15 +770,34 @@ def build_implementation_prompt(
         6. Keep changes focused and commit-atomic.
         7. Create exactly one implementation commit.
         8. Do NOT push in this step.
-        9. If you discover no pending work exists, output exactly PLAN IS DONE.
+        9. If you discover no pending work exists, set STATUS=PLAN_IS_DONE.
+        10. Never ask the user any question.
+        11. Never request clarification or approval.
+        12. Resolve ambiguity autonomously using safe defaults that keep progress:
+            choose the smallest reversible low-risk change that unblocks next work.
+        13. Never stage or commit unrelated pre-existing working-tree changes.
+        14. If unrelated dirty files exist, leave them untouched.
+        15. Return only a strict JSON object matching the output schema.
 
-        Final response format (exact keys):
-        IMPLEMENTED_ITEM: {item.identifier}
-        IMPLEMENTED_TITLE: {item.title}
-        IMPLEMENTATION_COMMIT: <sha>
-        IMPLEMENTATION_SUMMARY: <short summary>
+        Required JSON fields:
+        - STATUS: PLAN_IS_DONE or IMPLEMENTED
+        - IMPLEMENTED_ITEM: __ITEM_ID__ or NONE
+        - IMPLEMENTED_TITLE: __ITEM_TITLE__ or NONE
+        - IMPLEMENTATION_COMMIT: <sha|NONE>
+        - IMPLEMENTATION_SUMMARY: <short summary>
+        - QUESTIONS_ASKED: must be 0
+        - SAFE_DEFAULT_DECISIONS: list of defaults used (empty list if none)
         """,
-        ).strip()
+    ).strip()
+    return (
+        template.replace("__REPO_ROOT__", str(repo_root))
+        .replace("__PLAN_PATH__", str(plan_path))
+        .replace("__DESIGN_PATH__", str(design_path))
+        .replace("__ITEM_ID__", item.identifier)
+        .replace("__ITEM_TITLE__", item.title)
+        .replace("__ITEM_HEADER_LINE__", str(item.header_line))
+        .replace("__UNCHECKED_CRITERIA__", unchecked)
+        .replace("__VERIFICATION_COMMANDS__", verification_commands)
         + "\n"
     )
 
@@ -617,15 +843,22 @@ def build_review_prompt(  # noqa: PLR0913
         - Do not amend, rebase, or rewrite history.
         - Keep follow-up changes scoped to review findings.
         - If there are no findings that require code changes, still push.
+        - Never ask the user any question.
+        - Never request clarification or approval.
+        - Resolve ambiguity autonomously using safest unblocking defaults.
+        - Never stage or commit unrelated pre-existing working-tree changes.
+        - Return only a strict JSON object matching the output schema.
 
         Context files:
         - {plan_path}
 
-        Final response format (exact keys):
-        REVIEW_TARGET_COMMIT: {implemented_commit}
-        REVIEW_FINDINGS_FIXED: <integer>
-        REVIEW_FIX_COMMIT: <sha|NONE>
-        PUSH_STATUS: <OK|FAILED: reason>
+        Required JSON fields:
+        - REVIEW_TARGET_COMMIT: {implemented_commit}
+        - REVIEW_FINDINGS_FIXED: <integer>
+        - REVIEW_FIX_COMMIT: <sha|NONE>
+        - PUSH_STATUS: <OK|FAILED: reason>
+        - QUESTIONS_ASKED: must be 0
+        - SAFE_DEFAULT_DECISIONS: list of defaults used (empty list if none)
         """,
         ).strip()
         + "\n"
@@ -668,11 +901,17 @@ def build_docs_review_prompt(*, repo_root: Path) -> str:
         - Only change what needs changing — no cosmetic rewrites.
         - Do not modify any non-documentation files.
         - If all docs are already accurate, make no changes and push nothing.
+        - Never ask the user any question.
+        - Never request clarification or approval.
+        - Resolve ambiguity autonomously using safe defaults.
+        - Return only a strict JSON object matching the output schema.
 
-        Final response format:
-        DOCS_REVIEW_FILES_CHANGED: <integer>
-        DOCS_REVIEW_COMMIT: <sha|NONE>
-        PUSH_STATUS: <OK|FAILED: reason|SKIPPED>
+        Required JSON fields:
+        - DOCS_REVIEW_FILES_CHANGED: <integer>
+        - DOCS_REVIEW_COMMIT: <sha|NONE>
+        - PUSH_STATUS: <OK|FAILED: reason|SKIPPED>
+        - QUESTIONS_ASKED: must be 0
+        - SAFE_DEFAULT_DECISIONS: list of defaults used (empty list if none)
         """,
         ).strip()
         + "\n"
@@ -689,6 +928,7 @@ def run_docs_review(  # noqa: PLR0913
     logger: TeeLogger,
     quota_wait_interval: float,
     max_quota_waits: int,
+    explicit_never_approval: bool,
 ) -> None:
     """Run a docs review step with quota retry.
 
@@ -706,6 +946,7 @@ def run_docs_review(  # noqa: PLR0913
             prompt=prompt,
             logs_root=logs_root,
             logger=logger,
+            explicit_never_approval=explicit_never_approval,
         )
         if result.returncode == 0:
             logger.log("Docs review step completed successfully.")
@@ -721,6 +962,7 @@ def run_docs_review(  # noqa: PLR0913
                 max_attempts=max_quota_waits,
                 step_name="docs_review",
                 matched_line=quota_hit,
+                explicit_never_approval=explicit_never_approval,
             ):
                 continue
             logger.log(
@@ -745,6 +987,7 @@ def run_codex_step(  # noqa: PLR0913
     prompt: str,
     logs_root: Path,
     logger: TeeLogger,
+    explicit_never_approval: bool,
 ) -> CodexStepResult:
     """Run one codex exec call and persist prompt/output artifacts."""
     step_dir = logs_root / f"cycle_{cycle_number:03d}_{step_name}"
@@ -752,22 +995,27 @@ def run_codex_step(  # noqa: PLR0913
     prompt_path = step_dir / "prompt.txt"
     output_path = step_dir / "codex_output.log"
     last_message_path = step_dir / "last_message.txt"
+    output_schema_path = step_dir / "output_schema.json"
     prompt_path.write_text(prompt, encoding="utf-8")
+    output_schema_path.write_text(
+        json.dumps(build_output_schema(step_name), indent=2) + "\n",
+        encoding="utf-8",
+    )
 
-    command: list[str] = [
-        codex_bin,
-        "exec",
-        "--dangerously-bypass-approvals-and-sandbox",
-        "--skip-git-repo-check",
-        "--color",
-        "never",
-        "--cd",
-        str(repo_root),
-        "--output-last-message",
-        str(last_message_path),
-    ]
-    if model is not None:
-        command.extend(["--model", model])
+    command = build_codex_exec_command(
+        codex_bin=codex_bin,
+        repo_root=repo_root,
+        model=model,
+        explicit_never_approval=explicit_never_approval,
+    )
+    command.extend(
+        [
+            "--output-schema",
+            str(output_schema_path),
+            "--output-last-message",
+            str(last_message_path),
+        ],
+    )
     command.append("-")
 
     result = run_stream(
@@ -927,6 +1175,24 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
         git_bin = resolve_executable(args.git_bin)
         logger.log(f"resolved codex_bin={codex_bin}")
         logger.log(f"resolved git_bin={git_bin}")
+        codex_capabilities = detect_codex_capabilities(
+            codex_bin=codex_bin,
+            repo_root=repo_root,
+            logger=logger,
+        )
+        logger.log(
+            "codex.capabilities | "
+            f"version={codex_capabilities.version_text} "
+            f"supports_{ASK_FOR_APPROVAL_FLAG}="
+            f"{codex_capabilities.supports_ask_for_approval_flag}",
+        )
+        explicit_never_approval = codex_capabilities.enable_option_5
+        if codex_capabilities.option_5_warning is not None:
+            logger.log(codex_capabilities.option_5_warning)
+        else:
+            logger.log(
+                "Option 5 enabled: enforcing explicit approval policy with '-a never'.",
+            )
 
         git_status_before = run_capture(
             command=[git_bin, "status", "--short", "--branch"],
@@ -1033,6 +1299,7 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                 prompt=implementation_prompt,
                 logs_root=logs_root,
                 logger=logger,
+                explicit_never_approval=explicit_never_approval,
             )
             if implement_result.returncode != 0:
                 quota_hit = detect_quota_issue(
@@ -1049,6 +1316,7 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                         max_attempts=args.max_quota_waits,
                         step_name="implement",
                         matched_line=quota_hit,
+                        explicit_never_approval=explicit_never_approval,
                     ):
                         continue
                     return graceful_quota_exit(
@@ -1074,6 +1342,7 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                         logger=logger,
                         quota_wait_interval=args.quota_wait_interval,
                         max_quota_waits=args.max_quota_waits,
+                        explicit_never_approval=explicit_never_approval,
                     )
                 logger.log("Stopping automation loop.")
                 _ = sys.stdout.write("PLAN IS DONE\n")
@@ -1101,6 +1370,7 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                         max_attempts=args.max_quota_waits,
                         step_name="implement",
                         matched_line=quota_hit,
+                        explicit_never_approval=explicit_never_approval,
                     ):
                         continue
                     return graceful_quota_exit(
@@ -1152,6 +1422,7 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                     prompt=review_prompt,
                     logs_root=logs_root,
                     logger=logger,
+                    explicit_never_approval=explicit_never_approval,
                 )
                 if review_result.returncode == 0:
                     break
@@ -1169,6 +1440,7 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                         max_attempts=args.max_quota_waits,
                         step_name="review_fix_push",
                         matched_line=quota_hit,
+                        explicit_never_approval=explicit_never_approval,
                     ):
                         continue
                     return graceful_quota_exit(
@@ -1240,6 +1512,7 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                     logger=logger,
                     quota_wait_interval=args.quota_wait_interval,
                     max_quota_waits=args.max_quota_waits,
+                    explicit_never_approval=explicit_never_approval,
                 )
 
             if args.sleep_seconds > 0:
