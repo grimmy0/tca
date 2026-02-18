@@ -1225,11 +1225,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Implement similarity pipeline preserving token boundaries.
 - Acceptance criteria:
-  - [ ] Whitespace boundaries are preserved for tokenization.
-  - [ ] Tracking params/wrappers are removed.
-  - [ ] Snapshot tests prove divergence from hash pipeline where expected.
+  - [x] Whitespace boundaries are preserved for tokenization. [Tests: tests/normalize/test_similarity_normalization.py::test_whitespace_boundaries_are_preserved_for_tokenization]
+  - [x] Tracking params/wrappers are removed. [Tests: tests/normalize/test_similarity_normalization.py::test_tracking_params_and_wrappers_are_removed]
+  - [x] Snapshot tests prove divergence from hash pipeline where expected. [Tests: tests/normalize/test_similarity_normalization.py::test_snapshot_locks_similarity_and_hash_divergence]
 - Verification:
   - `uv run pytest -q tests/normalize/test_similarity_normalization.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/normalize/test_similarity_normalization.py` passed.
 
 ### C061 - Implement Strategy Result Contract
 

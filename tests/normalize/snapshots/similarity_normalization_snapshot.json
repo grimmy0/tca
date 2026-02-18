@@ -1,0 +1,22 @@
+{
+  "cases": {
+    "punctuation_boundaries_preserved": {
+      "input": "Alpha---beta___gamma!!!   delta",
+      "similarity": "alpha---beta___gamma!!! delta",
+      "hash": "alpha beta gamma delta",
+      "diverges_from_hash": true
+    },
+    "url_wrappers_and_tracking_removed": {
+      "input": "Launch https://t.me/iv?url=https%3A%2F%2FExample.com%2Fa%2Fb%3Futm_source%3Dx%26gclid%3Dy%26keep%3D1&rhash=ignored now!",
+      "similarity": "launch https://example.com/a/b?keep=1 now!",
+      "hash": "launch https example com a b keep 1 now",
+      "diverges_from_hash": true
+    },
+    "already_whitespace_tokenized": {
+      "input": "foo bar baz",
+      "similarity": "foo bar baz",
+      "hash": "foo bar baz",
+      "diverges_from_hash": false
+    }
+  }
+}
