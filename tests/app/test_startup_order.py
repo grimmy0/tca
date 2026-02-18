@@ -13,6 +13,8 @@ from fastapi.testclient import TestClient
 from tca.api.app import StartupDependencies, create_app
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from _pytest.logging import LogCaptureFixture
 
 
@@ -36,8 +38,12 @@ class OrderedDependency:
         self.events.append(f"{self.name}.shutdown")
 
 
-def test_startup_refuses_to_serve_when_migration_step_fails() -> None:
+def test_startup_refuses_to_serve_when_migration_step_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     """Ensure app startup aborts before handling requests if migrations fail."""
+    monkeypatch.setenv("TCA_DB_PATH", (tmp_path / "startup-order.sqlite3").as_posix())
     events: list[str] = []
     app = create_app()
     app.state.dependencies = StartupDependencies(
@@ -63,8 +69,12 @@ def test_startup_refuses_to_serve_when_migration_step_fails() -> None:
         raise AssertionError
 
 
-def test_startup_seeds_settings_before_first_request_handling() -> None:
+def test_startup_seeds_settings_before_first_request_handling(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     """Ensure settings startup step completes before first request executes."""
+    monkeypatch.setenv("TCA_DB_PATH", (tmp_path / "startup-order.sqlite3").as_posix())
     events: list[str] = []
     app = create_app()
     app.state.dependencies = StartupDependencies(
@@ -94,8 +104,13 @@ def test_startup_seeds_settings_before_first_request_handling() -> None:
         raise AssertionError
 
 
-def test_startup_logs_expose_step_boundaries(caplog: LogCaptureFixture) -> None:
+def test_startup_logs_expose_step_boundaries(
+    caplog: LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     """Ensure startup logs include begin/complete boundaries per step."""
+    monkeypatch.setenv("TCA_DB_PATH", (tmp_path / "startup-order.sqlite3").as_posix())
     caplog.set_level(logging.INFO)
     events: list[str] = []
     app = create_app()
