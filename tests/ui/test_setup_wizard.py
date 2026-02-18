@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from telethon.errors import SessionPasswordNeededError
 
 from tca.api.app import create_app
 
@@ -200,6 +201,87 @@ def test_setup_wizard_success_persists_account_and_exits_setup_mode(
     if exit_setup.status_code != HTTPStatus.FOUND:
         raise AssertionError
     if exit_setup.headers.get("location") != "/ui":
+        raise AssertionError
+
+
+def test_setup_wizard_password_required_flow_completes_after_password(
+    tmp_path: Path,
+    monkeypatch: object,
+    mock_tg_client: MockTelegramClient,
+) -> None:
+    """Ensure password-required OTP flow reaches password step then completion."""
+    db_path = _configure_locked_auth_env(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        db_name="ui-setup-password-required.sqlite3",
+        output_file_name="ui-setup-password-required-token.txt",
+    )
+    api_id = 5432
+    api_hash = "wizard-password-required-hash"
+    phone_number = "+15550000004"
+    mock_tg_client.session = _FakeStringSession("wizard-password-required-session")
+
+    app = create_app()
+    app.state.telegram_auth_client_factory = _build_factory(
+        mock_tg_client=mock_tg_client,
+        expected_api_id=api_id,
+        expected_api_hash=api_hash,
+    )
+
+    with (
+        patch(
+            "tca.auth.bootstrap_token.secrets.token_urlsafe",
+            side_effect=_token_side_effect(),
+        ),
+        TestClient(app) as client,
+    ):
+        _ = client.post(
+            "/ui/setup/unlock",
+            data={"passphrase": "wizard-passphrase"},
+            headers=_auth_headers(),
+        )
+        started = client.post(
+            "/ui/setup/start-auth",
+            data={
+                "api_id": str(api_id),
+                "api_hash": api_hash,
+                "phone_number": phone_number,
+            },
+            headers=_auth_headers(),
+        )
+        session_id = _extract_hidden_value(body=started.text, input_name="session_id")
+        mock_tg_client.responses["sign_in"] = SessionPasswordNeededError(request=None)
+        needs_password = client.post(
+            "/ui/setup/verify-code",
+            data={
+                "session_id": session_id,
+                "api_id": str(api_id),
+                "api_hash": api_hash,
+                "code": "12345",
+            },
+            headers=_auth_headers(),
+        )
+        mock_tg_client.responses["sign_in"] = None
+        complete = client.post(
+            "/ui/setup/verify-password",
+            data={
+                "session_id": session_id,
+                "api_id": str(api_id),
+                "api_hash": api_hash,
+                "password": "p@ssw0rd",
+            },
+            headers=_auth_headers(),
+        )
+
+    if needs_password.status_code != HTTPStatus.OK:
+        raise AssertionError
+    if "Setup Step 4: 2FA Password" not in needs_password.text:
+        raise AssertionError
+    if complete.status_code != HTTPStatus.OK:
+        raise AssertionError
+    if "Setup Step 5: Session Saved" not in complete.text:
+        raise AssertionError
+    if _fetch_telegram_account_count(db_path=db_path) != 1:
         raise AssertionError
 
 
