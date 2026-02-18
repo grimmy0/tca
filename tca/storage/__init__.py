@@ -46,6 +46,11 @@ from .ingest_errors_repo import (
     IngestErrorsRepository,
     IngestErrorsRepositoryError,
 )
+from .items_repo import (
+    ItemRecord,
+    ItemsRepository,
+    ItemsRepositoryError,
+)
 from .notifications_repo import (
     NotificationListRecord,
     NotificationRecord,
@@ -106,6 +111,9 @@ __all__ = [
     "IngestErrorRecord",
     "IngestErrorsRepository",
     "IngestErrorsRepositoryError",
+    "ItemRecord",
+    "ItemsRepository",
+    "ItemsRepositoryError",
     "JSONValue",
     "MigrationRunnerDependency",
     "MigrationStartupError",

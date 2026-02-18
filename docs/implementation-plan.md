@@ -1173,11 +1173,16 @@ An item is commit-ready only if all are true:
   - Upsert `items` keyed by `(channel_id, message_id)`.
   - Maintain `raw_message_id` linkage when available.
 - Acceptance criteria:
-  - [ ] First ingest inserts item; re-ingest updates same row.
-  - [ ] `raw_message_id` set on insert and maintained on update.
-  - [ ] Deleting linked raw row sets `items.raw_message_id` to `NULL`.
+  - [x] First ingest inserts item; re-ingest updates same row. [Tests: tests/normalize/test_items_upsert.py::test_item_upsert_updates_existing_row_without_duplicate]
+  - [x] `raw_message_id` set on insert and maintained on update. [Tests: tests/normalize/test_items_upsert.py::test_item_upsert_preserves_raw_message_id_on_update]
+  - [x] Deleting linked raw row sets `items.raw_message_id` to `NULL`. [Tests: tests/normalize/test_items_upsert.py::test_item_upsert_nulls_raw_message_id_on_delete]
 - Verification:
   - `uv run pytest -q tests/normalize/test_items_upsert.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `TO_FILL_BY_COMMIT_HASH`
+  - Verification summary:
+    - `uv run pytest -q tests/normalize/test_items_upsert.py` passed.
 
 ### C058 - Implement URL Canonicalization Utility
 
