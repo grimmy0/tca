@@ -1,9 +1,9 @@
-"""Fail if implementation plan execution records contain placeholder commit SHAs.
+"""Fail if implementation plan execution records contain invalid commit SHAs.
 
 Checks every '- Commit: `<value>`' line in the plan and rejects anything that
-is not a valid hex SHA (7-40 chars) or the sentinel NONE.
+is not a valid lowercase hex SHA (7-40 chars).
 
-Bad values seen in practice: PENDING, COMMIT_SHA_PLACEHOLDER, c016, 058, etc.
+Bad values seen in practice: NONE, PENDING, COMMIT_SHA_PLACEHOLDER, c016, 058.
 """
 
 from __future__ import annotations
@@ -17,8 +17,8 @@ PLAN_PATH = Path("docs/implementation-plan.md")
 # Matches:  - Commit: `<value>`  (any indentation depth)
 COMMIT_LINE_RE = re.compile(r"^\s+-\s+Commit:\s+`(?P<sha>[^`]+)`")
 
-# Valid: 7-40 lowercase hex chars, or the explicit NONE sentinel
-VALID_SHA_RE = re.compile(r"^(?:[0-9a-f]{7,40}|NONE)$")
+# Valid: 7-40 lowercase hex chars
+VALID_SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 def main() -> int:
@@ -38,7 +38,7 @@ def main() -> int:
         if not VALID_SHA_RE.match(sha):
             errors.append(
                 f"{PLAN_PATH}:{lineno}: invalid execution-record SHA '{sha}'. "
-                "Expected a 7-40 char hex SHA or NONE.",
+                "Expected a 7-40 char lowercase hex SHA.",
             )
 
     if errors:

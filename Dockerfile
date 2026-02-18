@@ -6,6 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN groupadd --system tca && \
+    useradd --system --gid tca --create-home --home-dir /home/tca tca
+
 RUN python -m pip install --upgrade pip && \
     python -m pip install \
     "fastapi>=0.115,<1.0" \
@@ -23,11 +26,13 @@ COPY alembic ./alembic
 COPY tca ./tca
 COPY alembic.ini ./alembic.ini
 
-RUN mkdir -p /data
+RUN mkdir -p /data && chown -R tca:tca /app /data
 
 EXPOSE 8787
 
 ENV TCA_DB_PATH=/data/tca.db
 ENV TCA_BIND=0.0.0.0
+
+USER tca
 
 CMD ["python", "-m", "uvicorn", "tca.api.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8787"]

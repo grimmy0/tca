@@ -1610,7 +1610,7 @@ An item is commit-ready only if all are true:
   - `docker run --rm -p 8787:8787 tca:test`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `NONE`
+  - Commit: `1ac4e8ae66d6407da5327143bd6fe314f9a3b1bd`
   - Verification summary:
     - `uv run pytest -q tests/contracts/test_dockerfile_runtime.py` passed.
     - `docker build -t tca:test .` passed.
