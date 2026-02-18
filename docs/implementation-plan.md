@@ -1582,11 +1582,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Add SIGTERM shutdown choreography: stop scheduler, drain tasks, flush writer, close clients/sessions.
 - Acceptance criteria:
-  - [ ] Shutdown sequence executes in required order.
-  - [ ] In-flight write operations are either committed or rolled back cleanly.
-  - [ ] App exits before timeout in controlled test.
+  - [x] Shutdown sequence executes in required order. [Tests: tests/ops/test_graceful_shutdown.py::test_graceful_shutdown_executes_required_sequence_order]
+  - [x] In-flight write operations are either committed or rolled back cleanly. [Tests: tests/ops/test_graceful_shutdown.py::test_graceful_shutdown_drains_writer_queue_with_commit_and_rollback]
+  - [x] App exits before timeout in controlled test. [Tests: tests/ops/test_graceful_shutdown.py::test_graceful_shutdown_exits_before_timeout_when_scheduler_hangs]
 - Verification:
   - `uv run pytest -q tests/ops/test_graceful_shutdown.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/ops/test_graceful_shutdown.py` passed.
 
 ---
 

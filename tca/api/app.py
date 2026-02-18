@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, cast, override, runtime_checkable
 
@@ -61,6 +62,7 @@ class StartupWriterQueueError(RuntimeError):
 
 
 logger = logging.getLogger(__name__)
+SCHEDULER_SHUTDOWN_TIMEOUT_SECONDS = 8.0
 
 
 class StartupDependencyError(RuntimeError):
@@ -234,12 +236,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             started_dependencies.append(dependency)
         yield
     finally:
-        for dependency in reversed(started_dependencies):
-            await dependency.shutdown()
-        if writer_queue is not None:
-            await writer_queue.close()
-        if storage_runtime is not None:
-            await dispose_storage_runtime(storage_runtime)
+        await _shutdown_in_order(
+            dependencies=dependencies,
+            started_dependencies=started_dependencies,
+            writer_queue=writer_queue,
+            storage_runtime=storage_runtime,
+        )
         _clear_runtime_state(app)
         logger.info("Shutting down TCA")
 
@@ -352,3 +354,113 @@ def _clear_runtime_state(app: FastAPI) -> None:
         delattr(state, "storage_runtime")
     if hasattr(state, "writer_queue"):
         delattr(state, "writer_queue")
+
+
+async def _shutdown_in_order(
+    *,
+    dependencies: StartupDependencies,
+    started_dependencies: list[LifecycleDependency],
+    writer_queue: WriterQueueLifecycle | None,
+    storage_runtime: StorageRuntime | None,
+) -> None:
+    """Execute graceful shutdown sequencing with scheduler drain timeout."""
+    shutdown_errors: list[Exception] = []
+    started = {id(dependency) for dependency in started_dependencies}
+
+    scheduler_dependency = dependencies.scheduler
+    if id(scheduler_dependency) in started:
+        await _shutdown_scheduler_with_timeout(
+            dependency=scheduler_dependency,
+            timeout_seconds=SCHEDULER_SHUTDOWN_TIMEOUT_SECONDS,
+        )
+
+    await _close_writer_queue(
+        writer_queue=writer_queue,
+        shutdown_errors=shutdown_errors,
+    )
+    await _shutdown_dependencies(
+        started_dependency_ids=started,
+        shutdown_errors=shutdown_errors,
+        dependencies=(
+            ("telethon_manager", dependencies.telethon_manager),
+            ("auth", dependencies.auth),
+            ("settings", dependencies.settings),
+            ("db", dependencies.db),
+        ),
+    )
+    await _dispose_runtime(
+        storage_runtime=storage_runtime,
+        shutdown_errors=shutdown_errors,
+    )
+
+    if shutdown_errors:
+        raise shutdown_errors[0]
+
+
+async def _shutdown_scheduler_with_timeout(
+    *,
+    dependency: LifecycleDependency,
+    timeout_seconds: float,
+) -> None:
+    """Stop scheduler intake and bound in-flight drain wait time."""
+    shutdown_task = asyncio.create_task(dependency.shutdown())
+    try:
+        await asyncio.wait_for(shutdown_task, timeout=timeout_seconds)
+    except TimeoutError:
+        _ = shutdown_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await shutdown_task
+        logger.warning(
+            "Scheduler shutdown exceeded %.2fs timeout; continuing teardown.",
+            timeout_seconds,
+        )
+
+
+async def _close_writer_queue(
+    *,
+    writer_queue: WriterQueueLifecycle | None,
+    shutdown_errors: list[Exception],
+) -> None:
+    if writer_queue is None:
+        return
+    try:
+        await writer_queue.close()
+    except Exception as exc:
+        if isinstance(exc, asyncio.CancelledError):
+            raise
+        logger.exception("Shutdown step failed for writer queue close.")
+        shutdown_errors.append(exc)
+
+
+async def _shutdown_dependencies(
+    *,
+    started_dependency_ids: set[int],
+    shutdown_errors: list[Exception],
+    dependencies: tuple[tuple[str, LifecycleDependency], ...],
+) -> None:
+    for name, dependency in dependencies:
+        if id(dependency) not in started_dependency_ids:
+            continue
+        try:
+            await dependency.shutdown()
+        except Exception as exc:
+            if isinstance(exc, asyncio.CancelledError):
+                raise
+            logger.exception("Shutdown step failed for dependency '%s'.", name)
+            shutdown_errors.append(exc)
+
+
+async def _dispose_runtime(
+    *,
+    storage_runtime: StorageRuntime | None,
+    shutdown_errors: list[Exception],
+) -> None:
+    if storage_runtime is None:
+        return
+    try:
+        await dispose_storage_runtime(storage_runtime)
+    except Exception as exc:
+        if isinstance(exc, asyncio.CancelledError):
+            raise
+        logger.exception("Shutdown step failed for storage runtime disposal.")
+        shutdown_errors.append(exc)
