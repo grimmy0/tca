@@ -1566,11 +1566,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Keep last `N` backups based on dynamic setting `backup.retain_count`.
 - Acceptance criteria:
-  - [ ] Older backups beyond `N` are removed.
-  - [ ] Newest `N` files are retained.
-  - [ ] `N` changes from settings are applied without restart.
+  - [x] Older backups beyond `N` are removed. [Tests: tests/ops/test_backup_retention.py::test_backup_retention_removes_older_backups_beyond_retain_count]
+  - [x] Newest `N` files are retained. [Tests: tests/ops/test_backup_retention.py::test_backup_retention_keeps_newest_n_files]
+  - [x] `N` changes from settings are applied without restart. [Tests: tests/ops/test_backup_retention.py::test_backup_retention_uses_updated_setting_without_restart]
 - Verification:
   - `uv run pytest -q tests/ops/test_backup_retention.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/ops/test_backup_retention.py` passed.
 
 ### C082 - Implement Graceful Shutdown Sequencing
 

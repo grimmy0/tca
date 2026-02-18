@@ -8,7 +8,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
-from tca.storage import NotificationsRepository
+from sqlalchemy.exc import SQLAlchemyError
+
+from tca.storage import NotificationsRepository, SettingsRepository
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -20,6 +22,8 @@ if TYPE_CHECKING:
 BACKUP_FAILURE_NOTIFICATION_TYPE = "backup_failure"
 BACKUP_FAILURE_NOTIFICATION_SEVERITY = "high"
 BACKUP_FAILURE_NOTIFICATION_MESSAGE = "Nightly SQLite backup failed."
+BACKUP_RETAIN_COUNT_SETTING_KEY = "backup.retain_count"
+DEFAULT_BACKUP_RETAIN_COUNT = 14
 
 
 @dataclass(slots=True, frozen=True)
@@ -79,6 +83,12 @@ class NightlySQLiteBackupJob:
             )
             msg = "Nightly SQLite backup job failed."
             raise NightlySQLiteBackupError(msg) from exc
+        retain_count = await self._resolve_retain_count()
+        await asyncio.to_thread(
+            _cleanup_old_backups,
+            backup_dir=self._backup_dir,
+            retain_count=retain_count,
+        )
         return BackupJobRunSummary(
             backup_path=backup_path,
             integrity_check_result=integrity_check_result,
@@ -110,6 +120,19 @@ class NightlySQLiteBackupJob:
     def _backup_path_for_date(self, *, run_date: date) -> Path:
         file_name = f"tca-{run_date.strftime('%Y%m%d')}.db"
         return self._backup_dir / file_name
+
+    async def _resolve_retain_count(self) -> int:
+        repository = SettingsRepository(
+            read_session_factory=self._read_session_factory,
+            write_session_factory=self._write_session_factory,
+        )
+        try:
+            record = await repository.get_by_key(key=BACKUP_RETAIN_COUNT_SETTING_KEY)
+        except SQLAlchemyError:
+            return DEFAULT_BACKUP_RETAIN_COUNT
+        if record is None:
+            return DEFAULT_BACKUP_RETAIN_COUNT
+        return _coerce_retain_count(value=record.value)
 
 
 def _create_backup_and_run_integrity_check(
@@ -185,3 +208,29 @@ def _normalize_datetime(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value
+
+
+def _cleanup_old_backups(*, backup_dir: Path, retain_count: int) -> None:
+    if retain_count < 1:
+        return
+    if not backup_dir.exists():
+        return
+    backup_files = sorted(
+        (path for path in backup_dir.glob("tca-*.db") if path.is_file()),
+        reverse=True,
+    )
+    for stale_backup in backup_files[retain_count:]:
+        stale_backup.unlink()
+
+
+def _coerce_retain_count(*, value: object) -> int:
+    if isinstance(value, bool):
+        return DEFAULT_BACKUP_RETAIN_COUNT
+    if isinstance(value, int):
+        return value if value > 0 else DEFAULT_BACKUP_RETAIN_COUNT
+    if isinstance(value, float):
+        if value.is_integer():
+            resolved = int(value)
+            return resolved if resolved > 0 else DEFAULT_BACKUP_RETAIN_COUNT
+        return DEFAULT_BACKUP_RETAIN_COUNT
+    return DEFAULT_BACKUP_RETAIN_COUNT
