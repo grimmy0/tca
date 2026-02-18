@@ -1297,7 +1297,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/dedupe/test_strategy_title_similarity.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `NONE`
+  - Commit: `c1a4f5d3aa1f03415532da66738e744cd536f6fc`
   - Verification summary:
     - `uv run pytest -q tests/dedupe/test_strategy_title_similarity.py` passed.
 
