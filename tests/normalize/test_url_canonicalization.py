@@ -42,6 +42,12 @@ def test_non_url_text_input_is_handled_safely() -> None:
         raise AssertionError
 
 
+def test_invalid_url_port_is_handled_safely() -> None:
+    """Invalid URL ports should return None instead of raising errors."""
+    if canonicalize_url("https://example.com:99999/path") is not None:
+        raise AssertionError
+
+
 def test_telegram_wrapped_url_is_unwrapped_and_normalized() -> None:
     """Telegram link wrappers should unwrap into the wrapped target URL."""
     wrapped = (

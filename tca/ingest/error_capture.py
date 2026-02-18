@@ -30,12 +30,15 @@ class IngestErrorStage(StrEnum):
 ALLOWED_INGEST_ERROR_STAGES = tuple(stage.value for stage in IngestErrorStage)
 
 
-def normalize_ingest_error_stage(stage: str | IngestErrorStage) -> str:
+def normalize_ingest_error_stage(stage: object) -> str:
     """Normalize ingest error stage to persisted enum values."""
     if isinstance(stage, IngestErrorStage):
         value = stage.value
-    else:
+    elif isinstance(stage, str):
         value = stage.strip().lower()
+    else:
+        msg = "Ingest error stage must be a string or IngestErrorStage."
+        raise TypeError(msg)
     if value not in ALLOWED_INGEST_ERROR_STAGES:
         msg = f"Invalid ingest error stage: {stage!r}"
         raise ValueError(msg)

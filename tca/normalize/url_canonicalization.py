@@ -27,7 +27,10 @@ def canonicalize_url(value: str | None) -> str | None:
     if not stripped:
         return None
 
-    split = urlsplit(_unwrap_telegram_url(stripped))
+    try:
+        split = urlsplit(_unwrap_telegram_url(stripped))
+    except ValueError:
+        return None
     scheme = split.scheme.lower()
     if not _is_supported_http_scheme(scheme):
         return None
@@ -52,7 +55,10 @@ def _canonicalize_netloc(*, split: SplitResult, scheme: str) -> str | None:
         return None
 
     normalized_hostname = hostname.lower()
-    port = split.port
+    try:
+        port = split.port
+    except ValueError:
+        return None
     if port == _DEFAULT_PORT_BY_SCHEME[scheme]:
         port = None
 

@@ -128,10 +128,11 @@ async def test_cursor_updates_after_successful_poll(
         username=None,
     )
 
+    cursor_time = datetime.now(UTC) + timedelta(hours=1)
     cursor = ChannelCursor(
         last_message_id=451,
         next_offset_id=None,
-        last_polled_at=datetime(2025, 2, 15, 18, 30, tzinfo=UTC) + timedelta(0),
+        last_polled_at=cursor_time,
     )
 
     updated = await state_repo.update_cursor(channel_id=channel.id, cursor=cursor)
@@ -159,10 +160,11 @@ async def test_cursor_read_resumes_from_previous_state(
         username=None,
     )
 
+    cursor_time = datetime.now(UTC) + timedelta(hours=2)
     cursor = ChannelCursor(
         last_message_id=998,
         next_offset_id=990,
-        last_polled_at=datetime(2025, 2, 16, 9, 15, tzinfo=UTC) + timedelta(0),
+        last_polled_at=cursor_time,
     )
     _ = await state_repo.update_cursor(channel_id=channel.id, cursor=cursor)
 

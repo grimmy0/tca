@@ -1184,7 +1184,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/normalize/test_items_upsert.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `NONE`
+  - Commit: `220af6cf63324faa1460d8fc7c77535d7061a733`
   - Verification summary:
     - `uv run pytest -q tests/normalize/test_items_upsert.py` passed.
 
@@ -1200,7 +1200,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/normalize/test_url_canonicalization.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `NONE`
+  - Commit: `dd41c6d3231759621a560fe3711ac0f4cbc4b56a`
   - Verification summary:
     - `uv run pytest -q tests/normalize/test_url_canonicalization.py` passed.
 

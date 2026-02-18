@@ -514,6 +514,8 @@ def _decode_is_enabled(*, value: object) -> bool:
 
 
 def _coerce_count_int(*, value: object, field: str) -> int:
+    if isinstance(value, bool):
+        raise ChannelDecodeError.from_details(details=f"invalid `{field}` value")
     if isinstance(value, int):
         return value
     if isinstance(value, str) and value.isdigit():

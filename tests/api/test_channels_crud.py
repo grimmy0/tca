@@ -161,8 +161,9 @@ def test_patch_channel_persists_polling_state_updates(
         (_as_path(tmp_path) / "channels-patch-bootstrap-token.txt").as_posix(),
     )
 
-    paused_until = datetime(2025, 2, 16, 10, 30, tzinfo=UTC) + timedelta(0)
-    last_success_at = datetime(2025, 2, 16, 9, 15, tzinfo=UTC) + timedelta(0)
+    now = datetime.now(UTC)
+    paused_until = now + timedelta(minutes=75)
+    last_success_at = now + timedelta(minutes=60)
 
     app = create_app()
     auth_headers = _auth_headers()

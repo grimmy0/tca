@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 from sqlalchemy import text
@@ -102,6 +102,9 @@ def test_ingest_error_stage_mapping_matches_allowed_values() -> None:
         normalized = normalize_ingest_error_stage(stage.upper())
         if normalized != stage:
             raise AssertionError
+
+    with pytest.raises(TypeError):
+        _ = normalize_ingest_error_stage(cast("object", 1))
 
 
 @pytest.mark.asyncio
