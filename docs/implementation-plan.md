@@ -1241,11 +1241,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Define internal strategy return contract: `DUPLICATE`, `DISTINCT`, `ABSTAIN`.
 - Acceptance criteria:
-  - [ ] Engine rejects invalid strategy return values.
-  - [ ] Contract is type-checked and unit-tested.
-  - [ ] Unknown statuses fail fast.
+  - [x] Engine rejects invalid strategy return values. [Tests: tests/dedupe/test_strategy_contract.py::test_engine_rejects_invalid_strategy_return_values]
+  - [x] Contract is type-checked and unit-tested. [Tests: tests/dedupe/test_strategy_contract.py::test_contract_is_type_checked_and_unit_tested]
+  - [x] Unknown statuses fail fast. [Tests: tests/dedupe/test_strategy_contract.py::test_unknown_statuses_fail_fast]
 - Verification:
   - `uv run pytest -q tests/dedupe/test_strategy_contract.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/dedupe/test_strategy_contract.py` passed.
 
 ### C062 - Implement `exact_url` Strategy
 
