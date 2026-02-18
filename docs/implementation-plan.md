@@ -1257,11 +1257,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Add URL equality strategy using canonical URL hash/value.
 - Acceptance criteria:
-  - [ ] Equivalent URLs return `DUPLICATE`.
-  - [ ] Non-equivalent URLs return `ABSTAIN` or `DISTINCT` per design.
-  - [ ] Strategy logs reason code in decision record.
+  - [x] Equivalent URLs return `DUPLICATE`. [Tests: tests/dedupe/test_strategy_exact_url.py::test_equivalent_urls_return_duplicate]
+  - [x] Non-equivalent URLs return `ABSTAIN` or `DISTINCT` per design. [Tests: tests/dedupe/test_strategy_exact_url.py::test_non_equivalent_urls_return_distinct, tests/dedupe/test_strategy_exact_url.py::test_missing_url_data_returns_abstain_with_reason_code]
+  - [x] Strategy logs reason code in decision record. [Tests: tests/dedupe/test_strategy_exact_url.py::test_equivalent_urls_return_duplicate, tests/dedupe/test_strategy_exact_url.py::test_non_equivalent_urls_return_distinct, tests/dedupe/test_strategy_exact_url.py::test_missing_url_data_returns_abstain_with_reason_code]
 - Verification:
   - `uv run pytest -q tests/dedupe/test_strategy_exact_url.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/dedupe/test_strategy_exact_url.py` passed.
 
 ### C063 - Implement `content_hash` Strategy
 
