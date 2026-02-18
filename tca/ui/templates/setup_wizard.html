@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}TCA Setup Wizard{% endblock %}
+
+{% block content %}
+<section>
+  <h1>TCA Setup Wizard</h1>
+  {% if error_message %}
+  <p id="setup-error"><strong>{{ error_message }}</strong></p>
+  {% endif %}
+
+  {% if step == "unlock" %}
+  <h2>Setup Step 1: Unlock</h2>
+  <form method="post" action="/ui/setup/unlock">
+    <label>
+      Unlock passphrase
+      <input type="password" name="passphrase" required />
+    </label>
+    <button type="submit">Unlock</button>
+  </form>
+  {% elif step == "auth-start" %}
+  <h2>Setup Step 2: Telegram Credentials</h2>
+  <form method="post" action="/ui/setup/start-auth">
+    <label>
+      API ID
+      <input type="number" name="api_id" required />
+    </label>
+    <label>
+      API hash
+      <input type="text" name="api_hash" required />
+    </label>
+    <label>
+      Phone number
+      <input type="text" name="phone_number" required />
+    </label>
+    <button type="submit">Send OTP</button>
+  </form>
+  {% elif step == "verify-code" %}
+  <h2>Setup Step 3: OTP Verification</h2>
+  <form method="post" action="/ui/setup/verify-code">
+    <input type="hidden" name="session_id" value="{{ session_id }}" />
+    <input type="hidden" name="api_id" value="{{ api_id }}" />
+    <input type="hidden" name="api_hash" value="{{ api_hash }}" />
+    <label>
+      OTP code
+      <input type="text" name="code" required />
+    </label>
+    <button type="submit">Verify code</button>
+  </form>
+  {% elif step == "verify-password" %}
+  <h2>Setup Step 4: 2FA Password</h2>
+  <form method="post" action="/ui/setup/verify-password">
+    <input type="hidden" name="session_id" value="{{ session_id }}" />
+    <input type="hidden" name="api_id" value="{{ api_id }}" />
+    <input type="hidden" name="api_hash" value="{{ api_hash }}" />
+    <label>
+      Password
+      <input type="password" name="password" required />
+    </label>
+    <button type="submit">Verify password</button>
+  </form>
+  {% elif step == "complete" %}
+  <h2>Setup Step 5: Session Saved</h2>
+  <p id="setup-complete">Setup complete. Telegram account persisted.</p>
+  <p><a href="/ui">Open TCA UI</a></p>
+  {% endif %}
+</section>
+{% endblock %}

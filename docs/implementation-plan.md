@@ -1470,11 +1470,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Build multi-step setup pages for unlock mode and Telegram auth.
 - Acceptance criteria:
-  - [ ] Setup wizard follows required step order.
-  - [ ] Invalid step transition is blocked.
-  - [ ] Successful flow persists account and exits setup mode.
+  - [x] Setup wizard follows required step order. [Tests: tests/ui/test_setup_wizard.py::test_setup_wizard_follows_required_step_order]
+  - [x] Invalid step transition is blocked. [Tests: tests/ui/test_setup_wizard.py::test_setup_wizard_blocks_invalid_step_transition]
+  - [x] Successful flow persists account and exits setup mode. [Tests: tests/ui/test_setup_wizard.py::test_setup_wizard_success_persists_account_and_exits_setup_mode]
 - Verification:
   - `uv run pytest -q tests/ui/test_setup_wizard.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/ui/test_setup_wizard.py` passed.
 
 ### C076 - Implement Channels + Groups UI Views
 
