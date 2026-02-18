@@ -40,6 +40,11 @@ from .dedupe_clusters_repo import (
     ClusterMergeResult,
     DedupeClustersRepository,
 )
+from .dedupe_decisions_repo import (
+    DedupeDecisionRecord,
+    DedupeDecisionsRepository,
+    DedupeDecisionsRepositoryError,
+)
 from .ingest_errors_repo import (
     IngestErrorDecodeError,
     IngestErrorRecord,
@@ -115,6 +120,9 @@ __all__ = [
     "ClusterAssignmentResult",
     "ClusterMergeResult",
     "DedupeClustersRepository",
+    "DedupeDecisionRecord",
+    "DedupeDecisionsRepository",
+    "DedupeDecisionsRepositoryError",
     "IngestErrorDecodeError",
     "IngestErrorRecord",
     "IngestErrorsRepository",

@@ -20,7 +20,9 @@ from .exact_url_strategy import (
 from .strategy_chain import (
     NO_STRATEGY_MATCH_REASON,
     StrategyChain,
+    StrategyDecisionAttempt,
     execute_strategy_chain,
+    execute_strategy_chain_with_trace,
 )
 from .strategy_contract import (
     STRATEGY_STATUSES,
@@ -67,6 +69,7 @@ __all__ = [
     "StrategyCallable",
     "StrategyChain",
     "StrategyContractError",
+    "StrategyDecisionAttempt",
     "StrategyMetadata",
     "StrategyResult",
     "StrategyStatus",
@@ -78,6 +81,7 @@ __all__ = [
     "evaluate_exact_url",
     "evaluate_title_similarity",
     "execute_strategy_chain",
+    "execute_strategy_chain_with_trace",
     "run_strategy",
     "select_candidates",
 ]

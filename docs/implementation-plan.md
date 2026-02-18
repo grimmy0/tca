@@ -1386,11 +1386,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Store strategy-level decision metadata in `dedupe_decisions`.
 - Acceptance criteria:
-  - [ ] Every dedupe attempt persists decision records.
-  - [ ] Record includes strategy name, outcome, reason, and score where applicable.
-  - [ ] Decisions can be retrieved by item or cluster.
+  - [x] Every dedupe attempt persists decision records. [Tests: tests/dedupe/test_decision_persistence.py::test_every_dedupe_attempt_persists_decision_records]
+  - [x] Record includes strategy name, outcome, reason, and score where applicable. [Tests: tests/dedupe/test_decision_persistence.py::test_record_includes_strategy_outcome_reason_and_score_when_present]
+  - [x] Decisions can be retrieved by item or cluster. [Tests: tests/dedupe/test_decision_persistence.py::test_decisions_can_be_retrieved_by_item_or_cluster]
 - Verification:
   - `uv run pytest -q tests/dedupe/test_decision_persistence.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `NONE`
+  - Verification summary:
+    - `uv run pytest -q tests/dedupe/test_decision_persistence.py` passed.
 
 ---
 
