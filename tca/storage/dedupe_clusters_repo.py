@@ -119,7 +119,9 @@ class DedupeClustersRepository:
         matched_cluster_ids: list[int],
     ) -> ClusterMergeResult:
         """Merge matched clusters into the smallest cluster id target."""
-        unique_cluster_ids = sorted(set(matched_cluster_ids))
+        unique_cluster_ids = _normalize_cluster_ids(
+            matched_cluster_ids=matched_cluster_ids,
+        )
         if len(unique_cluster_ids) < MIN_MERGE_CLUSTER_COUNT:
             message = "need at least two clusters to merge"
             raise ValueError(message)
@@ -207,6 +209,20 @@ class DedupeClustersRepository:
         )
 
         async with self._write_session_factory() as session:
+            target_cluster_row = (
+                (
+                    await session.execute(
+                        resolve_event_item_statement,
+                        {"target_cluster_id": target_cluster_id},
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if target_cluster_row is None:
+                message = f"target cluster `{target_cluster_id}` does not exist"
+                raise ValueError(message)
+
             source_member_row = (
                 (
                     await session.execute(
@@ -237,6 +253,15 @@ class DedupeClustersRepository:
                 field="count",
             )
 
+            if moved_member_count == 0 and removed_cluster_count == 0:
+                return ClusterMergeResult(
+                    target_cluster_id=target_cluster_id,
+                    source_cluster_ids=source_cluster_ids,
+                    moved_member_count=0,
+                    removed_cluster_count=0,
+                    recorded_event=False,
+                )
+
             _ = await session.execute(
                 move_members_statement,
                 {
@@ -250,19 +275,8 @@ class DedupeClustersRepository:
                 {"source_cluster_ids": source_cluster_ids},
             )
 
-            event_item_row = (
-                (
-                    await session.execute(
-                        resolve_event_item_statement,
-                        {"target_cluster_id": target_cluster_id},
-                    )
-                )
-                .mappings()
-                .one_or_none()
-            )
             event_item_id: object | None = None
-            if event_item_row is not None:
-                event_item_id = cast("object", event_item_row["item_id"])
+            event_item_id = cast("object | None", target_cluster_row["item_id"])
 
             if event_item_id is None:
                 fallback_item_row = (
@@ -324,3 +338,15 @@ def _coerce_int(*, value: object, field: str) -> int:
         return value
     msg = f"missing integer `{field}`"
     raise TypeError(msg)
+
+
+def _normalize_cluster_ids(*, matched_cluster_ids: list[int]) -> list[int]:
+    normalized: set[int] = set()
+    for index, cluster_id in enumerate(matched_cluster_ids):
+        normalized.add(
+            _coerce_int(
+                value=cluster_id,
+                field=f"matched_cluster_ids[{index}]",
+            ),
+        )
+    return sorted(normalized)

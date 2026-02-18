@@ -280,6 +280,104 @@ async def test_merge_records_cluster_merge_decision_event(
         raise AssertionError
 
 
+@pytest.mark.asyncio
+async def test_merge_is_idempotent_for_repeated_same_input(
+    cluster_repository: tuple[DedupeClustersRepository, StorageRuntime],
+) -> None:
+    """Repeated merge input should be a no-op once sources are already merged."""
+    repository, runtime = cluster_repository
+    await _seed_merge_fixtures(runtime=runtime)
+
+    first = await repository.merge_clusters(matched_cluster_ids=[1, 2, 3])
+    second = await repository.merge_clusters(matched_cluster_ids=[1, 2, 3])
+
+    if not first.recorded_event:
+        raise AssertionError
+    if second.moved_member_count != 0:
+        raise AssertionError
+    if second.removed_cluster_count != 0:
+        raise AssertionError
+    if second.recorded_event:
+        raise AssertionError
+
+    async with runtime.read_session_factory() as session:
+        decision_count = cast(
+            "int",
+            (
+                await session.execute(
+                    text("SELECT COUNT(*) AS count FROM dedupe_decisions"),
+                )
+            ).scalar_one(),
+        )
+
+    if decision_count != 1:
+        raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_merge_requires_at_least_two_unique_clusters(
+    cluster_repository: tuple[DedupeClustersRepository, StorageRuntime],
+) -> None:
+    """Merge should reject requests with fewer than two unique cluster ids."""
+    repository, _ = cluster_repository
+
+    with pytest.raises(ValueError, match="need at least two clusters to merge"):
+        _ = await repository.merge_clusters(matched_cluster_ids=[1, 1])
+
+
+@pytest.mark.asyncio
+async def test_merge_rejects_bool_cluster_ids(
+    cluster_repository: tuple[DedupeClustersRepository, StorageRuntime],
+) -> None:
+    """Boolean cluster ids must not be accepted as integer identifiers."""
+    repository, _ = cluster_repository
+
+    with pytest.raises(TypeError, match="missing integer `matched_cluster_ids\\[1\\]`"):
+        _ = await repository.merge_clusters(matched_cluster_ids=[1, True])
+
+
+@pytest.mark.asyncio
+async def test_merge_rejects_missing_target_cluster(
+    cluster_repository: tuple[DedupeClustersRepository, StorageRuntime],
+) -> None:
+    """Merge should fail fast when the deterministic target cluster is absent."""
+    repository, runtime = cluster_repository
+    await _seed_merge_fixtures(runtime=runtime)
+
+    with pytest.raises(ValueError, match="target cluster `0` does not exist"):
+        _ = await repository.merge_clusters(matched_cluster_ids=[0, 2, 3])
+
+
+@pytest.mark.asyncio
+async def test_merge_rolls_back_when_no_event_item_is_available(
+    cluster_repository: tuple[DedupeClustersRepository, StorageRuntime],
+) -> None:
+    """Merge must roll back if no item can be used for cluster_merge event."""
+    repository, runtime = cluster_repository
+    await _seed_clusters_without_merge_event_item(runtime=runtime)
+
+    with pytest.raises(
+        ValueError,
+        match="cannot record merge event without target cluster item",
+    ):
+        _ = await repository.merge_clusters(matched_cluster_ids=[1, 2])
+
+    async with runtime.read_session_factory() as session:
+        rows = await session.execute(
+            text(
+                """
+                SELECT id
+                FROM dedupe_clusters
+                ORDER BY id ASC
+                """,
+            ),
+        )
+        cluster_ids = [cast("int", row.id) for row in rows]
+
+    if cluster_ids != [1, 2]:
+        raise AssertionError
+
+
 async def _insert_channel_fixtures(runtime: StorageRuntime) -> None:
     async with runtime.write_session_factory() as session:
         _ = await session.execute(
@@ -341,6 +439,26 @@ async def _seed_merge_fixtures(*, runtime: StorageRuntime) -> None:
                     """,
                 ),
                 {"cluster_id": cluster_id, "item_id": item_id},
+            )
+
+        await session.commit()
+
+
+async def _seed_clusters_without_merge_event_item(*, runtime: StorageRuntime) -> None:
+    async with runtime.write_session_factory() as session:
+        for cluster_id in (1, 2):
+            _ = await session.execute(
+                text(
+                    """
+                    INSERT INTO dedupe_clusters (
+                        id,
+                        cluster_key,
+                        representative_item_id
+                    )
+                    VALUES (:id, :cluster_key, NULL)
+                    """,
+                ),
+                {"id": cluster_id, "cluster_key": f"cluster-empty-{cluster_id}"},
             )
 
         await session.commit()
