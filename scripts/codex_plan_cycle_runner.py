@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import secrets
 import shlex
 import shutil
 import subprocess
@@ -31,6 +32,20 @@ QUOTA_ERROR_PATTERNS = (
     re.compile(r"\byou(?:'ve| have) reached .*limit\b", re.IGNORECASE),
     re.compile(r"\bout of credits?\b", re.IGNORECASE),
     re.compile(r"\b429\b", re.IGNORECASE),
+)
+RETRYABLE_RATE_LIMIT_PATTERNS = (
+    re.compile(r"\b429\b", re.IGNORECASE),
+    re.compile(r"\btoo many requests\b", re.IGNORECASE),
+    re.compile(r"\brate[ -]?limit(?:ed)?\b", re.IGNORECASE),
+    re.compile(r"\bexceeded\b.*\brate\b", re.IGNORECASE),
+)
+QUOTA_EXHAUSTION_PATTERNS = (
+    re.compile(r"\binsufficient[_ ]quota\b", re.IGNORECASE),
+    re.compile(r"\busage limit\b", re.IGNORECASE),
+    re.compile(r"\bquota exceeded\b", re.IGNORECASE),
+    re.compile(r"\bexceeded\b.*\b(quota|usage)\b", re.IGNORECASE),
+    re.compile(r"\byou(?:'ve| have) reached .*limit\b", re.IGNORECASE),
+    re.compile(r"\bout of credits?\b", re.IGNORECASE),
 )
 CODEX_OPTION_5_MIN_VERSION = (0, 102, 0)
 ASK_FOR_APPROVAL_FLAG = "--ask-for-approval"
@@ -121,6 +136,14 @@ class CodexCliCapabilities:
     supports_ask_for_approval_flag: bool
     enable_option_5: bool
     option_5_warning: str | None
+
+
+@dataclass(frozen=True)
+class RateLimitIssue:
+    """Matched rate-limit category extracted from tool output."""
+
+    line: str
+    retryable: bool
 
 
 class TeeLogger:
@@ -425,6 +448,69 @@ def detect_quota_issue(*texts: str) -> str | None:
     return None
 
 
+def detect_rate_limit_issue(*texts: str) -> RateLimitIssue | None:
+    """Classify rate-limit output as retryable (429) or hard quota exhaustion."""
+    for text in texts:
+        for line in text.splitlines():
+            stripped = line.strip()
+            for pattern in RETRYABLE_RATE_LIMIT_PATTERNS:
+                if pattern.search(line):
+                    return RateLimitIssue(line=stripped, retryable=True)
+            for pattern in QUOTA_EXHAUSTION_PATTERNS:
+                if pattern.search(line):
+                    return RateLimitIssue(line=stripped, retryable=False)
+    return None
+
+
+def compute_full_jitter_backoff_seconds(
+    *,
+    attempt: int,
+    base_seconds: float,
+    max_seconds: float,
+) -> float:
+    """Return a full-jitter exponential backoff delay."""
+    if attempt <= 0 or base_seconds <= 0.0 or max_seconds <= 0.0:
+        return 0.0
+    upper_bound = min(max_seconds, base_seconds * (2 ** (attempt - 1)))
+    if upper_bound <= 0.0:
+        return 0.0
+    # Use a cryptographic RNG to satisfy strict linting.
+    jitter_fraction = secrets.randbelow(1_000_000) / 1_000_000
+    return jitter_fraction * upper_bound
+
+
+def wait_for_retryable_rate_limit(  # noqa: PLR0913
+    *,
+    logger: TeeLogger,
+    step_name: str,
+    matched_line: str,
+    attempt: int,
+    max_attempts: int,
+    backoff_base_seconds: float,
+    backoff_max_seconds: float,
+) -> bool:
+    """Sleep with full-jitter backoff for retryable 429/rate-limit responses."""
+    if attempt > max_attempts:
+        return False
+    delay_seconds = compute_full_jitter_backoff_seconds(
+        attempt=attempt,
+        base_seconds=backoff_base_seconds,
+        max_seconds=backoff_max_seconds,
+    )
+    logger.log(
+        "Retryable rate limit detected during "
+        f"'{step_name}' (attempt {attempt}/{max_attempts}). "
+        f"Matched: {matched_line}",
+    )
+    logger.log(
+        "Sleeping with full-jitter exponential backoff for "
+        f"{delay_seconds:.2f}s before retry.",
+    )
+    if delay_seconds > 0.0:
+        time.sleep(delay_seconds)
+    return True
+
+
 def build_output_schema(step_name: str) -> dict[str, object]:
     """Build strict JSON Schema for the step's final response."""
     sha_or_none = r"^(?:[0-9a-f]{7,40}|NONE)$"
@@ -528,6 +614,22 @@ def build_codex_exec_command(
     if model is not None:
         command.extend(["--model", model])
     return command
+
+
+def maybe_apply_codex_exec_cooldown(
+    *,
+    logger: TeeLogger,
+    step_name: str,
+    cooldown_seconds: float,
+) -> None:
+    """Apply optional fixed delay before each codex exec invocation."""
+    if cooldown_seconds <= 0.0:
+        return
+    logger.log(
+        "Applying codex exec cooldown before "
+        f"'{step_name}': sleeping {cooldown_seconds:.2f}s.",
+    )
+    time.sleep(cooldown_seconds)
 
 
 def run_quota_probe(
@@ -926,6 +1028,10 @@ def run_docs_review(  # noqa: PLR0913
     cycle_number: int,
     logs_root: Path,
     logger: TeeLogger,
+    codex_exec_cooldown_seconds: float,
+    retryable_rate_limit_max_retries: int,
+    retryable_rate_limit_backoff_base_seconds: float,
+    retryable_rate_limit_backoff_max_seconds: float,
     quota_wait_interval: float,
     max_quota_waits: int,
     explicit_never_approval: bool,
@@ -936,6 +1042,7 @@ def run_docs_review(  # noqa: PLR0913
     """
     logger.section(f"Docs Review (after cycle {cycle_number})")
     prompt = build_docs_review_prompt(repo_root=repo_root)
+    retryable_attempt = 0
     while True:
         result = run_codex_step(
             codex_bin=codex_bin,
@@ -946,13 +1053,31 @@ def run_docs_review(  # noqa: PLR0913
             prompt=prompt,
             logs_root=logs_root,
             logger=logger,
+            codex_exec_cooldown_seconds=codex_exec_cooldown_seconds,
             explicit_never_approval=explicit_never_approval,
         )
         if result.returncode == 0:
             logger.log("Docs review step completed successfully.")
             return
-        quota_hit = detect_quota_issue(result.output, result.last_message)
-        if quota_hit is not None:
+        rate_limit_issue = detect_rate_limit_issue(result.output, result.last_message)
+        if rate_limit_issue is not None and rate_limit_issue.retryable:
+            retryable_attempt += 1
+            if wait_for_retryable_rate_limit(
+                logger=logger,
+                step_name="docs_review",
+                matched_line=rate_limit_issue.line,
+                attempt=retryable_attempt,
+                max_attempts=retryable_rate_limit_max_retries,
+                backoff_base_seconds=retryable_rate_limit_backoff_base_seconds,
+                backoff_max_seconds=retryable_rate_limit_backoff_max_seconds,
+            ):
+                continue
+            logger.log(
+                "WARNING: Docs review retryable rate limit retries exhausted "
+                "— skipping.",
+            )
+            return
+        if rate_limit_issue is not None:
             if wait_for_quota_reset(
                 codex_bin=codex_bin,
                 repo_root=repo_root,
@@ -961,13 +1086,13 @@ def run_docs_review(  # noqa: PLR0913
                 interval=quota_wait_interval,
                 max_attempts=max_quota_waits,
                 step_name="docs_review",
-                matched_line=quota_hit,
+                matched_line=rate_limit_issue.line,
                 explicit_never_approval=explicit_never_approval,
             ):
                 continue
             logger.log(
                 "WARNING: Docs review quota exhausted — skipping. "
-                f"Matched: {quota_hit}",
+                f"Matched: {rate_limit_issue.line}",
             )
             return
         logger.log(
@@ -987,6 +1112,7 @@ def run_codex_step(  # noqa: PLR0913
     prompt: str,
     logs_root: Path,
     logger: TeeLogger,
+    codex_exec_cooldown_seconds: float,
     explicit_never_approval: bool,
 ) -> CodexStepResult:
     """Run one codex exec call and persist prompt/output artifacts."""
@@ -1017,6 +1143,11 @@ def run_codex_step(  # noqa: PLR0913
         ],
     )
     command.append("-")
+    maybe_apply_codex_exec_cooldown(
+        logger=logger,
+        step_name=step_name,
+        cooldown_seconds=codex_exec_cooldown_seconds,
+    )
 
     result = run_stream(
         command=command,
@@ -1099,18 +1230,45 @@ def parse_args() -> argparse.Namespace:
         help="Optional delay between cycles.",
     )
     parser.add_argument(
+        "--codex-exec-cooldown-seconds",
+        type=float,
+        default=0.0,
+        help="Optional fixed delay before each codex exec request.",
+    )
+    parser.add_argument(
+        "--retryable-rate-limit-max-retries",
+        type=int,
+        default=6,
+        help="Max retries for retryable 429/rate-limit responses.",
+    )
+    parser.add_argument(
+        "--retryable-rate-limit-backoff-base-seconds",
+        type=float,
+        default=2.0,
+        help="Base seconds for full-jitter exponential backoff on 429 responses.",
+    )
+    parser.add_argument(
+        "--retryable-rate-limit-backoff-max-seconds",
+        type=float,
+        default=60.0,
+        help="Max capped seconds for full-jitter exponential backoff on 429 responses.",
+    )
+    parser.add_argument(
         "--quota-wait-interval",
         type=float,
         default=3600.0,
-        help="Seconds between quota-reset probes (default: 3600 = 1 hour).",
+        help=(
+            "Seconds between quota-reset probes for non-retryable quota exhaustion "
+            "(default: 3600 = 1 hour)."
+        ),
     )
     parser.add_argument(
         "--max-quota-waits",
         type=int,
         default=0,
         help=(
-            "Max probe attempts before giving up on quota reset. "
-            "0 = exit immediately on quota hit (default)."
+            "Max probe attempts before giving up on non-retryable quota exhaustion. "
+            "0 = exit immediately on non-retryable quota hit (default)."
         ),
     )
     parser.add_argument(
@@ -1155,6 +1313,13 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
         logger.log(f"logs_root={logs_root}")
         logger.log(f"max_cycles={args.max_cycles}")
         logger.log(f"sleep_seconds={args.sleep_seconds}")
+        logger.log(f"codex_exec_cooldown_seconds={args.codex_exec_cooldown_seconds}")
+        logger.log(
+            "retryable_rate_limit="
+            f"max_retries={args.retryable_rate_limit_max_retries}, "
+            f"base={args.retryable_rate_limit_backoff_base_seconds}, "
+            f"max={args.retryable_rate_limit_backoff_max_seconds}",
+        )
         logger.log(f"allow_dirty_start={args.allow_dirty_start}")
         logger.log(f"quota_wait_interval={args.quota_wait_interval}")
         logger.log(f"max_quota_waits={args.max_quota_waits}")
@@ -1169,6 +1334,22 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
             return 1
         if not design_path.exists():
             logger.log("ERROR: design file does not exist.")
+            return 1
+        if args.codex_exec_cooldown_seconds < 0.0:
+            logger.log("ERROR: --codex-exec-cooldown-seconds must be >= 0.")
+            return 1
+        if args.retryable_rate_limit_max_retries < 0:
+            logger.log("ERROR: --retryable-rate-limit-max-retries must be >= 0.")
+            return 1
+        if args.retryable_rate_limit_backoff_base_seconds < 0.0:
+            logger.log(
+                "ERROR: --retryable-rate-limit-backoff-base-seconds must be >= 0.",
+            )
+            return 1
+        if args.retryable_rate_limit_backoff_max_seconds < 0.0:
+            logger.log(
+                "ERROR: --retryable-rate-limit-backoff-max-seconds must be >= 0.",
+            )
             return 1
 
         codex_bin = resolve_executable(args.codex_bin)
@@ -1290,23 +1471,47 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
             logger.log(
                 "Implementation prompt prepared and saved to per-step artifact file.",
             )
-            implement_result = run_codex_step(
-                codex_bin=codex_bin,
-                repo_root=repo_root,
-                model=args.model,
-                cycle_number=cycle_number,
-                step_name="implement",
-                prompt=implementation_prompt,
-                logs_root=logs_root,
-                logger=logger,
-                explicit_never_approval=explicit_never_approval,
-            )
-            if implement_result.returncode != 0:
-                quota_hit = detect_quota_issue(
+            implement_retryable_attempt = 0
+            while True:
+                implement_result = run_codex_step(
+                    codex_bin=codex_bin,
+                    repo_root=repo_root,
+                    model=args.model,
+                    cycle_number=cycle_number,
+                    step_name="implement",
+                    prompt=implementation_prompt,
+                    logs_root=logs_root,
+                    logger=logger,
+                    codex_exec_cooldown_seconds=args.codex_exec_cooldown_seconds,
+                    explicit_never_approval=explicit_never_approval,
+                )
+                if implement_result.returncode == 0:
+                    break
+
+                rate_limit_issue = detect_rate_limit_issue(
                     implement_result.output,
                     implement_result.last_message,
                 )
-                if quota_hit is not None:
+                if rate_limit_issue is not None and rate_limit_issue.retryable:
+                    implement_retryable_attempt += 1
+                    if wait_for_retryable_rate_limit(
+                        logger=logger,
+                        step_name="implement",
+                        matched_line=rate_limit_issue.line,
+                        attempt=implement_retryable_attempt,
+                        max_attempts=args.retryable_rate_limit_max_retries,
+                        backoff_base_seconds=(
+                            args.retryable_rate_limit_backoff_base_seconds
+                        ),
+                        backoff_max_seconds=args.retryable_rate_limit_backoff_max_seconds,
+                    ):
+                        continue
+                    return graceful_quota_exit(
+                        logger=logger,
+                        step_name="implement",
+                        matched_line=rate_limit_issue.line,
+                    )
+                if rate_limit_issue is not None:
                     if wait_for_quota_reset(
                         codex_bin=codex_bin,
                         repo_root=repo_root,
@@ -1315,14 +1520,14 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                         interval=args.quota_wait_interval,
                         max_attempts=args.max_quota_waits,
                         step_name="implement",
-                        matched_line=quota_hit,
+                        matched_line=rate_limit_issue.line,
                         explicit_never_approval=explicit_never_approval,
                     ):
                         continue
                     return graceful_quota_exit(
                         logger=logger,
                         step_name="implement",
-                        matched_line=quota_hit,
+                        matched_line=rate_limit_issue.line,
                     )
                 logger.log(
                     "ERROR: implement step failed with code "
@@ -1340,6 +1545,16 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                         cycle_number=cycle_number,
                         logs_root=logs_root,
                         logger=logger,
+                        codex_exec_cooldown_seconds=args.codex_exec_cooldown_seconds,
+                        retryable_rate_limit_max_retries=(
+                            args.retryable_rate_limit_max_retries
+                        ),
+                        retryable_rate_limit_backoff_base_seconds=(
+                            args.retryable_rate_limit_backoff_base_seconds
+                        ),
+                        retryable_rate_limit_backoff_max_seconds=(
+                            args.retryable_rate_limit_backoff_max_seconds
+                        ),
                         quota_wait_interval=args.quota_wait_interval,
                         max_quota_waits=args.max_quota_waits,
                         explicit_never_approval=explicit_never_approval,
@@ -1356,11 +1571,27 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                 args=["rev-parse", "HEAD"],
             )
             if head_before == head_after_implement:
-                quota_hit = detect_quota_issue(
+                rate_limit_issue = detect_rate_limit_issue(
                     implement_result.output,
                     implement_result.last_message,
                 )
-                if quota_hit is not None:
+                if (
+                    rate_limit_issue is not None
+                    and rate_limit_issue.retryable
+                    and wait_for_retryable_rate_limit(
+                        logger=logger,
+                        step_name="implement",
+                        matched_line=rate_limit_issue.line,
+                        attempt=1,
+                        max_attempts=1,
+                        backoff_base_seconds=(
+                            args.retryable_rate_limit_backoff_base_seconds
+                        ),
+                        backoff_max_seconds=args.retryable_rate_limit_backoff_max_seconds,
+                    )
+                ):
+                    continue
+                if rate_limit_issue is not None:
                     if wait_for_quota_reset(
                         codex_bin=codex_bin,
                         repo_root=repo_root,
@@ -1369,14 +1600,14 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                         interval=args.quota_wait_interval,
                         max_attempts=args.max_quota_waits,
                         step_name="implement",
-                        matched_line=quota_hit,
+                        matched_line=rate_limit_issue.line,
                         explicit_never_approval=explicit_never_approval,
                     ):
                         continue
                     return graceful_quota_exit(
                         logger=logger,
                         step_name="implement",
-                        matched_line=quota_hit,
+                        matched_line=rate_limit_issue.line,
                     )
                 logger.log(
                     "ERROR: implement step finished without advancing HEAD and "
@@ -1412,6 +1643,7 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                 upstream=upstream,
             )
             logger.log("Review prompt prepared and saved to per-step artifact file.")
+            review_retryable_attempt = 0
             while True:
                 review_result = run_codex_step(
                     codex_bin=codex_bin,
@@ -1422,15 +1654,35 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                     prompt=review_prompt,
                     logs_root=logs_root,
                     logger=logger,
+                    codex_exec_cooldown_seconds=args.codex_exec_cooldown_seconds,
                     explicit_never_approval=explicit_never_approval,
                 )
                 if review_result.returncode == 0:
                     break
-                quota_hit = detect_quota_issue(
+                rate_limit_issue = detect_rate_limit_issue(
                     review_result.output,
                     review_result.last_message,
                 )
-                if quota_hit is not None:
+                if rate_limit_issue is not None and rate_limit_issue.retryable:
+                    review_retryable_attempt += 1
+                    if wait_for_retryable_rate_limit(
+                        logger=logger,
+                        step_name="review_fix_push",
+                        matched_line=rate_limit_issue.line,
+                        attempt=review_retryable_attempt,
+                        max_attempts=args.retryable_rate_limit_max_retries,
+                        backoff_base_seconds=(
+                            args.retryable_rate_limit_backoff_base_seconds
+                        ),
+                        backoff_max_seconds=args.retryable_rate_limit_backoff_max_seconds,
+                    ):
+                        continue
+                    return graceful_quota_exit(
+                        logger=logger,
+                        step_name="review_fix_push",
+                        matched_line=rate_limit_issue.line,
+                    )
+                if rate_limit_issue is not None:
                     if wait_for_quota_reset(
                         codex_bin=codex_bin,
                         repo_root=repo_root,
@@ -1439,14 +1691,14 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                         interval=args.quota_wait_interval,
                         max_attempts=args.max_quota_waits,
                         step_name="review_fix_push",
-                        matched_line=quota_hit,
+                        matched_line=rate_limit_issue.line,
                         explicit_never_approval=explicit_never_approval,
                     ):
                         continue
                     return graceful_quota_exit(
                         logger=logger,
                         step_name="review_fix_push",
-                        matched_line=quota_hit,
+                        matched_line=rate_limit_issue.line,
                     )
                 logger.log(
                     f"ERROR: review/fix/push step failed with code "
@@ -1510,6 +1762,16 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                     cycle_number=cycle_number,
                     logs_root=logs_root,
                     logger=logger,
+                    codex_exec_cooldown_seconds=args.codex_exec_cooldown_seconds,
+                    retryable_rate_limit_max_retries=(
+                        args.retryable_rate_limit_max_retries
+                    ),
+                    retryable_rate_limit_backoff_base_seconds=(
+                        args.retryable_rate_limit_backoff_base_seconds
+                    ),
+                    retryable_rate_limit_backoff_max_seconds=(
+                        args.retryable_rate_limit_backoff_max_seconds
+                    ),
                     quota_wait_interval=args.quota_wait_interval,
                     max_quota_waits=args.max_quota_waits,
                     explicit_never_approval=explicit_never_approval,
