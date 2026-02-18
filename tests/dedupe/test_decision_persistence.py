@@ -11,6 +11,7 @@ from tca.config.settings import load_settings
 from tca.dedupe import StrategyDecisionAttempt, execute_strategy_chain_with_trace
 from tca.storage import (
     DedupeDecisionsRepository,
+    DedupeDecisionsRepositoryError,
     StorageRuntime,
     create_storage_runtime,
     dispose_storage_runtime,
@@ -237,6 +238,78 @@ async def test_decisions_can_be_retrieved_by_item_or_cluster(
         raise AssertionError
     if any(row.cluster_id != PRIMARY_CLUSTER_ID for row in by_cluster):
         raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_persist_attempts_rejects_bool_integer_inputs(
+    decisions_repository: tuple[DedupeDecisionsRepository, StorageRuntime],
+) -> None:
+    """Boolean values must be rejected for integer persistence identifiers."""
+    repository, _ = decisions_repository
+
+    with pytest.raises(DedupeDecisionsRepositoryError, match="invalid `item_id` value"):
+        _ = await repository.persist_attempts(
+            item_id=True,
+            cluster_id=PRIMARY_CLUSTER_ID,
+            candidate_item_id=102,
+            decision_attempts=_build_attempts(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_persist_attempts_rejects_non_finite_scores_atomically(
+    decisions_repository: tuple[DedupeDecisionsRepository, StorageRuntime],
+) -> None:
+    """Any invalid attempt score must fail before writing partial decision rows."""
+    repository, _ = decisions_repository
+
+    with pytest.raises(
+        DedupeDecisionsRepositoryError,
+        match=r"invalid `decision_attempts\[1\]\.score` value",
+    ):
+        _ = await repository.persist_attempts(
+            item_id=PRIMARY_ITEM_ID,
+            cluster_id=PRIMARY_CLUSTER_ID,
+            candidate_item_id=102,
+            decision_attempts=(
+                StrategyDecisionAttempt(
+                    strategy_name="exact_url",
+                    outcome="ABSTAIN",
+                    reason="exact_url_missing",
+                    score=None,
+                ),
+                StrategyDecisionAttempt(
+                    strategy_name="title_similarity",
+                    outcome="DUPLICATE",
+                    reason="title_similarity_match",
+                    score=float("nan"),
+                ),
+            ),
+        )
+
+    rows = await repository.list_for_item(item_id=PRIMARY_ITEM_ID)
+    if rows:
+        raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_persist_attempts_rejects_non_finite_metadata(
+    decisions_repository: tuple[DedupeDecisionsRepository, StorageRuntime],
+) -> None:
+    """Metadata JSON encoding must reject non-finite numbers."""
+    repository, _ = decisions_repository
+
+    with pytest.raises(
+        DedupeDecisionsRepositoryError,
+        match="invalid `metadata` value",
+    ):
+        _ = await repository.persist_attempts(
+            item_id=PRIMARY_ITEM_ID,
+            cluster_id=PRIMARY_CLUSTER_ID,
+            candidate_item_id=102,
+            decision_attempts=_build_attempts(),
+            metadata={"score_floor": float("inf")},
+        )
 
 
 def _build_attempts() -> tuple[StrategyDecisionAttempt, ...]:

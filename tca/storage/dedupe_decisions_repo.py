@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from json import dumps
@@ -68,7 +69,14 @@ class DedupeDecisionsRepository:
         metadata: Mapping[str, object] | None = None,
     ) -> tuple[int, ...]:
         """Persist each strategy decision attempt as an explainability row."""
-        if not decision_attempts:
+        item_id = _coerce_write_int(value=item_id, field="item_id")
+        cluster_id = _coerce_optional_write_int(value=cluster_id, field="cluster_id")
+        candidate_item_id = _coerce_optional_write_int(
+            value=candidate_item_id,
+            field="candidate_item_id",
+        )
+        validated_attempts = _validate_attempts(decision_attempts=decision_attempts)
+        if not validated_attempts:
             return ()
 
         insert_statement = text(
@@ -100,7 +108,7 @@ class DedupeDecisionsRepository:
         inserted_ids: list[int] = []
 
         async with self._write_session_factory() as session:
-            for attempt in decision_attempts:
+            for attempt in validated_attempts:
                 inserted_row = (
                     (
                         await session.execute(
@@ -220,6 +228,9 @@ def _decode_decision_row(*, row: object) -> DedupeDecisionRecord:
 
 
 def _coerce_int(*, value: object, field: str) -> int:
+    if isinstance(value, bool):
+        msg = f"missing integer `{field}`"
+        raise DedupeDecisionsRepositoryError(msg)
     if isinstance(value, int):
         return value
     if isinstance(value, str) and value.isdigit():
@@ -228,9 +239,71 @@ def _coerce_int(*, value: object, field: str) -> int:
     raise DedupeDecisionsRepositoryError(msg)
 
 
+def _coerce_write_int(*, value: object, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        msg = f"invalid `{field}` value"
+        raise DedupeDecisionsRepositoryError(msg)
+    return value
+
+
+def _coerce_optional_write_int(*, value: object, field: str) -> int | None:
+    if value is None:
+        return None
+    return _coerce_write_int(value=value, field=field)
+
+
+def _coerce_non_empty_str(*, value: object, field: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        msg = f"invalid `{field}` value"
+        raise DedupeDecisionsRepositoryError(msg)
+    return value
+
+
+def _coerce_optional_finite_float(*, value: object, field: str) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        msg = f"invalid `{field}` value"
+        raise DedupeDecisionsRepositoryError(msg)
+    score = float(value)
+    if not math.isfinite(score):
+        msg = f"invalid `{field}` value"
+        raise DedupeDecisionsRepositoryError(msg)
+    return score
+
+
+def _validate_attempts(
+    *,
+    decision_attempts: Sequence[_DecisionAttempt],
+) -> tuple[_DecisionAttempt, ...]:
+    validated: list[_DecisionAttempt] = []
+    for index, attempt in enumerate(decision_attempts):
+        _ = _coerce_non_empty_str(
+            value=attempt.strategy_name,
+            field=f"decision_attempts[{index}].strategy_name",
+        )
+        _ = _coerce_non_empty_str(
+            value=attempt.outcome,
+            field=f"decision_attempts[{index}].outcome",
+        )
+        _ = _coerce_non_empty_str(
+            value=attempt.reason,
+            field=f"decision_attempts[{index}].reason",
+        )
+        _ = _coerce_optional_finite_float(
+            value=attempt.score,
+            field=f"decision_attempts[{index}].score",
+        )
+        validated.append(attempt)
+    return tuple(validated)
+
+
 def _coerce_optional_int(*, value: object, field: str) -> int | None:
     if value is None:
         return None
+    if isinstance(value, bool):
+        msg = f"invalid `{field}` value"
+        raise DedupeDecisionsRepositoryError(msg)
     if isinstance(value, int):
         return value
     if isinstance(value, str) and value.isdigit():
@@ -258,14 +331,25 @@ def _coerce_optional_str(*, value: object) -> str | None:
 def _coerce_optional_float(*, value: object, field: str) -> float | None:
     if value is None:
         return None
+    if isinstance(value, bool):
+        msg = f"invalid `{field}` value"
+        raise DedupeDecisionsRepositoryError(msg)
     if isinstance(value, int | float):
-        return float(value)
+        float_value = float(value)
+        if not math.isfinite(float_value):
+            msg = f"invalid `{field}` value"
+            raise DedupeDecisionsRepositoryError(msg)
+        return float_value
     if isinstance(value, str):
         try:
-            return float(value)
+            float_value = float(value)
         except ValueError as exc:
             msg = f"invalid `{field}` value"
             raise DedupeDecisionsRepositoryError(msg) from exc
+        if not math.isfinite(float_value):
+            msg = f"invalid `{field}` value"
+            raise DedupeDecisionsRepositoryError(msg)
+        return float_value
     msg = f"invalid `{field}` value"
     raise DedupeDecisionsRepositoryError(msg)
 
@@ -293,4 +377,12 @@ def _parse_datetime(value: str, *, field: str) -> datetime:
 def _encode_metadata(*, metadata: Mapping[str, object] | None) -> str | None:
     if metadata is None:
         return None
-    return dumps(dict(metadata), sort_keys=True)
+    try:
+        return dumps(
+            dict(metadata),
+            sort_keys=True,
+            allow_nan=False,
+        )
+    except (TypeError, ValueError) as exc:
+        msg = "invalid `metadata` value"
+        raise DedupeDecisionsRepositoryError(msg) from exc
