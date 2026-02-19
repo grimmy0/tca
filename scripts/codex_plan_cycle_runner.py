@@ -943,20 +943,24 @@ def build_implementation_prompt(
         7. Create exactly one implementation commit.
         8. Do NOT push in this step.
         9. If you discover no pending work exists, set STATUS=PLAN_IS_DONE.
-        10. Never ask the user any question.
-        11. Never request clarification or approval.
-        12. Resolve ambiguity autonomously using safe defaults that keep progress:
+        10. Subjective Insights: If you encounter architectural thoughts, possible
+            improvements, proposals, or issues during implementation, append them
+            to `INSIGHTS.md` (create it if missing). Check existing content to
+            ensure no duplicates. Use a '## [Date] - [Item ID]' header.
+        11. Never ask the user any question.
+        12. Never request clarification or approval.
+        13. Resolve ambiguity autonomously using safe defaults that keep progress:
             choose the smallest reversible low-risk change that unblocks next work.
-        13. If unrelated dirty files exist at start, leave them untouched unless
+        14. If unrelated dirty files exist at start, leave them untouched unless
             pre-commit requires fixing them.
-        14. You may include unrelated files in a commit only when required to make
+        15. You may include unrelated files in a commit only when required to make
             `uv run pre-commit run --all-files` pass.
-        15. Strictly forbidden: using --no-verify in any git command.
-        16. Do not bypass hooks or disable checks.
-        17. Run `uv run pre-commit run --all-files` before any commit.
-        18. If pre-commit reports issues, fix ALL reported issues (including files
+        16. Strictly forbidden: using --no-verify in any git command.
+        17. Do not bypass hooks or disable checks.
+        18. Run `uv run pre-commit run --all-files` before any commit.
+        19. If pre-commit reports issues, fix ALL reported issues (including files
             unrelated to the current item) and rerun pre-commit until it passes.
-        19. Return only a strict JSON object matching the output schema.
+        20. Return only a strict JSON object matching the output schema.
 
         Required JSON fields:
         - STATUS: PLAN_IS_DONE or IMPLEMENTED
@@ -1073,12 +1077,10 @@ def run_verification_commands(
             label="verification",
         )
         status = (
-            "PASSED" if result.returncode == 0
-            else f"FAILED (code {result.returncode})"
+            "PASSED" if result.returncode == 0 else f"FAILED (code {result.returncode})"
         )
         report.append(
-            f"Command: {cmd}\nStatus: {status}\n"
-            f"Output:\n{result.output}\n{'-'*40}",
+            f"Command: {cmd}\nStatus: {status}\nOutput:\n{result.output}\n{'-' * 40}",
         )
 
     return "\n".join(report)
@@ -1121,6 +1123,11 @@ def build_review_prompt(  # noqa: PLR0913
         4. Run relevant checks to validate the fixes.
         5. Commit review-driven fixes if changes were necessary (no empty commit).
         6. Push current branch to its upstream.
+
+        7. Subjective Insights: If you encounter architectural thoughts, possible
+           improvements, proposals, or issues during review, append them
+           to `INSIGHTS.md` (create it if missing). Check existing content to
+           ensure no duplicates. Use a '## [Date] - [Item ID]' header.
 
         Constraints:
         - Do not amend, rebase, or rewrite history.
