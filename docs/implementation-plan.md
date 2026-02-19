@@ -1681,11 +1681,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Add integration test covering: create channel -> poll -> dedupe -> thread read.
 - Acceptance criteria:
-  - [ ] Smoke test passes in CI/test environment.
-  - [ ] Result includes dedupe cluster and thread item output.
-  - [ ] Test is deterministic and stable across runs.
+  - [x] Smoke test passes in CI/test environment. [Tests: tests/integration/test_smoke_pipeline.py::test_smoke_pipeline_auth_mocked_create_poll_dedupe_thread]
+  - [x] Result includes dedupe cluster and thread item output. [Tests: tests/integration/test_smoke_pipeline.py::test_smoke_pipeline_auth_mocked_create_poll_dedupe_thread]
+  - [x] Test is deterministic and stable across runs. [Tests: tests/integration/test_smoke_pipeline.py::test_smoke_pipeline_auth_mocked_create_poll_dedupe_thread]
 - Verification:
   - `uv run pytest -q tests/integration/test_smoke_pipeline.py`
+- Execution record:
+  - Date: 2026-02-18
+  - Commit: `TO_FILL`
+  - Verification summary:
+    - `uv run pytest -q tests/integration/test_smoke_pipeline.py` passed.
 
 ### C087 - Add End-to-End Retention/Backup Smoke Test
 
