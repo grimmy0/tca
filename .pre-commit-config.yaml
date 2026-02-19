@@ -6,3 +6,9 @@ repos:
         entry: scripts/lint_strict.sh
         language: system
         pass_filenames: false
+      - id: validate-plan-criteria
+        name: validate-plan-criteria
+        entry: uv run python scripts/validate_plan_criteria.py --run-tests
+        language: system
+        pass_filenames: false
+        always_run: true

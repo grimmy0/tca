@@ -983,6 +983,107 @@ def build_implementation_prompt(
     )
 
 
+def sync_traceability_sha(
+    *,
+    plan_path: Path,
+    item_id: str,
+    actual_sha: str,
+    logger: TeeLogger,
+) -> bool:
+    """Find target item in plan and ensure its Commit: field matches actual_sha.
+
+    Returns True if modification was made.
+    """
+    if not plan_path.exists():
+        return False
+
+    content = plan_path.read_text(encoding="utf-8")
+    lines = content.splitlines()
+    new_lines = _update_item_sha(lines, item_id, actual_sha, logger)
+
+    if new_lines == lines:
+        return False
+
+    plan_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    return True
+
+
+def _update_item_sha(
+    lines: list[str],
+    item_id: str,
+    actual_sha: str,
+    logger: TeeLogger,
+) -> list[str]:
+    """Search for item_id block and update its Commit: line."""
+    short_sha = actual_sha[:7]
+    item_header_pattern = re.compile(rf"^###\s+{item_id}\s*-\s*.+$")
+    execution_record_header_pattern = re.compile(r"^\s*-\s*Execution record:\s*$")
+    commit_line_pattern = re.compile(r"^(\s+-\s+Commit:\s+`)([^`]+)(`.*)$")
+
+    new_lines = list(lines)
+    in_target_item = False
+    in_execution_record = False
+
+    for i, line in enumerate(new_lines):
+        if item_header_pattern.match(line):
+            in_target_item = True
+            in_execution_record = False
+            continue
+
+        if in_target_item and line.startswith("### "):
+            # Reached next item
+            break
+
+        if in_target_item and execution_record_header_pattern.match(line):
+            in_execution_record = True
+            continue
+
+        if in_execution_record:
+            match = commit_line_pattern.match(line)
+            if match:
+                prefix, old_sha, suffix = match.groups()
+                if old_sha not in (short_sha, actual_sha):
+                    logger.log(
+                        f"Syncing traceability: {item_id} "
+                        f"Commit: {old_sha} -> {short_sha}",
+                    )
+                    new_lines[i] = f"{prefix}{short_sha}{suffix}"
+                return new_lines
+
+    return new_lines
+
+
+def run_verification_commands(
+    *,
+    commands: tuple[str, ...],
+    cwd: Path,
+    logger: TeeLogger,
+) -> str:
+    """Run all verification commands and return a combined output report."""
+    if not commands:
+        return "No verification commands defined for this item."
+
+    report = []
+    for cmd in commands:
+        logger.log(f"Running verification: {cmd}")
+        result = run_stream(
+            command=["bash", "-c", cmd],
+            cwd=cwd,
+            logger=logger,
+            label="verification",
+        )
+        status = (
+            "PASSED" if result.returncode == 0
+            else f"FAILED (code {result.returncode})"
+        )
+        report.append(
+            f"Command: {cmd}\nStatus: {status}\n"
+            f"Output:\n{result.output}\n{'-'*40}",
+        )
+
+    return "\n".join(report)
+
+
 def build_review_prompt(  # noqa: PLR0913
     *,
     repo_root: Path,
@@ -991,6 +1092,7 @@ def build_review_prompt(  # noqa: PLR0913
     implemented_commit: str,
     branch: str,
     upstream: str | None,
+    verification_report: str | None = None,
 ) -> str:
     """Create strict review+fix+push prompt."""
     item_label = (
@@ -1099,8 +1201,13 @@ def build_review_prompt(  # noqa: PLR0913
         - The Execution record Commit: field in the plan for this item must contain
           the real SHA of the implementation commit, not a placeholder (PENDING,
           NONE, a plan-item code like C056, or a truncated/incorrect hash).
+          The runner has detected the implementation commit is: {implemented_commit}
+          Verify this SHA is recorded correctly in {plan_path} for {item_label}.
         - The Execution record block must be positioned after the acceptance
           criteria checklist, not before it.
+
+        Verification Results from Runner (Objective State):
+        {verification_report or "No automated verification was executed by the runner."}
 
         Context files:
         - {plan_path}
@@ -2065,6 +2172,35 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                 label=f"git.log.after_implement.cycle{cycle_number}",
             )
 
+            # --- Traceability Auto-Sync ---
+            if pending_item is not None:
+                if sync_traceability_sha(
+                    plan_path=plan_path,
+                    item_id=pending_item.identifier,
+                    actual_sha=head_after_implement,
+                    logger=logger,
+                ):
+                    logger.log(
+                        f"Traceability auto-synced for {pending_item.identifier} "
+                        f"to {head_after_implement[:7]}.",
+                    )
+                else:
+                    logger.log(
+                        f"Traceability for {pending_item.identifier} was already "
+                        "correct or could not be synced.",
+                    )
+            # ------------------------------
+
+            # --- Runner-Led Verification ---
+            verification_report = None
+            if pending_item is not None:
+                verification_report = run_verification_commands(
+                    commands=pending_item.verification_commands,
+                    cwd=repo_root,
+                    logger=logger,
+                )
+            # ------------------------------
+
             review_prompt = build_review_prompt(
                 repo_root=repo_root,
                 plan_path=plan_path,
@@ -2072,6 +2208,7 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
                 implemented_commit=head_after_implement,
                 branch=branch,
                 upstream=upstream,
+                verification_report=verification_report,
             )
             logger.log("Review prompt prepared and saved to per-step artifact file.")
             review_retryable_attempt = 0
