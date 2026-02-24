@@ -22,10 +22,11 @@ MESSAGE_ONE_ID = 9001
 MESSAGE_TWO_ID = 9002
 THREAD_CLUSTER_ID = 7001
 THREAD_CLUSTER_KEY = "smoke-cluster-7001"
-PUBLISHED_AT = datetime(2026, 2, 18, 8, 30, 0, tzinfo=UTC).isoformat()
+DUPLICATE_COUNT = 2
+PUBLISHED_AT = datetime.now(UTC).replace(microsecond=0).isoformat()
 
 
-def test_smoke_pipeline_auth_mocked_create_poll_dedupe_thread(
+def test_smoke_pipeline_auth_mocked_create_poll_dedupe_thread(  # noqa: C901, PLR0912
     tmp_path: object,
     monkeypatch: object,
 ) -> None:
@@ -69,7 +70,7 @@ def test_smoke_pipeline_auth_mocked_create_poll_dedupe_thread(
         channel_payload = cast("dict[str, object]", create_response.json())
         created_channel_id = channel_payload.get("id")
         if not isinstance(created_channel_id, int):
-            raise AssertionError
+            raise TypeError
 
         poll_response = client.post(
             f"/jobs/poll-now/{created_channel_id}",
@@ -104,7 +105,7 @@ def test_smoke_pipeline_auth_mocked_create_poll_dedupe_thread(
         raise AssertionError
     if thread_entry.get("cluster_key") != THREAD_CLUSTER_KEY:
         raise AssertionError
-    if thread_entry.get("duplicate_count") != 2:
+    if thread_entry.get("duplicate_count") != DUPLICATE_COUNT:
         raise AssertionError
 
     representative = cast("dict[str, object]", thread_entry.get("representative"))
@@ -216,7 +217,10 @@ def _as_path(value: object) -> Path:
 
 @runtime_checkable
 class MonkeyPatchLike(Protocol):
+    """Typed protocol for pytest monkeypatch used in this integration test."""
+
     def setenv(self, name: str, value: str) -> None:
+        """Set an environment variable for the current test process."""
         ...
 
 

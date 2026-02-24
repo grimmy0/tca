@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 import pytest
 from sqlalchemy import text
 
+import tca.api.app as api_app
 from tca.api.app import StartupDependencies, create_app, lifespan
 from tca.storage import WriterQueue
 
@@ -235,10 +236,7 @@ async def test_graceful_shutdown_exits_before_timeout_when_scheduler_hangs(
         telethon_manager=OrderedDependency("telethon_manager", shutdown_events),
         scheduler=scheduler,
     )
-    monkeypatch.setattr(
-        "tca.api.app.SCHEDULER_SHUTDOWN_TIMEOUT_SECONDS",
-        timeout_seconds,
-    )
+    monkeypatch.setattr(api_app, "SCHEDULER_SHUTDOWN_TIMEOUT_SECONDS", timeout_seconds)
 
     started = time.monotonic()
     async with lifespan(app):

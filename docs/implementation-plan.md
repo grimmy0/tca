@@ -1688,7 +1688,7 @@ An item is commit-ready only if all are true:
   - `uv run pytest -q tests/integration/test_smoke_pipeline.py`
 - Execution record:
   - Date: 2026-02-18
-  - Commit: `TO_FILL`
+  - Commit: `0f228ca25746364466a44f42889b466014e0e607`
   - Verification summary:
     - `uv run pytest -q tests/integration/test_smoke_pipeline.py` passed.
 
@@ -1697,11 +1697,16 @@ An item is commit-ready only if all are true:
 - Change:
   - Add integration test covering prune and backup jobs.
 - Acceptance criteria:
-  - [ ] Retention removes expired data and preserves non-expired.
-  - [ ] Backup file created and validated.
-  - [ ] Post-prune cluster invariants hold.
+  - [x] Retention removes expired data and preserves non-expired. [Tests: tests/integration/test_retention_backup.py::test_retention_backup_smoke_prune_then_backup]
+  - [x] Backup file created and validated. [Tests: tests/integration/test_retention_backup.py::test_retention_backup_smoke_prune_then_backup]
+  - [x] Post-prune cluster invariants hold. [Tests: tests/integration/test_retention_backup.py::test_retention_backup_smoke_prune_then_backup]
 - Verification:
   - `uv run pytest -q tests/integration/test_retention_backup.py`
+- Execution record:
+  - Date: 2026-02-24
+  - Commit: `0f228ca25746364466a44f42889b466014e0e607`
+  - Verification summary:
+    - `uv run pytest -q tests/integration/test_retention_backup.py` passed.
 
 ### C088 - Add API Contract Freeze for Phase 1 Endpoints
 
