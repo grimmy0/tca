@@ -79,3 +79,37 @@ TCA_UPDATE_OPENAPI_SNAPSHOT=1 uv run pytest -q tests/api/test_openapi_snapshot.p
 
 3. Review JSON diff in `tests/api/snapshots/config_groups_openapi_snapshot.json`.
 4. Re-run the contract check command without `TCA_UPDATE_OPENAPI_SNAPSHOT`.
+
+## OpenAPI Snapshot Contract (Phase 1 Endpoints)
+
+`tests/api/test_openapi_full_snapshot.py` enforces a committed OpenAPI snapshot for:
+
+- auth (`/auth/telegram/start`, `/auth/telegram/verify-code`, `/auth/telegram/verify-password`)
+- channels (`/channels`, `/channels/{channel_id}`)
+- channel groups (`/channel-groups`, `/channel-groups/{group_id}`, `/channel-groups/{group_id}/channels/{channel_id}`)
+- thread (`/thread`)
+- settings (`/settings/{key}`)
+- notifications (`/notifications`, `/notifications/{notification_id}/ack`)
+- jobs (`/jobs/poll-now/{channel_id}`)
+
+Snapshot artifact path:
+
+- `tests/api/snapshots/phase1_openapi_snapshot.json`
+
+Run contract check:
+
+```bash
+uv run pytest -q tests/api/test_openapi_full_snapshot.py
+```
+
+Update flow for intentional contract changes:
+
+1. Review and implement API contract changes.
+2. Regenerate snapshot:
+
+```bash
+TCA_UPDATE_OPENAPI_FULL_SNAPSHOT=1 uv run pytest -q tests/api/test_openapi_full_snapshot.py
+```
+
+3. Review JSON diff in `tests/api/snapshots/phase1_openapi_snapshot.json`.
+4. Re-run the contract check command without `TCA_UPDATE_OPENAPI_FULL_SNAPSHOT`.

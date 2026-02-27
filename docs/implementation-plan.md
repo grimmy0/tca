@@ -1713,11 +1713,18 @@ An item is commit-ready only if all are true:
 - Change:
   - Freeze OpenAPI schema for all Phase 1 routes and enforce snapshot test.
 - Acceptance criteria:
-  - [ ] Snapshot includes auth, channels, groups, thread, settings, notifications, jobs.
-  - [ ] Contract test fails when schema drifts without snapshot update.
-  - [ ] Snapshot update procedure is documented.
+  - [x] Snapshot includes auth, channels, groups, thread, settings, notifications, jobs. [Tests: tests/api/test_openapi_full_snapshot.py::test_openapi_snapshot_includes_all_phase1_endpoints_and_fields]
+  - [x] Contract test fails when schema drifts without snapshot update. [Tests: tests/api/test_openapi_full_snapshot.py::test_openapi_snapshot_matches_committed_phase1_contract]
+  - [x] Snapshot update procedure is documented. [Tests: tests/docs/test_openapi_snapshot_doc.py::test_testing_guide_documents_phase1_openapi_snapshot_update_process]
 - Verification:
   - `uv run pytest -q tests/api/test_openapi_full_snapshot.py`
+- Execution record:
+  - Date: 2026-02-27
+  - Commit: `0000000`
+  - Verification summary:
+    - `TCA_UPDATE_OPENAPI_FULL_SNAPSHOT=1 uv run pytest -q tests/api/test_openapi_full_snapshot.py` passed.
+    - `uv run pytest -q tests/api/test_openapi_full_snapshot.py` passed.
+    - `uv run pytest -q tests/docs/test_openapi_snapshot_doc.py` passed.
 
 ### C089 - Update README for Local Install and Security Notes
 

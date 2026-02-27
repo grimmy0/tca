@@ -20,3 +20,17 @@ def test_testing_guide_documents_openapi_snapshot_update_process() -> None:
     for fragment in required_fragments:
         if fragment not in text:
             raise AssertionError
+
+
+def test_testing_guide_documents_phase1_openapi_snapshot_update_process() -> None:
+    """Ensure guide includes required command flow for Phase 1 snapshot refresh."""
+    text = GUIDE_PATH.read_text(encoding="utf-8")
+    required_fragments = [
+        "tests/api/test_openapi_full_snapshot.py",
+        "tests/api/snapshots/phase1_openapi_snapshot.json",
+        "TCA_UPDATE_OPENAPI_FULL_SNAPSHOT=1",
+        "uv run pytest -q tests/api/test_openapi_full_snapshot.py",
+    ]
+    for fragment in required_fragments:
+        if fragment not in text:
+            raise AssertionError

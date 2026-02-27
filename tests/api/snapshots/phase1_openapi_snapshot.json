@@ -1,0 +1,1777 @@
+{
+  "components": {
+    "schemas": {
+      "ChannelCreateRequest": {
+        "description": "Request payload for creating one channel.",
+        "properties": {
+          "account_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Account Id",
+            "type": "integer"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "telegram_channel_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Telegram Channel Id",
+            "type": "integer"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "account_id",
+          "telegram_channel_id",
+          "name"
+        ],
+        "title": "ChannelCreateRequest",
+        "type": "object"
+      },
+      "ChannelGroupCreateRequest": {
+        "description": "Request payload for creating one channel group.",
+        "properties": {
+          "dedupe_horizon_minutes_override": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dedupe Horizon Minutes Override"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ChannelGroupCreateRequest",
+        "type": "object"
+      },
+      "ChannelGroupDeleteResponse": {
+        "description": "Response payload for channel-group delete operations.",
+        "properties": {
+          "deleted_group_id": {
+            "title": "Deleted Group Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted_group_id"
+        ],
+        "title": "ChannelGroupDeleteResponse",
+        "type": "object"
+      },
+      "ChannelGroupMembershipResponse": {
+        "description": "Response payload for channel-group membership mutations.",
+        "properties": {
+          "channel_id": {
+            "title": "Channel Id",
+            "type": "integer"
+          },
+          "group_id": {
+            "title": "Group Id",
+            "type": "integer"
+          },
+          "is_member": {
+            "title": "Is Member",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "group_id",
+          "channel_id",
+          "is_member"
+        ],
+        "title": "ChannelGroupMembershipResponse",
+        "type": "object"
+      },
+      "ChannelGroupPatchRequest": {
+        "description": "Request payload for partial channel-group updates.",
+        "properties": {
+          "dedupe_horizon_minutes_override": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dedupe Horizon Minutes Override"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "ChannelGroupPatchRequest",
+        "type": "object"
+      },
+      "ChannelGroupResponse": {
+        "description": "Response payload for channel-group API operations.",
+        "properties": {
+          "dedupe_horizon_minutes_override": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dedupe Horizon Minutes Override"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "dedupe_horizon_minutes_override"
+        ],
+        "title": "ChannelGroupResponse",
+        "type": "object"
+      },
+      "ChannelPatchRequest": {
+        "description": "Request payload for partial channel updates.",
+        "properties": {
+          "is_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Enabled"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "paused_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused Until"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "title": "ChannelPatchRequest",
+        "type": "object"
+      },
+      "ChannelResponse": {
+        "description": "Response payload for channel CRUD operations.",
+        "properties": {
+          "account_id": {
+            "title": "Account Id",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_enabled": {
+            "title": "Is Enabled",
+            "type": "boolean"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "paused_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused Until"
+          },
+          "telegram_channel_id": {
+            "title": "Telegram Channel Id",
+            "type": "integer"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "id",
+          "account_id",
+          "telegram_channel_id",
+          "name",
+          "username",
+          "is_enabled",
+          "paused_until",
+          "last_success_at"
+        ],
+        "title": "ChannelResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "JSONScalar": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "JSONValue": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/JSONScalar"
+          },
+          {
+            "items": {
+              "$ref": "#/components/schemas/JSONValue"
+            },
+            "type": "array"
+          },
+          {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JSONValue"
+            },
+            "type": "object"
+          }
+        ]
+      },
+      "NotificationResponse": {
+        "description": "Response payload for notification list entries.",
+        "properties": {
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_acknowledged": {
+            "title": "Is Acknowledged",
+            "type": "boolean"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JSONValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "severity",
+          "message",
+          "payload",
+          "is_acknowledged",
+          "acknowledged_at",
+          "created_at"
+        ],
+        "title": "NotificationResponse",
+        "type": "object"
+      },
+      "PollNowResponse": {
+        "description": "Response payload for manual poll trigger requests.",
+        "properties": {
+          "channel_id": {
+            "title": "Channel Id",
+            "type": "integer"
+          },
+          "correlation_id": {
+            "title": "Correlation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel_id",
+          "correlation_id"
+        ],
+        "title": "PollNowResponse",
+        "type": "object"
+      },
+      "SettingUpsertRequest": {
+        "description": "Request payload for dynamic settings upsert calls.",
+        "properties": {
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "SettingUpsertRequest",
+        "type": "object"
+      },
+      "SettingUpsertResponse": {
+        "description": "Response payload for dynamic settings upsert calls.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ],
+        "title": "SettingUpsertResponse",
+        "type": "object"
+      },
+      "TelegramAuthStartRequest": {
+        "description": "Payload for starting Telegram OTP login.",
+        "properties": {
+          "api_hash": {
+            "minLength": 1,
+            "title": "Api Hash",
+            "type": "string"
+          },
+          "api_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Api Id",
+            "type": "integer"
+          },
+          "phone_number": {
+            "minLength": 1,
+            "title": "Phone Number",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_id",
+          "api_hash",
+          "phone_number"
+        ],
+        "title": "TelegramAuthStartRequest",
+        "type": "object"
+      },
+      "TelegramAuthStartResponse": {
+        "description": "Response payload for starting Telegram OTP login.",
+        "properties": {
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "title": "TelegramAuthStartResponse",
+        "type": "object"
+      },
+      "TelegramAuthVerifyCodeRequest": {
+        "description": "Payload for verifying a Telegram OTP code.",
+        "properties": {
+          "api_hash": {
+            "minLength": 1,
+            "title": "Api Hash",
+            "type": "string"
+          },
+          "api_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Api Id",
+            "type": "integer"
+          },
+          "code": {
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "session_id": {
+            "minLength": 1,
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "api_id",
+          "api_hash",
+          "code"
+        ],
+        "title": "TelegramAuthVerifyCodeRequest",
+        "type": "object"
+      },
+      "TelegramAuthVerifyCodeResponse": {
+        "description": "Response payload for Telegram OTP verification results.",
+        "properties": {
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "status"
+        ],
+        "title": "TelegramAuthVerifyCodeResponse",
+        "type": "object"
+      },
+      "TelegramAuthVerifyPasswordRequest": {
+        "description": "Payload for verifying a Telegram 2FA password.",
+        "properties": {
+          "api_hash": {
+            "minLength": 1,
+            "title": "Api Hash",
+            "type": "string"
+          },
+          "api_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Api Id",
+            "type": "integer"
+          },
+          "password": {
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "session_id": {
+            "minLength": 1,
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "api_id",
+          "api_hash",
+          "password"
+        ],
+        "title": "TelegramAuthVerifyPasswordRequest",
+        "type": "object"
+      },
+      "TelegramAuthVerifyPasswordResponse": {
+        "description": "Response payload for Telegram password verification results.",
+        "properties": {
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "status"
+        ],
+        "title": "TelegramAuthVerifyPasswordResponse",
+        "type": "object"
+      },
+      "ThreadEntryResponse": {
+        "description": "Cluster-level thread entry payload including duplicate count.",
+        "properties": {
+          "cluster_id": {
+            "title": "Cluster Id",
+            "type": "integer"
+          },
+          "cluster_key": {
+            "title": "Cluster Key",
+            "type": "string"
+          },
+          "duplicate_count": {
+            "title": "Duplicate Count",
+            "type": "integer"
+          },
+          "representative": {
+            "$ref": "#/components/schemas/ThreadRepresentativeResponse"
+          }
+        },
+        "required": [
+          "cluster_id",
+          "cluster_key",
+          "duplicate_count",
+          "representative"
+        ],
+        "title": "ThreadEntryResponse",
+        "type": "object"
+      },
+      "ThreadRepresentativeResponse": {
+        "description": "Representative item payload for one dedupe cluster.",
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "canonical_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Url"
+          },
+          "channel_id": {
+            "title": "Channel Id",
+            "type": "integer"
+          },
+          "channel_name": {
+            "title": "Channel Name",
+            "type": "string"
+          },
+          "channel_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel Username"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "item_id",
+          "published_at",
+          "title",
+          "body",
+          "canonical_url",
+          "channel_id",
+          "channel_name",
+          "channel_username"
+        ],
+        "title": "ThreadRepresentativeResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "paths": {
+    "/auth/telegram/start": {
+      "post": {
+        "description": "Request a Telegram login code and create a temporary auth session.",
+        "operationId": "start_telegram_auth_auth_telegram_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelegramAuthStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramAuthStartResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Start Telegram Auth",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/telegram/verify-code": {
+      "post": {
+        "description": "Verify a Telegram login code and advance the auth session state.",
+        "operationId": "verify_telegram_code_auth_telegram_verify_code_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelegramAuthVerifyCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramAuthVerifyCodeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Verify Telegram Code",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/telegram/verify-password": {
+      "post": {
+        "description": "Verify a Telegram 2FA password and advance the auth session state.",
+        "operationId": "verify_telegram_password_auth_telegram_verify_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelegramAuthVerifyPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramAuthVerifyPasswordResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Verify Telegram Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/channel-groups": {
+      "get": {
+        "description": "List channel groups ordered by ascending id.",
+        "operationId": "list_channel_groups_channel_groups_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChannelGroupResponse"
+                  },
+                  "title": "Response List Channel Groups Channel Groups Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Channel Groups",
+        "tags": [
+          "channel-groups"
+        ]
+      },
+      "post": {
+        "description": "Create one channel group via app writer queue serialization.",
+        "operationId": "create_channel_group_channel_groups_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelGroupCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelGroupResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Channel Group",
+        "tags": [
+          "channel-groups"
+        ]
+      }
+    },
+    "/channel-groups/{group_id}": {
+      "delete": {
+        "description": "Delete one channel group by id through writer queue execution.",
+        "operationId": "delete_channel_group_channel_groups__group_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelGroupDeleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Channel Group",
+        "tags": [
+          "channel-groups"
+        ]
+      },
+      "patch": {
+        "description": "Patch one channel-group row, supporting horizon override clear via null.",
+        "operationId": "patch_channel_group_channel_groups__group_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelGroupPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelGroupResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Patch Channel Group",
+        "tags": [
+          "channel-groups"
+        ]
+      }
+    },
+    "/channel-groups/{group_id}/channels/{channel_id}": {
+      "delete": {
+        "description": "Remove one channel-group membership; missing membership is idempotent.",
+        "operationId": "delete_channel_group_membership_channel_groups__group_id__channels__channel_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "title": "Channel Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelGroupMembershipResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Channel Group Membership",
+        "tags": [
+          "channel-groups"
+        ]
+      },
+      "put": {
+        "description": "Assign one channel to one group, preserving PUT idempotency semantics.",
+        "operationId": "put_channel_group_membership_channel_groups__group_id__channels__channel_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "title": "Channel Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelGroupMembershipResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Channel Group Membership",
+        "tags": [
+          "channel-groups"
+        ]
+      }
+    },
+    "/channels": {
+      "get": {
+        "description": "List enabled channels ordered by ascending id.",
+        "operationId": "list_channels_channels_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChannelResponse"
+                  },
+                  "title": "Response List Channels Channels Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Channels",
+        "tags": [
+          "channels"
+        ]
+      },
+      "post": {
+        "description": "Create one channel via app writer queue serialization.",
+        "operationId": "create_channel_channels_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Channel",
+        "tags": [
+          "channels"
+        ]
+      }
+    },
+    "/channels/{channel_id}": {
+      "delete": {
+        "description": "Disable or purge one channel by id depending on query flag.",
+        "operationId": "delete_channel_channels__channel_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "title": "Channel Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "purge",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Purge",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Channel",
+        "tags": [
+          "channels"
+        ]
+      },
+      "patch": {
+        "description": "Patch one channel row and polling state updates.",
+        "operationId": "patch_channel_channels__channel_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "title": "Channel Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Patch Channel",
+        "tags": [
+          "channels"
+        ]
+      }
+    },
+    "/jobs/poll-now/{channel_id}": {
+      "post": {
+        "description": "Enqueue a manual poll job for an active channel.",
+        "operationId": "poll_now_jobs_poll_now__channel_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "title": "Channel Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PollNowResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Poll Now",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/notifications": {
+      "get": {
+        "description": "List notifications in recency order with optional filters.",
+        "operationId": "list_notifications_notifications_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "severity",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Severity"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationResponse"
+                  },
+                  "title": "Response List Notifications Notifications Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Notifications",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/notifications/{notification_id}/ack": {
+      "put": {
+        "description": "Acknowledge one notification and return the updated state.",
+        "operationId": "acknowledge_notification_notifications__notification_id__ack_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notification_id",
+            "required": true,
+            "schema": {
+              "title": "Notification Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Acknowledge Notification",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/settings/{key}": {
+      "get": {
+        "description": "Read one allowlisted dynamic setting key with seeded-default fallback.",
+        "operationId": "get_setting_settings__key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingUpsertResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Setting",
+        "tags": [
+          "settings"
+        ]
+      },
+      "put": {
+        "description": "Create or update one dynamic setting by key through writer queue.",
+        "operationId": "put_setting_settings__key__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingUpsertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingUpsertResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Setting",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/thread": {
+      "get": {
+        "description": "List one page of deduplicated thread entries by representative recency.",
+        "operationId": "list_thread_entries_thread_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ThreadEntryResponse"
+                  },
+                  "title": "Response List Thread Entries Thread Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Thread Entries",
+        "tags": [
+          "thread"
+        ]
+      }
+    }
+  }
+}
