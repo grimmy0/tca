@@ -1738,7 +1738,7 @@ An item is commit-ready only if all are true:
   - Manual doc review checklist in `tests/docs/readme_checklist.md`
 - Execution record:
   - Date: 2026-03-04
-  - Commit: `0000000`
+  - Commit: `84c998d0ad627a9c4aec73f920a41281be4d4536`
   - Verification summary:
     - `uv run pytest -q tests/docs/test_readme_local_install_security_notes.py` passed.
     - Manual checklist reviewed in `tests/docs/readme_checklist.md`.
