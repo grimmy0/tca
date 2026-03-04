@@ -1731,11 +1731,17 @@ An item is commit-ready only if all are true:
 - Change:
   - Update `README.md` with current run instructions, unlock modes, and token handling.
 - Acceptance criteria:
-  - [ ] README includes Docker + local run paths.
-  - [ ] README documents `secure-interactive` vs `auto-unlock` tradeoff.
-  - [ ] README includes Telegram credential prerequisites.
+  - [x] README includes Docker + local run paths. [Tests: tests/docs/test_readme_local_install_security_notes.py::test_readme_includes_docker_and_local_run_paths]
+  - [x] README documents `secure-interactive` vs `auto-unlock` tradeoff. [Tests: tests/docs/test_readme_local_install_security_notes.py::test_readme_documents_unlock_mode_tradeoff]
+  - [x] README includes Telegram credential prerequisites. [Tests: tests/docs/test_readme_local_install_security_notes.py::test_readme_lists_telegram_credentials_prerequisites]
 - Verification:
   - Manual doc review checklist in `tests/docs/readme_checklist.md`
+- Execution record:
+  - Date: 2026-03-04
+  - Commit: `0000000`
+  - Verification summary:
+    - `uv run pytest -q tests/docs/test_readme_local_install_security_notes.py` passed.
+    - Manual checklist reviewed in `tests/docs/readme_checklist.md`.
 
 ### C090 - Add Final Release Checklist Document
 

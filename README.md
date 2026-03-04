@@ -127,17 +127,50 @@ Dynamic settings (runtime editable via API; UI planned):
 
 Implemented today: allowlisted dynamic settings read/write via `/settings/{key}`.
 
-## Local Development
+## Local Install and Run Paths
 
-Current codebase is still scaffold-first. Use:
+### Prerequisites
+
+- Python `3.12.x`
+- `uv`
+- Telegram API credentials from `https://my.telegram.org`:
+  - `api_id`
+  - `api_hash`
+  - phone number for OTP verification (and account 2FA password when enabled)
+
+### Docker Path
+
+Use the included Compose file for a containerized local install:
+
+```bash
+docker compose up -d
+docker compose logs -f tca
+```
+
+Default URL: `http://127.0.0.1:8787`.
+
+### Local Python Path
+
+Use this when running directly on your machine without Docker:
 
 ```bash
 # install runtime + dev tooling
 uv sync --extra dev
 
-# run application placeholder
-uv run python main.py
+# run API server locally
+uv run uvicorn tca.api.app:create_app --factory --host 127.0.0.1 --port 8787
+```
 
+### Unlock Mode Security Tradeoff
+
+- `secure-interactive` (default): safer for laptops/workstations; unlock secret is entered after each restart and is not stored in a mounted secret file.
+- `auto-unlock`: better for unattended restarts; requires `TCA_SECRET_FILE` and is lower security because the host-mounted secret file must be readable at startup.
+
+Use `secure-interactive` unless you explicitly need unattended reboot recovery.
+
+### Contributor Tooling
+
+```bash
 # run strict lint/type gate manually
 scripts/lint_strict.sh
 
