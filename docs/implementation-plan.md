@@ -1649,6 +1649,33 @@ An item is commit-ready only if all are true:
   - Verification summary:
     - `uv run pytest -q tests/app/test_startup_order.py` passed.
 
+### C085A - Add Browser Session Auth for UI Routes
+
+- Change:
+  - Add cookie-based session auth so browsers can access UI routes without manually setting Authorization headers. Login page at `/ui/login` accepts the bootstrap bearer token, sets an HMAC-signed `Path=/ui` session cookie. UI routes accept either bearer token or valid cookie. API routes remain bearer-only (unchanged). Server restart invalidates all sessions.
+- Acceptance criteria:
+  - [x] Login page renders without authentication. [Tests: tests/ui/test_login.py::test_login_page_renders_without_auth]
+  - [x] Valid token sets session cookie and redirects to UI. [Tests: tests/ui/test_login.py::test_login_valid_token_sets_cookie_and_redirects]
+  - [x] Invalid token shows error on login page. [Tests: tests/ui/test_login.py::test_login_invalid_token_shows_error]
+  - [x] UI routes accessible with valid session cookie. [Tests: tests/ui/test_login.py::test_ui_with_valid_cookie_returns_200]
+  - [x] Unauthenticated UI access redirects to login. [Tests: tests/ui/test_login.py::test_ui_without_auth_redirects_to_login]
+  - [x] Logout clears cookie and redirects to login. [Tests: tests/ui/test_login.py::test_logout_clears_cookie]
+  - [x] Cookie signing roundtrip verifies correctly. [Tests: tests/api/test_cookie_auth.py::test_create_and_verify_roundtrip]
+  - [x] Tampered timestamp rejected by cookie verification. [Tests: tests/api/test_cookie_auth.py::test_verify_rejects_tampered_timestamp]
+  - [x] Tampered signature rejected by cookie verification. [Tests: tests/api/test_cookie_auth.py::test_verify_rejects_tampered_signature]
+  - [x] Expired cookie rejected by cookie verification. [Tests: tests/api/test_cookie_auth.py::test_verify_rejects_expired_cookie]
+  - [x] Malformed cookie values rejected. [Tests: tests/api/test_cookie_auth.py::test_verify_rejects_malformed_value]
+  - [x] Wrong signing key rejected by cookie verification. [Tests: tests/api/test_cookie_auth.py::test_verify_rejects_wrong_signing_key]
+  - [x] Signing key has correct length. [Tests: tests/api/test_cookie_auth.py::test_generate_key_length]
+- Verification:
+  - `uv run pytest -q tests/api/test_cookie_auth.py tests/ui/test_login.py tests/ui/test_shell.py`
+- Execution record:
+  - Date: 2026-03-03
+  - Commit: `d18916673fe3700c5fb7fe7259c7d23321b37874`
+  - Verification summary:
+    - `uv run pytest -q tests/api/test_cookie_auth.py tests/ui/test_login.py tests/ui/test_shell.py` passed (16 passed).
+    - `scripts/lint_strict.sh` passed.
+
 ### C086 - Add End-to-End Smoke Test (Auth Mocked)
 
 - Change:
@@ -1706,6 +1733,193 @@ An item is commit-ready only if all are true:
 
 ---
 
+## Phase 10: Telegram Bot Feed Delivery
+
+This phase adds a Telegram Bot delivery channel. After deduplication produces
+thread entries, a background service sends new entries to the user via a
+configured Telegram bot. The bot token and target chat are configured via API.
+This phase depends on all Phase 1 items being complete (C001-C090).
+
+### C091 - Add `httpx` Runtime Dependency
+
+- Change:
+  - Move `httpx` from `dev` extras to runtime `dependencies` in `pyproject.toml` for Telegram Bot API HTTP calls. Keep `httpx` in `dev` extras to avoid duplication conflicts — pip/uv will deduplicate automatically.
+- Acceptance criteria:
+  - [ ] `httpx` is listed in `[project] dependencies` in `pyproject.toml`.
+  - [ ] `uv lock` completes successfully.
+  - [ ] `uv run python -c "import httpx"` exits `0` without `--extra dev`.
+- Verification:
+  - `uv run python -c "import httpx"`
+
+### C092 - Add `bot_deliveries` Table Migration
+
+- Change:
+  - Add Alembic migration creating `bot_deliveries` table to track which dedupe clusters have been delivered via Telegram bot.
+  - Columns: `id` (INTEGER PK), `cluster_id` (INTEGER NOT NULL, FK to `dedupe_clusters.id` ON DELETE CASCADE), `delivered_at` (DATETIME with TZ, server default `CURRENT_TIMESTAMP`), `telegram_message_id` (TEXT nullable).
+  - Unique constraint on `cluster_id` (each cluster delivered at most once).
+  - Index on `cluster_id`.
+- Acceptance criteria:
+  - [ ] `bot_deliveries` table exists after upgrade.
+  - [ ] FK constraint to `dedupe_clusters` is enforced (insert with non-existent `cluster_id` fails).
+  - [ ] Downgrade removes table.
+- Verification:
+  - `uv run pytest -q tests/migrations/test_bot_deliveries_schema.py`
+
+### C093 - Seed Bot Delivery Dynamic Settings Defaults
+
+- Change:
+  - Add default settings to `DYNAMIC_SETTINGS_DEFAULTS` in `tca/storage/settings_seed.py`: `bot.delivery_interval_seconds` (60), `bot.delivery_batch_size` (10).
+  - Bot token (`bot.token`), chat ID (`bot.chat_id`), and enabled flag (`bot.enabled`) are user-configured via API and intentionally not seeded — absence means "not configured".
+- Acceptance criteria:
+  - [ ] `bot.delivery_interval_seconds` and `bot.delivery_batch_size` are present in settings after startup seed.
+  - [ ] Existing settings are unchanged when re-seeding.
+  - [ ] Default values are positive integers matching expected ranges.
+- Verification:
+  - `uv run pytest -q tests/storage/test_bot_settings_seed.py`
+
+### C094 - Implement Bot Deliveries Repository
+
+- Change:
+  - Add `tca/storage/bot_deliveries_repo.py` with `BotDeliveriesRepository` class.
+  - Record type `BotDeliveryRecord(delivery_id, cluster_id, delivered_at, telegram_message_id)`.
+  - Record type `BotDeliveryEntryRecord(cluster_id, representative_title, representative_body, representative_canonical_url, representative_published_at, channel_name, channel_username, duplicate_count)` for ready-to-format entries.
+  - Methods:
+    - `record_delivery(cluster_id, telegram_message_id)` → `BotDeliveryRecord`.
+    - `list_undelivered_entries(limit)` → `list[BotDeliveryEntryRecord]` — LEFT JOIN anti-pattern query: `dedupe_clusters JOIN items JOIN telegram_channels LEFT JOIN bot_deliveries WHERE bot_deliveries.id IS NULL ORDER BY clusters.id ASC LIMIT :limit`.
+    - `has_been_delivered(cluster_id)` → `bool`.
+  - Export from `tca/storage/__init__.py`.
+- Acceptance criteria:
+  - [ ] `record_delivery` creates row and returns `BotDeliveryRecord`; duplicate `cluster_id` raises `BotDeliveryAlreadyExistsError`.
+  - [ ] `list_undelivered_entries` returns clusters not in `bot_deliveries`, ordered by `cluster_id ASC`, limited to `limit`, with correct representative item and channel data.
+  - [ ] `has_been_delivered` returns `True` for delivered clusters and `False` for undelivered.
+- Verification:
+  - `uv run pytest -q tests/storage/test_bot_deliveries_repo.py`
+
+### C095 - Implement Bot API Client
+
+- Change:
+  - Create `tca/bot/` package with `__init__.py`.
+  - Add `tca/bot/client.py` with `BotApiClient` class using `httpx.AsyncClient`.
+  - Data types: `BotInfo(bot_id: int, username: str)`, `SentMessage(message_id: int)`.
+  - Methods:
+    - `validate_token(token)` → `BotInfo` — calls `GET /getMe`.
+    - `send_message(token, chat_id, text, parse_mode="HTML")` → `SentMessage` — calls `POST /sendMessage`.
+  - Base URL: `https://api.telegram.org/bot{token}/`.
+  - Error types: `BotTokenInvalidError` (401/unauthorized), `BotApiError` (other API failures), `BotNetworkError` (connection/timeout).
+- Acceptance criteria:
+  - [ ] `validate_token` returns `BotInfo` with bot username when API returns success (mocked httpx transport).
+  - [ ] `send_message` returns `SentMessage` with `message_id` when API returns success (mocked httpx transport).
+  - [ ] Invalid token response (401) raises `BotTokenInvalidError` with deterministic message.
+- Verification:
+  - `uv run pytest -q tests/bot/test_client.py`
+
+### C096 - Implement Thread Entry Message Formatter
+
+- Change:
+  - Add `tca/bot/formatter.py` with `format_delivery_message(entry: BotDeliveryEntryRecord) -> str`.
+  - Output format (Telegram HTML):
+    - Bold title (if present): `<b>{title}</b>`.
+    - Body excerpt (first 500 chars, if present).
+    - Channel attribution: `via {channel_name}` (with `@{username}` if available).
+    - Canonical URL as inline link (if present).
+    - Duplicate count badge: `+{N} duplicates` (if `duplicate_count > 1`).
+  - HTML entity escaping via `html.escape()` on all user-generated content.
+  - Total message truncation at 4096 chars (Telegram limit) with trailing `…` marker.
+  - Graceful handling of all-`None` optional fields (produces minimal valid message).
+- Acceptance criteria:
+  - [ ] Complete entry with all fields produces valid Telegram HTML with title, body excerpt, channel, URL, and duplicate badge.
+  - [ ] Message exceeding 4096 chars is truncated with trailing `…` and remains valid HTML.
+  - [ ] Entry with all optional fields as `None` produces valid minimal output (channel name only).
+- Verification:
+  - `uv run pytest -q tests/bot/test_formatter.py`
+
+### C097 - Add Bot Config API Endpoints
+
+- Change:
+  - Add `tca/api/routes/bot_config.py` with router prefix `/bot`.
+  - Routes:
+    - `POST /bot/config` — accepts `{"token": str, "chat_id": str}`, validates token via `BotApiClient.validate_token`, stores `bot.token`, `bot.chat_id` in settings via writer queue, sets `bot.enabled` to `true`. Returns `{"bot_username": str, "chat_id": str}`.
+    - `GET /bot/config` — returns `{"token_masked": str|null, "chat_id": str|null, "enabled": bool}`. Token masked: last 4 chars visible, rest replaced with `*`. Returns `null` fields when not configured.
+    - `DELETE /bot/config` — deletes `bot.token` and `bot.chat_id` from settings, sets `bot.enabled` to `false` via writer queue. Returns `204`.
+    - `POST /bot/test` — loads current bot config from settings, sends test message `"TCA bot delivery test — connection verified."` via `BotApiClient.send_message`, returns `{"message_id": int}` or `422` if not configured.
+  - All endpoints require bearer auth. All writes go through writer queue.
+  - Register router in `create_app()` with `protected_route_dependencies`.
+- Acceptance criteria:
+  - [ ] `POST /bot/config` with valid token stores settings and returns bot username; returns `422` on invalid token.
+  - [ ] `GET /bot/config` returns masked token and chat_id when configured; returns `null` fields when not configured.
+  - [ ] `DELETE /bot/config` clears bot settings and sets `bot.enabled` to `false`.
+- Verification:
+  - `uv run pytest -q tests/api/test_bot_config.py`
+
+### C098 - Implement Bot Delivery Core Loop
+
+- Change:
+  - Add `tca/bot/delivery.py` with `BotDeliveryCoreLoop` class.
+  - Constructor dependencies: `SettingsRepository`, `BotDeliveriesRepository`, `BotApiClient`, `WriterQueueProtocol | None`, `format_delivery_message` callable.
+  - `run_once()` flow:
+    1. Read `bot.enabled` from settings — if absent or `false`, return empty list.
+    2. Read `bot.token` and `bot.chat_id` — if either absent, return empty list.
+    3. Read `bot.delivery_batch_size` (default 10).
+    4. Call `list_undelivered_entries(limit=batch_size)`.
+    5. For each entry: format message → send via bot client → record delivery via writer queue.
+    6. On per-message send error: log warning and skip (entry remains undelivered for next cycle).
+  - Returns list of successfully delivered `BotDeliveryRecord` instances.
+- Acceptance criteria:
+  - [ ] Delivers undelivered clusters when bot is enabled and configured; returns list of `BotDeliveryRecord`.
+  - [ ] Records each successful delivery in `bot_deliveries` table via writer queue.
+  - [ ] Returns empty list and raises no errors when bot is disabled, not configured, or no undelivered entries exist.
+- Verification:
+  - `uv run pytest -q tests/bot/test_delivery.py`
+
+### C099 - Implement Bot Delivery Lifecycle Service
+
+- Change:
+  - Add `BotDeliveryService` to `tca/bot/delivery.py` implementing `LifecycleDependency` protocol (same pattern as `SchedulerService` in `tca/scheduler/service.py`).
+  - Constructor: `RuntimeProvider`, `WriterQueueProvider | None`, `delivery_interval_seconds: int = 60`, `tick_interval_seconds: float = 1.0`.
+  - `startup()`: resolve delivery interval from `bot.delivery_interval_seconds` setting, create `BotDeliveryCoreLoop` with repositories from runtime, create `BotApiClient`, start background `_run_loop` task.
+  - `shutdown()`: signal stop event, await task completion.
+  - `_run_loop()`: infinite loop calling `core_loop.run_once()` per tick, with stop event wait using `tick_interval_seconds` timeout. Same error handling pattern as `SchedulerService._run_loop`.
+  - Export from `tca/bot/__init__.py`.
+- Acceptance criteria:
+  - [ ] `startup()` starts background loop task; `is_running` returns `True`.
+  - [ ] `shutdown()` signals stop and awaits task completion; `is_running` returns `False`.
+  - [ ] `startup()` is idempotent — calling twice does not create duplicate tasks.
+- Verification:
+  - `uv run pytest -q tests/bot/test_delivery_service.py`
+
+### C100 - Wire Bot Delivery Service into App Lifespan
+
+- Change:
+  - Add `bot_delivery: LifecycleDependency` field to `StartupDependencies` dataclass in `tca/api/app.py`.
+  - Add `_build_bot_delivery_dependency(app)` factory following `_build_scheduler_dependency` pattern — returns `BotDeliveryService` bound to app runtime and writer queue providers.
+  - Update `_default_dependencies` to include `bot_delivery`.
+  - Insert `("bot_delivery", dependencies.bot_delivery)` into `startup_order` tuple after `("scheduler", ...)`.
+  - Update `_resolve_startup_dependencies` validation to include `"bot_delivery"`.
+  - Update `_shutdown_in_order` to shut down `bot_delivery` before `scheduler` (add timeout-bounded shutdown, same pattern as scheduler).
+  - Update `_clear_runtime_state` — no new state attributes needed (service is in dependencies container).
+- Acceptance criteria:
+  - [ ] Bot delivery service starts during app startup sequence after scheduler.
+  - [ ] App startup succeeds when bot is not configured (delivery loop is a no-op cycle).
+  - [ ] Startup order test (`tests/app/test_startup_order.py`) updated to include `bot_delivery` in expected sequence.
+- Verification:
+  - `uv run pytest -q tests/app/test_startup_order.py tests/bot/test_delivery_service.py`
+
+### C101 - Add Bot Delivery Failure Notifications
+
+- Change:
+  - In `BotDeliveryCoreLoop.run_once()`:
+    - On `BotTokenInvalidError` from send: create notification with type `bot_token_invalid`, severity `error`, payload `{"chat_id": str}`. Set `bot.enabled` to `false` in settings via writer queue. Return immediately (skip remaining entries).
+    - Track consecutive per-cluster failures in-memory (`dict[int, int]` on core loop instance). On 3rd consecutive failure for same cluster: create notification with type `bot_delivery_failed`, severity `warning`, payload `{"cluster_id": int, "error": str}`. Reset counter for that cluster.
+  - Notification creation via `NotificationsRepository` through writer queue.
+- Acceptance criteria:
+  - [ ] `BotTokenInvalidError` during send disables bot delivery and creates `bot_token_invalid` notification.
+  - [ ] 3rd consecutive failure for same cluster creates `bot_delivery_failed` notification with cluster ID and error message.
+  - [ ] Notification payloads are valid JSON with expected keys.
+- Verification:
+  - `uv run pytest -q tests/bot/test_delivery_notifications.py`
+
+---
+
 ## Dependency Summary (High-Level)
 
 - C001-C007 plus C003A-C003B must complete before feature development.
@@ -1715,6 +1929,12 @@ An item is commit-ready only if all are true:
 - C049-C056 must complete before dedupe and thread behavior is meaningful.
 - C057-C070 must complete before UI thread/explainability is complete.
 - C079-C082 can start after schema + repositories + scheduler basics exist.
+- C091-C101 (Phase 10) require all Phase 1 items (C001-C090) to be complete.
+- C091-C093 must complete before bot delivery service development (C094+).
+- C094-C096 must complete before bot delivery core loop (C098).
+- C095 must complete before bot config API (C097) and delivery loop (C098).
+- C098-C099 must complete before wiring into app lifespan (C100).
+- C098 must complete before delivery failure notifications (C101).
 
 ## Definition of Done for Phase 1
 
