@@ -1755,7 +1755,7 @@ An item is commit-ready only if all are true:
   - Manual checklist dry-run in local environment.
 - Execution record:
   - Date: 2026-03-04
-  - Commit: `0000000000000000000000000000000000000000`
+  - Commit: `d0fde00d60c21ccb7787d104dce1af15c12bb3b4`
   - Verification summary:
     - `uv run pytest -q tests/docs/test_release_checklist_doc.py` passed.
     - Checklist dry-run flow documented with explicit second-engineer procedure and manual validation steps in `docs/release-checklist.md`.
