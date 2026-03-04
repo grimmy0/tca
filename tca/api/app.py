@@ -8,11 +8,16 @@ from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, cast, override, runtime_checkable
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import PlainTextResponse, Response
+from starlette.responses import PlainTextResponse, RedirectResponse, Response
 
 from tca.api.bearer_auth import require_bearer_auth
+from tca.api.cookie_auth import (
+    UIAuthRedirectError,
+    generate_cookie_signing_key,
+    require_ui_auth,
+)
 from tca.api.routes.channel_groups import router as channel_groups_router
 from tca.api.routes.channels import router as channels_router
 from tca.api.routes.dedupe_decisions import router as dedupe_decisions_router
@@ -36,6 +41,7 @@ from tca.storage import (
     dispose_storage_runtime,
 )
 from tca.telegram import TelethonClientManager
+from tca.ui import login_router
 from tca.ui import router as ui_router
 from tca.ui.routes import static_files as ui_static_files
 
@@ -267,6 +273,7 @@ def create_app() -> FastAPI:
     protected_route_dependencies = [Depends(require_bearer_auth)]
     app.state.dependencies = _default_dependencies(app)
     app.state.writer_queue_factory = WriterQueue
+    app.state.cookie_signing_key = generate_cookie_signing_key()
     _configure_cors(app=app, allow_origins=settings.cors_allow_origins)
     app.include_router(health_router)
     app.include_router(
@@ -303,9 +310,11 @@ def create_app() -> FastAPI:
     )
     app.include_router(
         ui_router,
-        dependencies=protected_route_dependencies,
+        dependencies=[Depends(require_ui_auth)],
     )
+    app.include_router(login_router)
     app.mount("/ui/static", ui_static_files, name="ui-static")
+    app.add_exception_handler(UIAuthRedirectError, _handle_ui_auth_redirect)
 
     app.add_api_route(
         "/openapi.json",
@@ -316,6 +325,14 @@ def create_app() -> FastAPI:
     )
 
     return app
+
+
+async def _handle_ui_auth_redirect(
+    _request: Request,
+    _exc: Exception,
+) -> Response:
+    """Redirect unauthenticated UI requests to the login page."""
+    return RedirectResponse(url="/ui/login", status_code=302)
 
 
 def _configure_cors(*, app: FastAPI, allow_origins: tuple[str, ...]) -> None:
@@ -357,6 +374,8 @@ def _clear_runtime_state(app: FastAPI) -> None:
         delattr(state, "storage_runtime")
     if hasattr(state, "writer_queue"):
         delattr(state, "writer_queue")
+    if hasattr(state, "cookie_signing_key"):
+        delattr(state, "cookie_signing_key")
 
 
 async def _shutdown_in_order(

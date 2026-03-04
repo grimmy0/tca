@@ -212,7 +212,7 @@ def test_notifications_view_requires_bearer_auth(
     tmp_path: Path,
     monkeypatch: object,
 ) -> None:
-    """Notifications UI routes should reject unauthenticated requests."""
+    """Notifications UI routes should redirect unauthenticated requests to login."""
     _configure_auth_env(
         tmp_path=tmp_path,
         monkeypatch=monkeypatch,
@@ -225,14 +225,14 @@ def test_notifications_view_requires_bearer_auth(
             "tca.auth.bootstrap_token.secrets.token_urlsafe",
             return_value=BOOTSTRAP_TOKEN,
         ),
-        TestClient(app) as client,
+        TestClient(app, follow_redirects=False) as client,
     ):
         list_response = client.get("/ui/notifications")
         ack_response = client.post("/ui/notifications/42/ack")
 
-    if list_response.status_code != HTTPStatus.UNAUTHORIZED:
+    if list_response.status_code != HTTPStatus.FOUND:
         raise AssertionError
-    if ack_response.status_code != HTTPStatus.UNAUTHORIZED:
+    if ack_response.status_code != HTTPStatus.FOUND:
         raise AssertionError
 
 

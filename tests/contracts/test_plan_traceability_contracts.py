@@ -70,10 +70,18 @@ def test_tca_import_has_no_root_logger_side_effects() -> None:
     root_logger = logging.getLogger()
     before_handler_ids = [id(handler) for handler in root_logger.handlers]
 
+    original_tca = sys.modules.get("tca")
     _ = sys.modules.pop("tca", None)
     _ = importlib.import_module("tca")
 
     after_handler_ids = [id(handler) for handler in root_logger.handlers]
+
+    # Restore original module to avoid poisoning other tests that use
+    # monkeypatch.setattr("tca.api.app...") which requires the tca module
+    # to have subpackage attributes from prior imports.
+    if original_tca is not None:
+        sys.modules["tca"] = original_tca
+
     if after_handler_ids != before_handler_ids:
         raise AssertionError
 

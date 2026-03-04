@@ -4,7 +4,12 @@
 
 {% block content %}
 <section>
-  <h1>TCA</h1>
+  <nav style="display: flex; justify-content: space-between; align-items: center;">
+    <h1 style="margin: 0;">TCA</h1>
+    <form method="post" action="/ui/logout" style="margin: 0;">
+      <button type="submit" class="outline secondary" style="margin: 0;">Sign out</button>
+    </form>
+  </nav>
   <p id="ui-shell-ready">Minimal UI shell is ready.</p>
   <p><a id="ui-shell-channels-groups-link" href="/ui/channels-groups">Manage channels and groups</a></p>
   <p><a id="ui-shell-thread-link" href="/ui/thread">Open merged thread</a></p>

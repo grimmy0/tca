@@ -88,7 +88,7 @@ def test_ui_shell_rejects_unauthorized_access(
     tmp_path: Path,
     monkeypatch: object,
 ) -> None:
-    """Ensure UI shell route is protected by bearer auth."""
+    """Ensure UI shell route redirects to login when unauthenticated."""
     _configure_auth_env(tmp_path=tmp_path, monkeypatch=monkeypatch)
     app = create_app()
 
@@ -97,7 +97,7 @@ def test_ui_shell_rejects_unauthorized_access(
             "tca.auth.bootstrap_token.secrets.token_urlsafe",
             return_value=BOOTSTRAP_TOKEN,
         ),
-        TestClient(app) as client,
+        TestClient(app, follow_redirects=False) as client,
     ):
         unauthenticated = client.get("/ui")
         invalid = client.get(
@@ -105,9 +105,9 @@ def test_ui_shell_rejects_unauthorized_access(
             headers={"Authorization": f"Bearer {INVALID_BEARER_TOKEN}"},
         )
 
-    if unauthenticated.status_code != HTTPStatus.UNAUTHORIZED:
+    if unauthenticated.status_code != HTTPStatus.FOUND:
         raise AssertionError
-    if invalid.status_code != HTTPStatus.UNAUTHORIZED:
+    if invalid.status_code != HTTPStatus.FOUND:
         raise AssertionError
 
 
