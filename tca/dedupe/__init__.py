@@ -17,6 +17,14 @@ from .exact_url_strategy import (
     EXACT_URL_MISSING_REASON,
     evaluate_exact_url,
 )
+from .semantic_similarity_strategy import (
+    SEMANTIC_SIMILARITY_INVALID_REASON,
+    SEMANTIC_SIMILARITY_MATCH_REASON,
+    SEMANTIC_SIMILARITY_MISMATCH_REASON,
+    SEMANTIC_SIMILARITY_MISSING_REASON,
+    SEMANTIC_SIMILARITY_THRESHOLD_DEFAULT,
+    evaluate_semantic_similarity,
+)
 from .strategy_chain import (
     NO_STRATEGY_MATCH_REASON,
     StrategyChain,
@@ -57,6 +65,11 @@ __all__ = [
     "EXACT_URL_MISSING_REASON",
     "MAX_CANDIDATES_DEFAULT",
     "NO_STRATEGY_MATCH_REASON",
+    "SEMANTIC_SIMILARITY_INVALID_REASON",
+    "SEMANTIC_SIMILARITY_MATCH_REASON",
+    "SEMANTIC_SIMILARITY_MISMATCH_REASON",
+    "SEMANTIC_SIMILARITY_MISSING_REASON",
+    "SEMANTIC_SIMILARITY_THRESHOLD_DEFAULT",
     "STRATEGY_STATUSES",
     "TITLE_SIMILARITY_MATCH_REASON",
     "TITLE_SIMILARITY_MISMATCH_REASON",
@@ -79,6 +92,7 @@ __all__ = [
     "duplicate",
     "evaluate_content_hash",
     "evaluate_exact_url",
+    "evaluate_semantic_similarity",
     "evaluate_title_similarity",
     "execute_strategy_chain",
     "execute_strategy_chain_with_trace",

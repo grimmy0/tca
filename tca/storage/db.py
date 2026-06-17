@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-from sqlalchemy import event
+from sqlalchemy import NullPool, event
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -99,7 +99,7 @@ def _create_engine(settings: AppSettings, *, begin_immediate: bool) -> AsyncEngi
     sqlite_url = build_sqlite_url(settings.db_path)
     engine = create_async_engine(
         sqlite_url,
-        pool_pre_ping=True,
+        poolclass=NullPool,
         future=True,
     )
     _install_sqlite_pragma_handler(engine)
