@@ -40,13 +40,13 @@ def test_poll_now_enqueues_job_for_active_channel(
             "tca.auth.bootstrap_token.secrets.token_urlsafe",
             return_value=BOOTSTRAP_TOKEN,
         ),
+        patch("tca.scheduler.SchedulerService.startup"),
         TestClient(app) as client,
     ):
         _insert_account_fixture(db_path, account_id=DEFAULT_ACCOUNT_ID)
         _insert_channel_fixture(
             db_path,
             channel_id=DEFAULT_CHANNEL_ID,
-            account_id=DEFAULT_ACCOUNT_ID,
             telegram_channel_id=DEFAULT_TELEGRAM_CHANNEL_ID,
             name="alpha",
             is_enabled=True,
@@ -93,13 +93,13 @@ def test_poll_now_rejects_disabled_channel(
             "tca.auth.bootstrap_token.secrets.token_urlsafe",
             return_value=BOOTSTRAP_TOKEN,
         ),
+        patch("tca.scheduler.SchedulerService.startup"),
         TestClient(app) as client,
     ):
         _insert_account_fixture(db_path, account_id=DEFAULT_ACCOUNT_ID)
         _insert_channel_fixture(
             db_path,
             channel_id=DEFAULT_CHANNEL_ID,
-            account_id=DEFAULT_ACCOUNT_ID,
             telegram_channel_id=DEFAULT_TELEGRAM_CHANNEL_ID,
             name="alpha",
             is_enabled=False,
@@ -140,13 +140,13 @@ def test_poll_now_rejects_paused_channel(
             "tca.auth.bootstrap_token.secrets.token_urlsafe",
             return_value=BOOTSTRAP_TOKEN,
         ),
+        patch("tca.scheduler.SchedulerService.startup"),
         TestClient(app) as client,
     ):
         _insert_account_fixture(db_path, account_id=DEFAULT_ACCOUNT_ID)
         _insert_channel_fixture(
             db_path,
             channel_id=DEFAULT_CHANNEL_ID,
-            account_id=DEFAULT_ACCOUNT_ID,
             telegram_channel_id=DEFAULT_TELEGRAM_CHANNEL_ID,
             name="alpha",
             is_enabled=True,
@@ -187,11 +187,10 @@ def _insert_account_fixture(db_path: object, *, account_id: int) -> None:
         connection.commit()
 
 
-def _insert_channel_fixture(  # noqa: PLR0913
+def _insert_channel_fixture(
     db_path: object,
     *,
     channel_id: int,
-    account_id: int,
     telegram_channel_id: int,
     name: str,
     is_enabled: bool,
@@ -210,7 +209,13 @@ def _insert_channel_fixture(  # noqa: PLR0913
             )
             VALUES (?, ?, ?, ?, ?)
             """,
-            (channel_id, account_id, telegram_channel_id, name, int(is_enabled)),
+            (
+                channel_id,
+                DEFAULT_ACCOUNT_ID,
+                telegram_channel_id,
+                name,
+                int(is_enabled),
+            ),
         )
         connection.commit()
 
