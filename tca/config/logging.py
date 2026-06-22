@@ -96,3 +96,10 @@ def init_logging(level: LogLevel) -> None:
             root_logger.removeHandler(h)
 
     root_logger.addHandler(handler)
+
+    # Configure uvicorn loggers to propagate to root logger
+    # so they are formatted as JSON
+    for logger_name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        u_logger = logging.getLogger(logger_name)
+        u_logger.handlers = []
+        u_logger.propagate = True
