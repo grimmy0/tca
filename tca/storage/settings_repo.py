@@ -162,6 +162,28 @@ class SettingsRepository:
             return None
         return _decode_row(row)
 
+    async def upsert(self, *, key: str, value: JSONValue) -> SettingRecord:
+        """Insert or overwrite a setting key; update value_json on conflict."""
+        encoded_value = _encode_value_json(key=key, value=value)
+        statement = text(
+            """
+            INSERT INTO settings (key, value_json)
+            VALUES (:key, :value_json)
+            ON CONFLICT(key) DO UPDATE SET
+                value_json = excluded.value_json,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING key, value_json
+            """,
+        )
+        async with self._write_session_factory() as session:
+            result = await session.execute(
+                statement,
+                {"key": key, "value_json": encoded_value},
+            )
+            row = result.mappings().one()
+            await session.commit()
+        return _decode_row(row)
+
     async def delete_if_value_matches(self, *, key: str, value: JSONValue) -> bool:
         """Delete key only when current stored JSON value matches expected."""
         encoded_value = _encode_value_json(key=key, value=value)

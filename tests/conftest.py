@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import aiosqlite
@@ -11,7 +14,14 @@ from tests.mocks.mock_telegram_client import MockTelegramClient
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
-    from pathlib import Path
+
+
+def pytest_configure(config: pytest.Config) -> None:  # noqa: ARG001
+    """Ensure environment variables are overridden for test database isolation."""
+    temp_dir = tempfile.gettempdir()
+    fallback_db = Path(temp_dir) / f"tca_test_isolated_{os.getpid()}.sqlite3"
+
+    os.environ["TCA_DB_PATH"] = fallback_db.as_posix()
 
 
 async def _configure_sqlite_connection(conn: aiosqlite.Connection) -> None:

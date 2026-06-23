@@ -216,3 +216,45 @@ async def test_get_by_key_rejects_non_finite_json_values(
 
     if expected_detail not in str(exc_info.value):
         raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_upsert(
+    settings_repository: SettingsRepository,
+) -> None:
+    """Ensure upsert inserts new setting or updates it on conflict."""
+    key = "scheduler.max_pages_per_poll"
+
+    # 1. Insert brand new
+    upserted_new = await settings_repository.upsert(
+        key=key,
+        value=INITIAL_MAX_PAGES,
+    )
+    if upserted_new.key != key:
+        raise AssertionError
+    if upserted_new.value != INITIAL_MAX_PAGES:
+        raise AssertionError
+
+    # 2. Verify it is there
+    loaded = await settings_repository.get_by_key(key=key)
+    if loaded is None:
+        raise AssertionError
+    if loaded.value != INITIAL_MAX_PAGES:
+        raise AssertionError
+
+    # 3. Overwrite via upsert
+    upserted_existing = await settings_repository.upsert(
+        key=key,
+        value=UPDATED_MAX_PAGES,
+    )
+    if upserted_existing.key != key:
+        raise AssertionError
+    if upserted_existing.value != UPDATED_MAX_PAGES:
+        raise AssertionError
+
+    # 4. Verify update succeeded
+    loaded2 = await settings_repository.get_by_key(key=key)
+    if loaded2 is None:
+        raise AssertionError
+    if loaded2.value != UPDATED_MAX_PAGES:
+        raise AssertionError

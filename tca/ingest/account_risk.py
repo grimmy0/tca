@@ -141,5 +141,4 @@ async def _upsert_state(
     breaches: list[datetime],
 ) -> None:
     value = _encode_state(breaches)
-    if await settings_repository.update(key=key, value=value) is None:
-        _ = await settings_repository.create(key=key, value=value)
+    _ = await settings_repository.upsert(key=key, value=value)
