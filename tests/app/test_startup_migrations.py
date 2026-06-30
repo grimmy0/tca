@@ -102,15 +102,9 @@ def test_startup_migration_failure_blocks_api_startup(
         (tmp_path / "startup-bootstrap-token.txt").as_posix(),
     )
 
-    failed_upgrade = subprocess.CompletedProcess(
-        args=["alembic", "-c", "alembic.ini", "upgrade", "head"],
-        returncode=1,
-        stdout="",
-        stderr="forced-migration-failure",
-    )
     with patch(
-        "tca.storage.migrations.subprocess.run",
-        return_value=failed_upgrade,
+        "tca.storage.migrations.command.upgrade",
+        side_effect=Exception("forced-migration-failure"),
     ):
         app = create_app()
         with (

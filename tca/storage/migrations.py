@@ -5,17 +5,28 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import subprocess
 import sys
 from pathlib import Path
-
-from tca.config.settings import load_settings
 
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ALEMBIC_CONFIG_PATH = PROJECT_ROOT / "alembic.ini"
-ALEMBIC_EXECUTABLE = Path(sys.executable).with_name("alembic")
+
+# Prevent local 'alembic' directory from shadowing the global third-party library
+_orig_sys_path = list(sys.path)
+_to_remove = ["", PROJECT_ROOT.as_posix(), Path.cwd().as_posix()]
+for _p in _to_remove:
+    while _p in sys.path:
+        sys.path.remove(_p)
+
+try:
+    from alembic import command  # pyright: ignore[reportAttributeAccessIssue, reportUnknownVariableType] # noqa: I001
+    from alembic.config import Config
+finally:
+    sys.path = _orig_sys_path
+
+from tca.config.settings import load_settings  # noqa: E402
 
 
 class MigrationStartupError(RuntimeError):
@@ -68,36 +79,27 @@ def run_startup_migrations() -> None:
             details=str(exc),
         ) from exc
 
-    if not ALEMBIC_EXECUTABLE.exists():
-        raise MigrationStartupError.for_missing_executable(ALEMBIC_EXECUTABLE)
-
     logger.info("Applying startup migrations to Alembic head (db=%s)", db_path)
-    env = os.environ.copy()
-    env["TCA_DB_PATH"] = db_path.as_posix()
+    orig_db_path = os.environ.get("TCA_DB_PATH")
+    os.environ["TCA_DB_PATH"] = db_path.as_posix()
 
     try:
-        result = subprocess.run(  # noqa: S603
-            [
-                ALEMBIC_EXECUTABLE.as_posix(),
-                "-c",
-                ALEMBIC_CONFIG_PATH.as_posix(),
-                "upgrade",
-                "head",
-            ],
-            cwd=PROJECT_ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-            env=env,
+        alembic_cfg = Config(ALEMBIC_CONFIG_PATH.as_posix())
+        alembic_cfg.set_main_option(
+            "script_location",
+            (PROJECT_ROOT / "alembic").as_posix(),
         )
-    except OSError as exc:
+        command.upgrade(alembic_cfg, "head")  # pyright: ignore[reportUnknownMemberType]
+    except Exception as exc:
         raise MigrationStartupError.for_upgrade_failure(
             db_path,
             details=str(exc),
         ) from exc
-    if result.returncode != 0:
-        output = result.stderr.strip() or result.stdout.strip() or "unknown error"
-        raise MigrationStartupError.for_upgrade_failure(db_path, details=output)
+    finally:
+        if orig_db_path is not None:
+            os.environ["TCA_DB_PATH"] = orig_db_path
+        else:
+            _ = os.environ.pop("TCA_DB_PATH", None)
 
     logger.info("Startup migrations complete (db=%s)", db_path)
 
