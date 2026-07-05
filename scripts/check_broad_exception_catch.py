@@ -31,7 +31,7 @@ def _handler_has_reraise(handler: ast.ExceptHandler) -> bool:
                 isinstance(node, ast.Call)
                 and isinstance(node.func, ast.Name)
                 and node.func.id == "isinstance"
-                and len(node.args) == 2  # noqa: PLR2004
+                and len(node.args) == 2
             ):
                 arg = node.args[1]
                 # asyncio.CancelledError  or  CancelledError

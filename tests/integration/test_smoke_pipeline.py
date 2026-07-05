@@ -26,7 +26,7 @@ DUPLICATE_COUNT = 2
 PUBLISHED_AT = datetime.now(UTC).replace(microsecond=0).isoformat()
 
 
-def test_smoke_pipeline_auth_mocked_create_poll_dedupe_thread(  # noqa: C901, PLR0912
+def test_smoke_pipeline_auth_mocked_create_poll_dedupe_thread(
     tmp_path: object,
     monkeypatch: object,
 ) -> None:

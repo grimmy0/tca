@@ -77,7 +77,7 @@ async def fetch_recent_messages(
     return [message async for message in client.iter_messages(channel, limit=limit)]
 
 
-async def fetch_bounded_messages(  # noqa: PLR0913
+async def fetch_bounded_messages(
     client: PagedMessageFetchClient,
     channel: object,
     *,

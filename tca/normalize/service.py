@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class ItemWriteRepository(Protocol):
     """Write contract for normalized item upsert operations."""
 
-    async def upsert_item(  # noqa: PLR0913
+    async def upsert_item(
         self,
         *,
         channel_id: int,
@@ -30,7 +30,7 @@ class ItemWriteRepository(Protocol):
         ...
 
 
-async def upsert_item(  # noqa: PLR0913
+async def upsert_item(
     writer_queue: WriterQueueProtocol,
     repository: ItemWriteRepository,
     *,

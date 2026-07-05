@@ -47,7 +47,7 @@ def verify_signed_cookie_value(
 ) -> bool:
     """Verify an HMAC-signed cookie value for authenticity and freshness."""
     parts = cookie_value.split(".", maxsplit=1)
-    if len(parts) != 2:  # noqa: PLR2004
+    if len(parts) != 2:
         return False
 
     timestamp_str, presented_signature = parts

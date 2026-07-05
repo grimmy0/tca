@@ -51,7 +51,7 @@ class ItemsRepository:
         self._read_session_factory = read_session_factory
         self._write_session_factory = write_session_factory
 
-    async def upsert_item(  # noqa: PLR0913
+    async def upsert_item(
         self,
         *,
         channel_id: int,

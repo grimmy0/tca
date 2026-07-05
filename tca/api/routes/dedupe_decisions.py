@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime  # noqa: TC003
+from datetime import datetime
 from typing import cast
 
 from fastapi import APIRouter, HTTPException, Request, status

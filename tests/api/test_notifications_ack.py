@@ -52,7 +52,7 @@ def test_acknowledge_notification_updates_state_atomically(
         raise AssertionError
 
     payload = cast("dict[str, object]", response.json())
-    if payload.get("id") != 101:  # noqa: PLR2004
+    if payload.get("id") != 101:
         raise AssertionError
     if payload.get("is_acknowledged") is not True:
         raise AssertionError
@@ -119,7 +119,7 @@ def test_acknowledge_notification_is_idempotent(
         raise AssertionError
 
 
-def _insert_notification(  # noqa: PLR0913
+def _insert_notification(
     db_path: object,
     *,
     notification_id: int,

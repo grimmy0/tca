@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
+import os
+import secrets
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, cast, override, runtime_checkable
@@ -33,6 +36,8 @@ from tca.config.settings import load_settings
 from tca.scheduler import SchedulerService
 from tca.storage import (
     MigrationRunnerDependency,
+    SettingAlreadyExistsError,
+    SettingsRepository,
     SettingsSeedDependency,
     StorageRuntime,
     WriterQueue,
@@ -242,6 +247,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await dependency.startup()
             started_dependencies.append(dependency)
             logger.info("Startup step complete: %s", step_name)
+        await _resolve_persistent_cookie_signing_key(app, storage_runtime)
         logger.info("Startup sequence complete; app is ready to serve requests.")
         yield
     finally:
@@ -253,6 +259,56 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         _clear_runtime_state(app)
         logger.info("Shutting down TCA")
+
+
+async def _resolve_persistent_cookie_signing_key(
+    app: FastAPI,
+    storage_runtime: StorageRuntime,
+) -> None:
+    """Resolve and set persistent cookie signing key from env or db."""
+    min_key_bytes = 32
+    env_key = os.environ.get("TCA_COOKIE_SIGNING_KEY")
+    if env_key:
+        try:
+            key_bytes = base64.b64decode(env_key)
+            if len(key_bytes) < min_key_bytes:
+                key_bytes = env_key.encode("utf-8")
+        except Exception:
+            key_bytes = env_key.encode("utf-8")
+        app.state.cookie_signing_key = key_bytes
+        logger.info("Loaded cookie signing key from TCA_COOKIE_SIGNING_KEY")
+        return
+
+    repository = SettingsRepository(
+        read_session_factory=storage_runtime.read_session_factory,
+        write_session_factory=storage_runtime.write_session_factory,
+    )
+    try:
+        record = await repository.get_by_key(key="auth.cookie_signing_key")
+        if record is not None:
+            key_hex = str(record.value)
+            app.state.cookie_signing_key = bytes.fromhex(key_hex)
+            logger.info("Loaded persistent cookie signing key from database settings")
+            return
+    except Exception as exc:
+        logger.warning("Failed to retrieve cookie signing key from database: %s", exc)
+
+    key_bytes = secrets.token_bytes(min_key_bytes)
+    try:
+        await repository.create(key="auth.cookie_signing_key", value=key_bytes.hex())
+        app.state.cookie_signing_key = key_bytes
+        logger.info("Generated and stored new cookie signing key in database")
+    except SettingAlreadyExistsError:
+        record = await repository.get_by_key(key="auth.cookie_signing_key")
+        if record is not None:
+            key_hex = str(record.value)
+            app.state.cookie_signing_key = bytes.fromhex(key_hex)
+            logger.info("Loaded persistent cookie signing key from database after race")
+    except Exception:
+        logger.exception(
+            "Failed to store generated cookie signing key in database "
+            "(using in-memory fallback)"
+        )
 
 
 def create_app() -> FastAPI:

@@ -68,9 +68,9 @@ async def test_pagination_stops_on_page_limit() -> None:
         time_provider=_fixed_time,
     )
 
-    if len(result.messages) != 6:  # noqa: PLR2004
+    if len(result.messages) != 6:
         raise AssertionError
-    if result.cursor.next_offset_id != 25:  # noqa: PLR2004
+    if result.cursor.next_offset_id != 25:
         raise AssertionError
     if client.call_offsets != [None, 28]:
         raise AssertionError
@@ -97,9 +97,9 @@ async def test_pagination_stops_on_message_limit_and_sets_offset() -> None:
         time_provider=_fixed_time,
     )
 
-    if len(result.messages) != 5:  # noqa: PLR2004
+    if len(result.messages) != 5:
         raise AssertionError
-    if result.cursor.next_offset_id != 6:  # noqa: PLR2004
+    if result.cursor.next_offset_id != 6:
         raise AssertionError
     if client.call_offsets != [None, 8]:
         raise AssertionError
@@ -125,11 +125,11 @@ async def test_pagination_resumes_from_stored_offset() -> None:
         time_provider=_fixed_time,
     )
 
-    if not client.call_offsets or client.call_offsets[0] != 200:  # noqa: PLR2004
+    if not client.call_offsets or client.call_offsets[0] != 200:
         raise AssertionError
     if result.cursor.next_offset_id is not None:
         raise AssertionError
-    if result.cursor.last_message_id != 300:  # noqa: PLR2004
+    if result.cursor.last_message_id != 300:
         raise AssertionError
 
 
@@ -150,5 +150,5 @@ async def test_pagination_uses_lowest_id_for_offset() -> None:
         time_provider=_fixed_time,
     )
 
-    if result.cursor.next_offset_id != 5:  # noqa: PLR2004
+    if result.cursor.next_offset_id != 5:
         raise AssertionError

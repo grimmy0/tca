@@ -21,9 +21,9 @@ _model: SentenceTransformer | None = None
 
 def get_model() -> SentenceTransformer:
     """Return a lazily-loaded singleton SentenceTransformer model."""
-    global _model  # noqa: PLW0603
+    global _model
     if _model is None:
-        from sentence_transformers import SentenceTransformer  # noqa: PLC0415
+        from sentence_transformers import SentenceTransformer
 
         _model = SentenceTransformer(MODEL_NAME)
     return _model
@@ -53,5 +53,5 @@ def prepare_text_for_embedding(*, title: str | None, body: str | None) -> str:
 
 def reset_model() -> None:
     """Reset the singleton model instance (test utility)."""
-    global _model  # noqa: PLW0603
+    global _model
     _model = None

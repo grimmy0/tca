@@ -288,9 +288,9 @@ async def test_prune_job_respects_batch_size_for_raw_messages_and_items(
     )
     summary = await job.run_once()
 
-    if summary.raw_messages_deleted != 1200:  # noqa: PLR2004
+    if summary.raw_messages_deleted != 1200:
         raise AssertionError
-    if summary.items_deleted != 1200:  # noqa: PLR2004
+    if summary.items_deleted != 1200:
         raise AssertionError
     if summary.raw_message_batch_sizes != (500, 500, 200):
         raise AssertionError
@@ -371,7 +371,7 @@ async def test_prune_job_recomputes_cluster_representatives_and_removes_empty_cl
     )
     summary = await job.run_once()
 
-    if summary.recomputed_cluster_count != 2:  # noqa: PLR2004
+    if summary.recomputed_cluster_count != 2:
         raise AssertionError
     if summary.deleted_empty_cluster_count != 1:
         raise AssertionError
@@ -518,7 +518,7 @@ async def _insert_raw_message(
         await session.commit()
 
 
-async def _insert_item(  # noqa: PLR0913
+async def _insert_item(
     *,
     runtime: StorageRuntime,
     item_id: int,

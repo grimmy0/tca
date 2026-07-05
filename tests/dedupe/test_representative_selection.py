@@ -279,7 +279,7 @@ async def test_representative_rule_order_matches_design_after_merge(
         runtime=storage_runtime,
         cluster_id=1,
     )
-    if representative_item_id != 104:  # noqa: PLR2004
+    if representative_item_id != 104:
         raise AssertionError
 
 
@@ -324,7 +324,7 @@ async def test_merge_recompute_prefers_lowest_item_id_on_full_tie(
         runtime=storage_runtime,
         cluster_id=11,
     )
-    if representative_item_id != 301:  # noqa: PLR2004
+    if representative_item_id != 301:
         raise AssertionError
 
 
@@ -386,7 +386,7 @@ async def test_recompute_runs_after_purge_operation(
         runtime=storage_runtime,
         cluster_id=21,
     )
-    if representative_item_id != 501:  # noqa: PLR2004
+    if representative_item_id != 501:
         raise AssertionError
 
 
@@ -433,7 +433,7 @@ async def _seed_channel_rows(*, runtime: StorageRuntime) -> None:
         await session.commit()
 
 
-async def _insert_item(  # noqa: PLR0913
+async def _insert_item(
     *,
     runtime: StorageRuntime,
     item_id: int,

@@ -99,7 +99,7 @@ def test_verify_password_finalizes_login(
         raise AssertionError
     if payload.get("session_id") != session_id:
         raise AssertionError
-    if mock_tg_client.call_counts.get("sign_in") != 2:  # noqa: PLR2004
+    if mock_tg_client.call_counts.get("sign_in") != 2:
         raise AssertionError
     if expected_session not in session_strings:
         raise AssertionError
@@ -372,7 +372,7 @@ def _fetch_session_telegram_session(*, db_path: Path, session_id: str) -> str | 
     if row[0] is None:
         return None
     if not isinstance(row[0], str):
-        raise AssertionError  # noqa: TRY004
+        raise AssertionError
     return row[0]
 
 

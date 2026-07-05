@@ -288,7 +288,7 @@ def test_notifications_view_marks_high_severity_alerts_visually(
         raise AssertionError
 
 
-def _insert_notification(  # noqa: PLR0913
+def _insert_notification(
     *,
     db_path: Path,
     notification_id: int,

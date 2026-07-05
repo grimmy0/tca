@@ -45,7 +45,7 @@ def normalize_ingest_error_stage(stage: object) -> str:
     return value
 
 
-async def capture_ingest_error(  # noqa: PLR0913
+async def capture_ingest_error(
     *,
     writer_queue: WriterQueueProtocol,
     errors_repository: IngestErrorsRepository,
@@ -70,7 +70,7 @@ async def capture_ingest_error(  # noqa: PLR0913
     return await writer_queue.submit(_persist)
 
 
-async def execute_with_ingest_error_capture[T](  # noqa: PLR0913
+async def execute_with_ingest_error_capture[T](
     *,
     operation: Callable[[], Awaitable[T]],
     writer_queue: WriterQueueProtocol,

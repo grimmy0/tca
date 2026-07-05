@@ -186,7 +186,7 @@ class TeeLogger:
         self.log(f"{label} | cmd={rendered}")
 
 
-def parse_plan(plan_path: Path) -> list[PlanItem]:  # noqa: C901
+def parse_plan(plan_path: Path) -> list[PlanItem]:
     """Parse all Cxxx plan items and their checkbox criteria."""
     lines = plan_path.read_text(encoding="utf-8").splitlines()
     items: list[PlanItem] = []
@@ -492,7 +492,7 @@ def compute_full_jitter_backoff_seconds(
     return jitter_fraction * upper_bound
 
 
-def wait_for_retryable_rate_limit(  # noqa: PLR0913
+def wait_for_retryable_rate_limit(
     *,
     logger: TeeLogger,
     step_name: str,
@@ -736,7 +736,7 @@ def run_quota_probe(
     return False
 
 
-def wait_for_quota_reset(  # noqa: PLR0913
+def wait_for_quota_reset(
     *,
     codex_bin: str,
     repo_root: Path,
@@ -1086,7 +1086,7 @@ def run_verification_commands(
     return "\n".join(report)
 
 
-def build_review_prompt(  # noqa: PLR0913
+def build_review_prompt(
     *,
     repo_root: Path,
     plan_path: Path,
@@ -1383,7 +1383,7 @@ def enforce_no_verify_policy_or_fail(
     return False
 
 
-def enforce_precommit_policy(  # noqa: C901, PLR0911, PLR0913
+def enforce_precommit_policy(
     *,
     uv_bin: str,
     codex_bin: str,
@@ -1506,7 +1506,7 @@ def enforce_precommit_policy(  # noqa: C901, PLR0911, PLR0913
     return 1
 
 
-def run_docs_review(  # noqa: PLR0913
+def run_docs_review(
     *,
     codex_bin: str,
     repo_root: Path,
@@ -1596,7 +1596,7 @@ def run_docs_review(  # noqa: PLR0913
         return None
 
 
-def run_codex_step(  # noqa: PLR0913
+def run_codex_step(
     *,
     codex_bin: str,
     repo_root: Path,
@@ -1797,7 +1797,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
+def main() -> int:
     """Entrypoint for verbose codex plan runner."""
     args = parse_args()
     repo_root = args.repo_root.resolve()
@@ -2397,11 +2397,11 @@ def main() -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
         logger.log(
             f"Reached max cycles ({args.max_cycles}) without PLAN IS DONE sentinel.",
         )
-        return 2  # noqa: TRY300
+        return 2
     except KeyboardInterrupt:
         logger.log("Interrupted by user.")
         return 130
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.log(f"Unhandled error: {exc}")
         return 1
     finally:

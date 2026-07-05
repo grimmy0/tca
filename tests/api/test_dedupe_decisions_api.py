@@ -344,7 +344,7 @@ def _insert_cluster(
         connection.commit()
 
 
-def _insert_decision(  # noqa: PLR0913
+def _insert_decision(
     *,
     db_path: Path,
     decision_id: int,

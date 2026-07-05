@@ -74,7 +74,7 @@ class AuthSessionStateRepository:
         self._read_session_factory = read_session_factory
         self._write_session_factory = write_session_factory
 
-    async def create_session(  # noqa: PLR0913
+    async def create_session(
         self,
         *,
         session_id: str,

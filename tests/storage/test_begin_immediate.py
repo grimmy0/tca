@@ -66,7 +66,7 @@ async def test_writer_transactions_emit_begin_immediate(
     """Ensure write transactions are opened using BEGIN IMMEDIATE."""
     statements: list[str] = []
 
-    def _capture_statement(  # noqa: PLR0913
+    def _capture_statement(
         conn: object,
         cursor: object,
         statement: str,
@@ -103,7 +103,7 @@ async def test_read_transactions_remain_unaffected_by_begin_immediate(
     """Ensure read sessions can query while writer holds an IMMEDIATE transaction."""
     read_statements: list[str] = []
 
-    def _capture_read_statement(  # noqa: PLR0913
+    def _capture_read_statement(
         conn: object,
         cursor: object,
         statement: str,

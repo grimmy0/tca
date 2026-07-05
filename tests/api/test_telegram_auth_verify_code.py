@@ -416,7 +416,7 @@ def _fetch_session_telegram_session(*, db_path: Path, session_id: str) -> str | 
     if row[0] is None:
         return None
     if not isinstance(row[0], str):
-        raise AssertionError  # noqa: TRY004
+        raise AssertionError
     return row[0]
 
 

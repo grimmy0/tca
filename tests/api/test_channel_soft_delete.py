@@ -173,7 +173,7 @@ def _insert_account_fixture(db_path: object, *, account_id: int) -> None:
         connection.commit()
 
 
-def _insert_channel_fixture(  # noqa: PLR0913
+def _insert_channel_fixture(
     db_path: object,
     *,
     channel_id: int,

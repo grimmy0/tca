@@ -224,7 +224,7 @@ async def start_telegram_auth(
     response_model=TelegramAuthVerifyCodeResponse,
     status_code=status.HTTP_200_OK,
 )
-async def verify_telegram_code(  # noqa: C901
+async def verify_telegram_code(
     payload: TelegramAuthVerifyCodeRequest,
     request: Request,
 ) -> TelegramAuthVerifyCodeResponse:
@@ -335,7 +335,7 @@ async def verify_telegram_code(  # noqa: C901
     response_model=TelegramAuthVerifyPasswordResponse,
     status_code=status.HTTP_200_OK,
 )
-async def verify_telegram_password(  # noqa: C901
+async def verify_telegram_password(
     payload: TelegramAuthVerifyPasswordRequest,
     request: Request,
 ) -> TelegramAuthVerifyPasswordResponse:
@@ -599,7 +599,7 @@ def _auth_session_password_status_conflict_error(
     )
 
 
-async def _update_auth_session_status(  # noqa: PLR0913
+async def _update_auth_session_status(
     *,
     writer_queue: WriterQueueProtocol,
     repository: AuthSessionStateRepository,
@@ -658,7 +658,7 @@ def _build_settings_repository(request: Request) -> SettingsRepository:
     )
 
 
-async def _persist_authenticated_session(  # noqa: PLR0913
+async def _persist_authenticated_session(
     *,
     request: Request,
     writer_queue: WriterQueueProtocol,

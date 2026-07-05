@@ -70,7 +70,7 @@ def test_next_run_at_within_jitter_bounds() -> None:
         jitter_rng=rng,
     )
 
-    next_run_at = core_loop._compute_next_run_at(state_last_success=last_success)  # noqa: SLF001
+    next_run_at = core_loop._compute_next_run_at(state_last_success=last_success)
     lower_bound = last_success + timedelta(
         seconds=interval_seconds * (1 - jitter_ratio),
     )
@@ -103,8 +103,8 @@ def test_jitter_is_deterministic_with_seeded_rng() -> None:
         jitter_rng=rng_right,
     )
 
-    left_next = left._compute_next_run_at(state_last_success=last_success)  # noqa: SLF001
-    right_next = right._compute_next_run_at(state_last_success=last_success)  # noqa: SLF001
+    left_next = left._compute_next_run_at(state_last_success=last_success)
+    right_next = right._compute_next_run_at(state_last_success=last_success)
     if left_next != right_next:
         raise AssertionError
 
@@ -127,5 +127,5 @@ async def test_poll_interval_resolves_from_settings(
         repository=repository,
         default_value=DEFAULT_POLL_INTERVAL_SECONDS,
     )
-    if resolved != 120:  # noqa: PLR2004
+    if resolved != 120:
         raise AssertionError

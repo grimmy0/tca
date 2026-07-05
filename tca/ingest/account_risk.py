@@ -67,7 +67,7 @@ def _filter_recent(breaches: list[datetime], *, now: datetime) -> list[datetime]
     return [breach for breach in breaches if breach >= cutoff]
 
 
-async def record_account_risk_breach(  # noqa: PLR0913
+async def record_account_risk_breach(
     *,
     writer_queue: WriterQueueProtocol,
     settings_repository: SettingsRepository,

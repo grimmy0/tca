@@ -161,7 +161,7 @@ def test_list_notifications_requires_bearer_auth(
         raise AssertionError
 
 
-def _insert_notification(  # noqa: PLR0913
+def _insert_notification(
     db_path: object,
     *,
     notification_id: int,

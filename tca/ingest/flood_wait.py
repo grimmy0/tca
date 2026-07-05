@@ -46,7 +46,7 @@ def _extract_wait_seconds(*, error: BaseException) -> int | None:
     return None
 
 
-async def handle_flood_wait(  # noqa: PLR0913
+async def handle_flood_wait(
     *,
     writer_queue: WriterQueueProtocol,
     state_repository: ChannelStateRepository,

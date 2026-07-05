@@ -179,13 +179,13 @@ def test_purge_delete_recomputes_clusters_and_removes_empty(
         raise AssertionError
 
     cluster_ids = _read_cluster_ids(db_path)
-    if 10 in cluster_ids:  # noqa: PLR2004
+    if 10 in cluster_ids:
         raise AssertionError
-    if 20 not in cluster_ids:  # noqa: PLR2004
+    if 20 not in cluster_ids:
         raise AssertionError
 
     representative_id = _read_cluster_representative(db_path, cluster_id=20)
-    if representative_id != 201:  # noqa: PLR2004
+    if representative_id != 201:
         raise AssertionError
 
 
@@ -203,7 +203,7 @@ def _insert_account_fixture(db_path: object, *, account_id: int) -> None:
         connection.commit()
 
 
-def _insert_channel_fixture(  # noqa: PLR0913
+def _insert_channel_fixture(
     db_path: object,
     *,
     channel_id: int,
@@ -255,7 +255,7 @@ def _insert_raw_message_fixture(
     return int(cursor.lastrowid)
 
 
-def _insert_item_fixture(  # noqa: PLR0913
+def _insert_item_fixture(
     db_path: object,
     *,
     item_id: int,

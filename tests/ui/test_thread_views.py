@@ -364,7 +364,7 @@ def test_decode_ui_thread_decision_row_rejects_boolean_score() -> None:
         "created_at": "2026-02-18 01:02:04",
     }
     with pytest.raises(TypeError):
-        _ = ui_routes._decode_ui_thread_decision_row(row=row)  # noqa: SLF001
+        _ = ui_routes._decode_ui_thread_decision_row(row=row)
 
 
 def _configure_auth_env(
@@ -421,7 +421,7 @@ def _insert_channel(
         connection.commit()
 
 
-def _insert_item(  # noqa: PLR0913
+def _insert_item(
     *,
     db_path: Path,
     item_id: int,
@@ -482,7 +482,7 @@ def _insert_member(*, db_path: Path, cluster_id: int, item_id: int) -> None:
         connection.commit()
 
 
-def _insert_decision(  # noqa: PLR0913
+def _insert_decision(
     *,
     db_path: Path,
     decision_id: int,

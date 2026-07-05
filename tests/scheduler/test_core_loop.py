@@ -334,7 +334,7 @@ async def _seed_account(runtime: StorageRuntime, *, account_id: int) -> None:
         await session.commit()
 
 
-async def _seed_channel(  # noqa: PLR0913
+async def _seed_channel(
     runtime: StorageRuntime,
     *,
     channel_id: int,

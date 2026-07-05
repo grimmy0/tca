@@ -246,7 +246,7 @@ def _insert_account(db_path: object, *, account_id: int) -> None:
         connection.commit()
 
 
-def _insert_channel(  # noqa: PLR0913
+def _insert_channel(
     db_path: object,
     *,
     channel_id: int,
@@ -274,7 +274,7 @@ def _insert_channel(  # noqa: PLR0913
         connection.commit()
 
 
-def _insert_item(  # noqa: PLR0913
+def _insert_item(
     db_path: object,
     *,
     item_id: int,

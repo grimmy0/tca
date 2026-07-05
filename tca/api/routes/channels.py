@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime  # noqa: TC003
+from datetime import datetime
 from typing import cast
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -181,7 +181,7 @@ async def patch_channel(
 async def delete_channel(
     channel_id: int,
     request: Request,
-    purge: bool = False,  # noqa: FBT001, FBT002
+    purge: bool = False,
 ) -> ChannelResponse:
     """Disable or purge one channel by id depending on query flag."""
     repository = _build_channels_repository(request)
