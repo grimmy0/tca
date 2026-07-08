@@ -132,3 +132,34 @@ def _assert_runtime_error(result: object, *, expected_message: str) -> None:
         raise TypeError(details)
     if str(result) != expected_message:
         raise AssertionError
+
+
+@pytest.mark.asyncio
+async def test_writer_queue_worker_crash_rejects_pending_jobs() -> None:
+    """Ensure worker cancellation/crash triggers graceful rejection.
+
+    Rejects all remaining queue items on worker stop.
+    """
+    from tca.storage.writer_queue import WriterQueueClosedError
+
+    queue = WriterQueue()
+
+    async def _slow_job() -> None:
+        await asyncio.sleep(0.1)
+
+    async def _never_run_job() -> str:
+        return "never-run"
+
+    task1 = asyncio.create_task(queue.submit(_slow_job))
+    task2 = asyncio.create_task(queue.submit(_never_run_job))
+
+    await asyncio.sleep(0.01)
+
+    if queue._worker_task is None:
+        raise AssertionError
+    queue._worker_task.cancel()
+
+    with pytest.raises(WriterQueueClosedError):
+        await task1
+    with pytest.raises(WriterQueueClosedError):
+        await task2

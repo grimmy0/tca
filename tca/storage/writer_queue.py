@@ -92,14 +92,42 @@ class WriterQueue:
 
     async def _run_worker(self) -> None:
         """Execute queued write operations one at a time in FIFO order."""
-        while True:
-            queued_job = await self._queue.get()
-            try:
+        current_job: _QueuedWriteJob | None = None
+        try:
+            while True:
+                queued_job = await self._queue.get()
+                current_job = queued_job
                 if queued_job is None:
+                    self._queue.task_done()
                     return
                 await self._execute_queued_job(queued_job)
-            finally:
                 self._queue.task_done()
+                current_job = None
+        finally:
+            if current_job is not None and not current_job.completion.done():
+                current_job.completion.set_exception(
+                    WriterQueueClosedError(
+                        "Writer queue worker crashed or stopped."
+                    )
+                )
+                try:
+                    self._queue.task_done()
+                except ValueError:
+                    pass
+            # Drain queue and reject remaining items on worker stop
+            while not self._queue.empty():
+                try:
+                    queued_job = self._queue.get_nowait()
+                    if queued_job is not None:
+                        if not queued_job.completion.done():
+                            queued_job.completion.set_exception(
+                                WriterQueueClosedError(
+                                    "Writer queue worker crashed or stopped."
+                                )
+                            )
+                    self._queue.task_done()
+                except asyncio.QueueEmpty:
+                    break
 
     async def _execute_queued_job(self, queued_job: _QueuedWriteJob) -> None:
         """Resolve queued completion future with operation result or error."""
@@ -107,6 +135,10 @@ class WriterQueue:
             result = await queued_job.operation()
         except BaseException as exc:
             if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+                raise
+            task = asyncio.current_task()
+            is_cancel = isinstance(exc, asyncio.CancelledError)
+            if is_cancel and task and task.cancelling() > 0:
                 raise
             if queued_job.completion.cancelled():
                 return
