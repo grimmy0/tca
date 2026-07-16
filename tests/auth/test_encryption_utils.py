@@ -14,6 +14,7 @@ from tca.auth.encryption_utils import (
     EnvelopeDecryptionError,
     decrypt_with_envelope,
     encrypt_with_envelope,
+    wipe_bytes,
 )
 
 
@@ -131,3 +132,16 @@ def test_decrypt_rejects_invalid_nonce_length_with_deterministic_error() -> None
             ciphertext_payload=tampered_payload,
             key_encryption_key=key_encryption_key,
         )
+
+
+def test_wipe_bytes_zeroes_memory() -> None:
+    """Ensure wipe_bytes overwrites bytes and bytearray structures in-place."""
+    b = bytearray(b"secretkey")
+    wipe_bytes(b)
+    if b != bytearray(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00"):
+        raise AssertionError
+
+    b2 = b"secretkey"
+    wipe_bytes(b2)
+    if b2 != b"\x00\x00\x00\x00\x00\x00\x00\x00\x00":
+        raise AssertionError

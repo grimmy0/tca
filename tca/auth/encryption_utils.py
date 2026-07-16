@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import ctypes
 import json
 import secrets
 from typing import cast
@@ -69,21 +70,24 @@ def encrypt_with_envelope(
     """Encrypt bytes using a random DEK wrapped by the provided KEK."""
     _validate_aes_key(name="key_encryption_key", key=key_encryption_key)
     data_encryption_key = generate_data_encryption_key()
-    wrapped_dek = wrap_data_encryption_key(
-        data_encryption_key=data_encryption_key,
-        key_encryption_key=key_encryption_key,
-    )
-    nonce = secrets.token_bytes(AES_GCM_NONCE_BYTES)
-    ciphertext = AESGCM(data_encryption_key).encrypt(nonce, plaintext, None)
+    try:
+        wrapped_dek = wrap_data_encryption_key(
+            data_encryption_key=data_encryption_key,
+            key_encryption_key=key_encryption_key,
+        )
+        nonce = secrets.token_bytes(AES_GCM_NONCE_BYTES)
+        ciphertext = AESGCM(data_encryption_key).encrypt(nonce, plaintext, None)
 
-    payload = {
-        "version": ENVELOPE_VERSION,
-        "wrapped_data_encryption_key": _encode_bytes(wrapped_dek),
-        "nonce": _encode_bytes(nonce),
-        "ciphertext": _encode_bytes(ciphertext),
-    }
-    serialized = json.dumps(payload, separators=(",", ":"), sort_keys=True)
-    return serialized.encode("utf-8")
+        payload = {
+            "version": ENVELOPE_VERSION,
+            "wrapped_data_encryption_key": _encode_bytes(wrapped_dek),
+            "nonce": _encode_bytes(nonce),
+            "ciphertext": _encode_bytes(ciphertext),
+        }
+        serialized = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+        return serialized.encode("utf-8")
+    finally:
+        wipe_bytes(data_encryption_key)
 
 
 def decrypt_with_envelope(
@@ -120,6 +124,8 @@ def decrypt_with_envelope(
         return AESGCM(data_encryption_key).decrypt(nonce, ciphertext, None)
     except (InvalidTag, ValueError) as exc:
         raise EnvelopeDecryptionError(_DECRYPTION_ERROR_MESSAGE) from exc
+    finally:
+        wipe_bytes(data_encryption_key)
 
 
 def _validate_aes_key(*, name: str, key: bytes) -> None:
@@ -159,3 +165,18 @@ def _decode_payload(*, ciphertext_payload: bytes) -> dict[str, object]:
     if not isinstance(decoded_obj, dict):
         raise EnvelopeDecryptionError(_DECRYPTION_ERROR_MESSAGE)
     return cast("dict[str, object]", decoded_obj)
+
+
+def wipe_bytes(b: bytes | bytearray | None) -> None:
+    """Overwrite the given bytes/bytearray in-place with zero bytes to secure memory."""
+    if b is None:
+        return
+    if isinstance(b, bytearray):
+        for i in range(len(b)):
+            b[i] = 0
+    elif isinstance(b, bytes):
+        try:
+            addr = id(b) + 32
+            ctypes.memmove(addr, b"\x00" * len(b), len(b))
+        except (AttributeError, ValueError, TypeError):
+            pass
