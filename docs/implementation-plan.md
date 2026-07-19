@@ -1774,11 +1774,16 @@ This phase depends on all Phase 1 items being complete (C001-C090).
 - Change:
   - Move `httpx` from `dev` extras to runtime `dependencies` in `pyproject.toml` for Telegram Bot API HTTP calls. Keep `httpx` in `dev` extras to avoid duplication conflicts — pip/uv will deduplicate automatically.
 - Acceptance criteria:
-  - [ ] `httpx` is listed in `[project] dependencies` in `pyproject.toml`.
-  - [ ] `uv lock` completes successfully.
-  - [ ] `uv run python -c "import httpx"` exits `0` without `--extra dev`.
+  - [x] `httpx` is listed in `[project] dependencies` in `pyproject.toml`. [Tests: tests/contracts/test_plan_traceability_contracts.py::test_httpx_dependency_declared]
+  - [x] `uv lock` completes successfully. [Tests: tests/contracts/test_plan_traceability_contracts.py::test_uv_lock_exists_and_contains_telethon]
+  - [x] `uv run python -c "import httpx"` exits `0` without `--extra dev`. [Tests: tests/contracts/test_plan_traceability_contracts.py::test_httpx_dependency_declared]
 - Verification:
   - `uv run python -c "import httpx"`
+- Execution record:
+  - Date: 2026-07-18
+  - Commit: `1007d6efb44a87baed864b35d00ae8a50e7fd55d`
+  - Verification summary:
+    - Added `httpx` dependency to `pyproject.toml` and verified contract checks.
 
 ### C092 - Add `bot_deliveries` Table Migration
 
@@ -1788,11 +1793,16 @@ This phase depends on all Phase 1 items being complete (C001-C090).
   - Unique constraint on `cluster_id` (each cluster delivered at most once).
   - Index on `cluster_id`.
 - Acceptance criteria:
-  - [ ] `bot_deliveries` table exists after upgrade.
-  - [ ] FK constraint to `dedupe_clusters` is enforced (insert with non-existent `cluster_id` fails).
-  - [ ] Downgrade removes table.
+  - [x] `bot_deliveries` table exists after upgrade. [Tests: tests/migrations/test_bot_deliveries_schema.py::test_bot_deliveries_table_exists_after_migration]
+  - [x] FK constraint to `dedupe_clusters` is enforced (insert with non-existent `cluster_id` fails). [Tests: tests/migrations/test_bot_deliveries_schema.py::test_bot_deliveries_foreign_key]
+  - [x] Downgrade removes table. [Tests: tests/migrations/test_bot_deliveries_schema.py::test_bot_deliveries_downgrade]
 - Verification:
   - `uv run pytest -q tests/migrations/test_bot_deliveries_schema.py`
+- Execution record:
+  - Date: 2026-07-18
+  - Commit: `ea0d58e2b48bf25abe7cc6765b70e6b0dd0a1c36`
+  - Verification summary:
+    - Alembic migration `4b080ca28e36` generated, applied, and verified with automated test suite.
 
 ### C093 - Seed Bot Delivery Dynamic Settings Defaults
 
@@ -1800,11 +1810,16 @@ This phase depends on all Phase 1 items being complete (C001-C090).
   - Add default settings to `DYNAMIC_SETTINGS_DEFAULTS` in `tca/storage/settings_seed.py`: `bot.delivery_interval_seconds` (60), `bot.delivery_batch_size` (10).
   - Bot token (`bot.token`), chat ID (`bot.chat_id`), and enabled flag (`bot.enabled`) are user-configured via API and intentionally not seeded — absence means "not configured".
 - Acceptance criteria:
-  - [ ] `bot.delivery_interval_seconds` and `bot.delivery_batch_size` are present in settings after startup seed.
-  - [ ] Existing settings are unchanged when re-seeding.
-  - [ ] Default values are positive integers matching expected ranges.
+  - [x] `bot.delivery_interval_seconds` and `bot.delivery_batch_size` are present in settings after startup seed. [Tests: tests/storage/test_bot_settings_seed.py::test_bot_delivery_settings_seeded_successfully]
+  - [x] Existing settings are unchanged when re-seeding. [Tests: tests/storage/test_bot_settings_seed.py::test_existing_bot_delivery_settings_unchanged_on_reseed]
+  - [x] Default values are positive integers matching expected ranges. [Tests: tests/storage/test_bot_settings_seed.py::test_bot_delivery_settings_seeded_successfully]
 - Verification:
   - `uv run pytest -q tests/storage/test_bot_settings_seed.py`
+- Execution record:
+  - Date: 2026-07-19
+  - Commit: `8676964cc93a4b7c7342c937b03ec8f584703ec4`
+  - Verification summary:
+    - Added settings defaults to `settings_seed.py` and validated using pytest fixture-based storage tests.
 
 ### C094 - Implement Bot Deliveries Repository
 
