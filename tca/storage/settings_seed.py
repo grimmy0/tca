@@ -23,6 +23,8 @@ DYNAMIC_SETTINGS_DEFAULTS: tuple[tuple[str, JSONValue], ...] = (
     ("retention.ingest_errors_days", 90),
     ("retention.dedupe_decisions_days", 180),
     ("backup.retain_count", 14),
+    ("bot.delivery_interval_seconds", 60),
+    ("bot.delivery_batch_size", 10),
 )
 
 
