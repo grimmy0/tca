@@ -193,3 +193,13 @@ def test_storage_concurrency_test_uses_shared_fixture() -> None:
     text = test_path.read_text(encoding="utf-8")
     if "sqlite_writer_pair" not in text:
         raise AssertionError
+
+
+def test_httpx_dependency_declared() -> None:
+    """Ensure httpx is declared in pyproject dependencies."""
+    pyproject = _load_pyproject()
+    project = _expect_table(pyproject.get("project"))
+    dependencies = _expect_string_list(project.get("dependencies"))
+    if not _dependency_declared(dependencies, "httpx"):
+        raise AssertionError
+
