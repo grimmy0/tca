@@ -35,6 +35,13 @@ from .db import (
     create_write_engine,
     dispose_storage_runtime,
 )
+from .bot_deliveries_repo import (
+    BotDeliveryRecord,
+    BotDeliveryEntryRecord,
+    BotDeliveriesRepository,
+    BotDeliveriesRepositoryError,
+    BotDeliveryAlreadyExistsError,
+)
 from .dedupe_clusters_repo import (
     ClusterAssignmentResult,
     ClusterMergeResult,
@@ -108,6 +115,11 @@ __all__ = [
     "AccountPauseRecord",
     "AccountPauseRepository",
     "AccountPauseRepositoryError",
+    "BotDeliveryRecord",
+    "BotDeliveryEntryRecord",
+    "BotDeliveriesRepository",
+    "BotDeliveriesRepositoryError",
+    "BotDeliveryAlreadyExistsError",
     "ChannelAlreadyAssignedToGroupError",
     "ChannelCursor",
     "ChannelDecodeError",
