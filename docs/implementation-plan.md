@@ -1833,11 +1833,16 @@ This phase depends on all Phase 1 items being complete (C001-C090).
     - `has_been_delivered(cluster_id)` → `bool`.
   - Export from `tca/storage/__init__.py`.
 - Acceptance criteria:
-  - [ ] `record_delivery` creates row and returns `BotDeliveryRecord`; duplicate `cluster_id` raises `BotDeliveryAlreadyExistsError`.
-  - [ ] `list_undelivered_entries` returns clusters not in `bot_deliveries`, ordered by `cluster_id ASC`, limited to `limit`, with correct representative item and channel data.
-  - [ ] `has_been_delivered` returns `True` for delivered clusters and `False` for undelivered.
+  - [x] `record_delivery` creates row and returns `BotDeliveryRecord`; duplicate `cluster_id` raises `BotDeliveryAlreadyExistsError`. [Tests: tests/storage/test_bot_deliveries_repo.py::test_record_delivery_duplicate_raises_error]
+  - [x] `list_undelivered_entries` returns clusters not in `bot_deliveries`, ordered by `cluster_id ASC`, limited to `limit`, with correct representative item and channel data. [Tests: tests/storage/test_bot_deliveries_repo.py::test_list_undelivered_entries]
+  - [x] `has_been_delivered` returns `True` for delivered clusters and `False` for undelivered. [Tests: tests/storage/test_bot_deliveries_repo.py::test_record_delivery_success]
 - Verification:
   - `uv run pytest -q tests/storage/test_bot_deliveries_repo.py`
+- Execution record:
+  - Date: 2026-07-20
+  - Commit: `a239ee9d1a8cd36e8db007e05cc1c0fcdde7fecf`
+  - Verification summary:
+    - Repository class, datatypes, and helper coercion logic implemented and verified with automated test suite.
 
 ### C095 - Implement Bot API Client
 
@@ -1851,11 +1856,16 @@ This phase depends on all Phase 1 items being complete (C001-C090).
   - Base URL: `https://api.telegram.org/bot{token}/`.
   - Error types: `BotTokenInvalidError` (401/unauthorized), `BotApiError` (other API failures), `BotNetworkError` (connection/timeout).
 - Acceptance criteria:
-  - [ ] `validate_token` returns `BotInfo` with bot username when API returns success (mocked httpx transport).
-  - [ ] `send_message` returns `SentMessage` with `message_id` when API returns success (mocked httpx transport).
-  - [ ] Invalid token response (401) raises `BotTokenInvalidError` with deterministic message.
+  - [x] `validate_token` returns `BotInfo` with bot username when API returns success (mocked httpx transport). [Tests: tests/bot/test_client.py::test_validate_token_success]
+  - [x] `send_message` returns `SentMessage` with `message_id` when API returns success (mocked httpx transport). [Tests: tests/bot/test_client.py::test_send_message_success]
+  - [x] Invalid token response (401) raises `BotTokenInvalidError` with deterministic message. [Tests: tests/bot/test_client.py::test_validate_token_invalid_token_401]
 - Verification:
   - `uv run pytest -q tests/bot/test_client.py`
+- Execution record:
+  - Date: 2026-07-20
+  - Commit: `7d2f29bc96bc63d08595bfefab210bc75c80bbda`
+  - Verification summary:
+    - Stateless client using `httpx` with MockTransport for fast, deterministic unit test assertions.
 
 ### C096 - Implement Thread Entry Message Formatter
 
