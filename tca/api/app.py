@@ -23,6 +23,7 @@ from tca.api.cookie_auth import (
 )
 from tca.api.routes.channel_groups import router as channel_groups_router
 from tca.api.routes.channels import router as channels_router
+from tca.api.routes.bot_config import router as bot_config_router
 from tca.api.routes.dedupe_decisions import router as dedupe_decisions_router
 from tca.api.routes.health import router as health_router
 from tca.api.routes.jobs import router as jobs_router
@@ -362,6 +363,10 @@ def create_app() -> FastAPI:
     )
     app.include_router(
         dedupe_decisions_router,
+        dependencies=protected_route_dependencies,
+    )
+    app.include_router(
+        bot_config_router,
         dependencies=protected_route_dependencies,
     )
     app.include_router(

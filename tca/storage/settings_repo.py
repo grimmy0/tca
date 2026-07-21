@@ -204,6 +204,18 @@ class SettingsRepository:
             await session.commit()
         return row is not None
 
+    async def delete(self, *, key: str) -> None:
+        """Delete a setting key from the table."""
+        statement = text(
+            """
+            DELETE FROM settings
+            WHERE key = :key
+            """,
+        )
+        async with self._write_session_factory() as session:
+            await session.execute(statement, {"key": key})
+            await session.commit()
+
 
 def _decode_row(row: object) -> SettingRecord:
     """Decode a row mapping into SettingRecord with JSON fidelity checks."""
