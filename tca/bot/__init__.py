@@ -8,6 +8,7 @@ from .client import (
     BotTokenInvalidError,
     SentMessage,
 )
+from .formatter import format_delivery_message
 
 __all__ = [
     "BotApiClient",
@@ -16,4 +17,5 @@ __all__ = [
     "BotNetworkError",
     "BotTokenInvalidError",
     "SentMessage",
+    "format_delivery_message",
 ]
