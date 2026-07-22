@@ -9,6 +9,7 @@ from .client import (
     SentMessage,
 )
 from .formatter import format_delivery_message
+from .delivery import BotDeliveryService
 
 __all__ = [
     "BotApiClient",
@@ -18,4 +19,5 @@ __all__ = [
     "BotTokenInvalidError",
     "SentMessage",
     "format_delivery_message",
+    "BotDeliveryService",
 ]
