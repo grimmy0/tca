@@ -130,3 +130,125 @@ async def test_delivery_core_loop_when_enabled_sends_messages(
         cluster_id=42,
         telegram_message_id="987",
     )
+
+
+@pytest.mark.asyncio
+async def test_delivery_invalid_token_disables_bot_and_notifies(
+    storage_runtime: StorageRuntime,
+) -> None:
+    """Ensure BotTokenInvalidError disables delivery and raises a system notification."""
+    settings_repo = SettingsRepository(
+        read_session_factory=storage_runtime.read_session_factory,
+        write_session_factory=storage_runtime.write_session_factory,
+    )
+    await settings_repo.create(key="bot.enabled", value=True)
+    await settings_repo.create(key="bot.token", value="123:ABC")
+    await settings_repo.create(key="bot.chat_id", value="@mychat")
+
+    bot_deliveries_repo = MagicMock(spec=BotDeliveriesRepository)
+    entry = BotDeliveryEntryRecord(
+        cluster_id=42,
+        representative_title="Test Cluster",
+        representative_body="Some body",
+        representative_canonical_url="https://url",
+        representative_published_at=None,
+        channel_name="Test Channel",
+        channel_username=None,
+        duplicate_count=1,
+    )
+    bot_deliveries_repo.list_undelivered_entries = AsyncMock(return_value=[entry])
+
+    from tca.bot import BotTokenInvalidError
+    bot_api_client = MagicMock(spec=BotApiClient)
+    bot_api_client.send_message = AsyncMock(side_effect=BotTokenInvalidError("Invalid bot token"))
+
+    from tca.storage import NotificationsRepository
+    notifications_repo = NotificationsRepository(
+        read_session_factory=storage_runtime.read_session_factory,
+        write_session_factory=storage_runtime.write_session_factory,
+    )
+
+    core_loop = BotDeliveryCoreLoop(
+        settings_repo=settings_repo,
+        bot_deliveries_repo=bot_deliveries_repo,
+        bot_api_client=bot_api_client,
+        notifications_repo=notifications_repo,
+    )
+
+    # Run once
+    records = await core_loop.run_once()
+    assert len(records) == 0
+
+    # Ensure bot was disabled in settings
+    enabled_rec = await settings_repo.get_by_key(key="bot.enabled")
+    assert enabled_rec is not None
+    assert enabled_rec.value is False
+
+    # Ensure notification was created
+    notifications = await notifications_repo.list_notifications()
+    assert len(notifications) == 1
+    assert notifications[0].type == "bot_token_invalid"
+    assert notifications[0].severity == "error"
+    assert notifications[0].payload == {"chat_id": "@mychat"}
+
+
+@pytest.mark.asyncio
+async def test_delivery_consecutive_failures_notifies(
+    storage_runtime: StorageRuntime,
+) -> None:
+    """Ensure 3 consecutive failures of a single cluster triggers a system warning notification."""
+    settings_repo = SettingsRepository(
+        read_session_factory=storage_runtime.read_session_factory,
+        write_session_factory=storage_runtime.write_session_factory,
+    )
+    await settings_repo.create(key="bot.enabled", value=True)
+    await settings_repo.create(key="bot.token", value="123:ABC")
+    await settings_repo.create(key="bot.chat_id", value="@mychat")
+
+    bot_deliveries_repo = MagicMock(spec=BotDeliveriesRepository)
+    entry = BotDeliveryEntryRecord(
+        cluster_id=42,
+        representative_title="Test Cluster",
+        representative_body="Some body",
+        representative_canonical_url="https://url",
+        representative_published_at=None,
+        channel_name="Test Channel",
+        channel_username=None,
+        duplicate_count=1,
+    )
+    bot_deliveries_repo.list_undelivered_entries = AsyncMock(return_value=[entry])
+
+    bot_api_client = MagicMock(spec=BotApiClient)
+    bot_api_client.send_message = AsyncMock(side_effect=RuntimeError("Connection refused"))
+
+    from tca.storage import NotificationsRepository
+    notifications_repo = NotificationsRepository(
+        read_session_factory=storage_runtime.read_session_factory,
+        write_session_factory=storage_runtime.write_session_factory,
+    )
+
+    core_loop = BotDeliveryCoreLoop(
+        settings_repo=settings_repo,
+        bot_deliveries_repo=bot_deliveries_repo,
+        bot_api_client=bot_api_client,
+        notifications_repo=notifications_repo,
+    )
+
+    # 1. First run -> 1st failure. No notification.
+    await core_loop.run_once()
+    notifications = await notifications_repo.list_notifications()
+    assert len(notifications) == 0
+
+    # 2. Second run -> 2nd failure. No notification.
+    await core_loop.run_once()
+    notifications = await notifications_repo.list_notifications()
+    assert len(notifications) == 0
+
+    # 3. Third run -> 3rd failure. Warning notification created.
+    await core_loop.run_once()
+    notifications = await notifications_repo.list_notifications()
+    assert len(notifications) == 1
+    assert notifications[0].type == "bot_delivery_failed"
+    assert notifications[0].severity == "warning"
+    assert notifications[0].payload == {"cluster_id": 42, "error": "Connection refused"}
+

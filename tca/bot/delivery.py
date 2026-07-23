@@ -8,10 +8,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-from tca.bot import BotApiClient, format_delivery_message
+from tca.bot import BotApiClient, BotTokenInvalidError, format_delivery_message
 from tca.storage import (
     BotDeliveriesRepository,
     BotDeliveryRecord,
+    NotificationsRepository,
     SettingsRepository,
     StorageRuntime,
     WriterQueueProtocol,
@@ -33,7 +34,9 @@ class BotDeliveryCoreLoop:
     _bot_deliveries_repo: BotDeliveriesRepository
     _bot_api_client: BotApiClient
     _writer_queue: WriterQueueProtocol | None
+    _notifications_repo: NotificationsRepository | None
     _formatter: Callable[[BotDeliveryEntryRecord], str]
+    _consecutive_failures: dict[int, int]
 
     def __init__(
         self,
@@ -42,6 +45,7 @@ class BotDeliveryCoreLoop:
         bot_deliveries_repo: BotDeliveriesRepository,
         bot_api_client: BotApiClient,
         writer_queue: WriterQueueProtocol | None = None,
+        notifications_repo: NotificationsRepository | None = None,
         formatter: Callable[[BotDeliveryEntryRecord], str] = format_delivery_message,
     ) -> None:
         """Create core loop with repository dependencies."""
@@ -49,7 +53,9 @@ class BotDeliveryCoreLoop:
         self._bot_deliveries_repo = bot_deliveries_repo
         self._bot_api_client = bot_api_client
         self._writer_queue = writer_queue
+        self._notifications_repo = notifications_repo
         self._formatter = formatter
+        self._consecutive_failures = {}
 
     async def run_once(self) -> list[BotDeliveryRecord]:
         """Perform one delivery run, sending a batch of undelivered clusters."""
@@ -72,7 +78,9 @@ class BotDeliveryCoreLoop:
         batch_size_rec = await self._settings_repo.get_by_key(
             key="bot.delivery_batch_size",
         )
-        batch_size = int(batch_size_rec.value) if batch_size_rec else 10
+        batch_size = 10
+        if batch_size_rec and isinstance(batch_size_rec.value, (int, float)):
+            batch_size = int(batch_size_rec.value)
 
         # 4. Fetch undelivered items
         undelivered = await self._bot_deliveries_repo.list_undelivered_entries(
@@ -101,12 +109,49 @@ class BotDeliveryCoreLoop:
                 else:
                     rec = await _write_delivery()
                 delivered_records.append(rec)
+                self._consecutive_failures.pop(entry.cluster_id, None)
+            except BotTokenInvalidError as exc:
+                logger.error("Telegram bot token is invalid. Disabling bot delivery.")
+
+                async def _handle_token_invalid() -> None:
+                    if self._notifications_repo is not None:
+                        await self._notifications_repo.create(
+                            notification_type="bot_token_invalid",
+                            severity="error",
+                            message="Telegram bot token is invalid. Bot delivery has been disabled.",
+                            payload={"chat_id": chat_id},
+                        )
+                    await self._settings_repo.upsert(key="bot.enabled", value=False)
+
+                if self._writer_queue is not None:
+                    await self._writer_queue.submit(_handle_token_invalid)
+                else:
+                    await _handle_token_invalid()
+                break
             except Exception as exc:
                 logger.warning(
                     "Failed to deliver cluster %d: %s",
                     entry.cluster_id,
                     exc,
                 )
+                fail_count = self._consecutive_failures.get(entry.cluster_id, 0) + 1
+                if fail_count >= 3:
+                    async def _log_failure() -> None:
+                        if self._notifications_repo is not None:
+                            await self._notifications_repo.create(
+                                notification_type="bot_delivery_failed",
+                                severity="warning",
+                                message=f"Failed to deliver cluster {entry.cluster_id}: {exc}",
+                                payload={"cluster_id": entry.cluster_id, "error": str(exc)},
+                            )
+
+                    if self._writer_queue is not None:
+                        await self._writer_queue.submit(_log_failure)
+                    else:
+                        await _log_failure()
+                    self._consecutive_failures[entry.cluster_id] = 0
+                else:
+                    self._consecutive_failures[entry.cluster_id] = fail_count
                 continue
 
         return delivered_records
@@ -170,6 +215,10 @@ class BotDeliveryService:
             ),
             bot_api_client=BotApiClient(),
             writer_queue=writer_queue,
+            notifications_repo=NotificationsRepository(
+                read_session_factory=runtime.read_session_factory,
+                write_session_factory=runtime.write_session_factory,
+            ),
         )
 
         self._stop_event = asyncio.Event()
