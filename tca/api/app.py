@@ -35,6 +35,7 @@ from tca.auth import AuthStartupDependency
 from tca.config.logging import init_logging
 from tca.config.settings import load_settings
 from tca.scheduler import SchedulerService
+from tca.bot import BotDeliveryService
 from tca.storage import (
     MigrationRunnerDependency,
     SettingAlreadyExistsError,
@@ -144,6 +145,7 @@ class StartupDependencies:
     auth: LifecycleDependency
     telethon_manager: LifecycleDependency
     scheduler: LifecycleDependency
+    bot_delivery: LifecycleDependency
 
 
 @dataclass(slots=True)
@@ -169,6 +171,7 @@ def _default_dependencies(app: FastAPI) -> StartupDependencies:
         auth=AuthStartupDependency(),
         telethon_manager=TelethonClientManager(),
         scheduler=_build_scheduler_dependency(app),
+        bot_delivery=_build_bot_delivery_dependency(app),
     )
 
 
@@ -198,6 +201,32 @@ def _build_scheduler_dependency(app: FastAPI) -> SchedulerService:
     )
 
 
+def _build_bot_delivery_dependency(app: FastAPI) -> BotDeliveryService:
+    """Create bot delivery dependency bound to app runtime storage and queue."""
+
+    def _runtime_provider() -> StorageRuntime:
+        state_obj = cast("object", app.state)
+        runtime_obj = getattr(state_obj, "storage_runtime", None)
+        if not isinstance(runtime_obj, StorageRuntime):
+            message = "Missing app storage runtime: app.state.storage_runtime."
+            raise TypeError(message)
+        return runtime_obj
+
+    def _writer_queue_provider() -> WriterQueueProtocol:
+        state_obj = cast("object", app.state)
+        queue_obj = cast("object | None", getattr(state_obj, "writer_queue", None))
+        submit_obj = getattr(queue_obj, "submit", None)
+        if queue_obj is None or not callable(submit_obj):
+            message = "Missing app writer queue: app.state.writer_queue."
+            raise RuntimeError(message)
+        return cast("WriterQueueProtocol", queue_obj)
+
+    return BotDeliveryService(
+        runtime_provider=_runtime_provider,
+        writer_queue_provider=_writer_queue_provider,
+    )
+
+
 def _resolve_startup_dependencies(app: FastAPI) -> StartupDependencies:
     """Resolve and validate dependency hooks required for app startup."""
     raw_state = cast("object", app.state)
@@ -206,7 +235,7 @@ def _resolve_startup_dependencies(app: FastAPI) -> StartupDependencies:
         raise StartupDependencyError.missing_container()
 
     dependency_container = cast("object", raw_dependencies)
-    for name in ("db", "settings", "auth", "telethon_manager", "scheduler"):
+    for name in ("db", "settings", "auth", "telethon_manager", "scheduler", "bot_delivery"):
         dependency = getattr(dependency_container, name, None)
         if dependency is None:
             raise StartupDependencyError.missing_named_dependency(name)
@@ -229,6 +258,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         ("auth", dependencies.auth),
         ("telethon_manager", dependencies.telethon_manager),
         ("scheduler", dependencies.scheduler),
+        ("bot_delivery", dependencies.bot_delivery),
     )
     started_dependencies: list[LifecycleDependency] = []
 
@@ -449,6 +479,14 @@ async def _shutdown_in_order(
     """Execute graceful shutdown sequencing with scheduler drain timeout."""
     shutdown_errors: list[Exception] = []
     started = {id(dependency) for dependency in started_dependencies}
+
+    bot_delivery_dependency = dependencies.bot_delivery
+    if id(bot_delivery_dependency) in started:
+        await _shutdown_scheduler_with_timeout(
+            dependency=bot_delivery_dependency,
+            timeout_seconds=SCHEDULER_SHUTDOWN_TIMEOUT_SECONDS,
+            shutdown_errors=shutdown_errors,
+        )
 
     scheduler_dependency = dependencies.scheduler
     if id(scheduler_dependency) in started:

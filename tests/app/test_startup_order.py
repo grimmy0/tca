@@ -57,6 +57,7 @@ def test_startup_refuses_to_serve_when_migration_step_fails(
         auth=OrderedDependency(name="auth", events=events),
         telethon_manager=OrderedDependency(name="telethon_manager", events=events),
         scheduler=OrderedDependency(name="scheduler", events=events),
+        bot_delivery=OrderedDependency(name="bot_delivery", events=events),
     )
 
     with (
@@ -83,6 +84,7 @@ def test_startup_seeds_settings_before_first_request_handling(
         auth=OrderedDependency(name="auth", events=events),
         telethon_manager=OrderedDependency(name="telethon_manager", events=events),
         scheduler=OrderedDependency(name="scheduler", events=events),
+        bot_delivery=OrderedDependency(name="bot_delivery", events=events),
     )
 
     @app.get("/__startup-order-probe")
@@ -120,6 +122,7 @@ def test_startup_logs_expose_step_boundaries(
         auth=OrderedDependency(name="auth", events=events),
         telethon_manager=OrderedDependency(name="telethon_manager", events=events),
         scheduler=OrderedDependency(name="scheduler", events=events),
+        bot_delivery=OrderedDependency(name="bot_delivery", events=events),
     )
 
     with TestClient(app) as client:

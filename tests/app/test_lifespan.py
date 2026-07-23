@@ -70,12 +70,14 @@ def test_app_lifespan_triggers_logging_and_hooks_once(
     auth = RecordingDependency()
     telethon_manager = RecordingDependency()
     scheduler = RecordingDependency()
+    bot_delivery = RecordingDependency()
     app.state.dependencies = StartupDependencies(
         db=db,
         settings=settings,
         auth=auth,
         telethon_manager=telethon_manager,
         scheduler=scheduler,
+        bot_delivery=bot_delivery,
     )
 
     with TestClient(app) as client:
@@ -105,6 +107,11 @@ def test_app_lifespan_triggers_logging_and_hooks_once(
     )
     _assert_dependency_call_counts(
         dependency=scheduler,
+        expected_startup=1,
+        expected_shutdown=1,
+    )
+    _assert_dependency_call_counts(
+        dependency=bot_delivery,
         expected_startup=1,
         expected_shutdown=1,
     )
@@ -168,12 +175,14 @@ def test_lifespan_shuts_down_started_dependencies_on_startup_failure() -> None:
         error_message="forced-telethon-startup-failure",
     )
     scheduler = RecordingDependency()
+    bot_delivery = RecordingDependency()
     app.state.dependencies = StartupDependencies(
         db=db,
         settings=settings,
         auth=auth,
         telethon_manager=telethon_manager,
         scheduler=scheduler,
+        bot_delivery=bot_delivery,
     )
 
     with (
