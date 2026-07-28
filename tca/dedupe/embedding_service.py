@@ -40,6 +40,20 @@ def compute_embedding(*, text: str) -> bytes:
     return vector.astype(EMBEDDING_DTYPE).tobytes()
 
 
+def compute_embeddings_batch(*, texts: list[str], batch_size: int = 32) -> list[bytes]:
+    """Encode a batch of texts and return L2-normalized embeddings as float32 bytes."""
+    if not texts:
+        return []
+    model = get_model()
+    vectors: NDArray[np.float32] = model.encode(  # pyright: ignore[reportUnknownMemberType]
+        texts,
+        batch_size=batch_size,
+        normalize_embeddings=True,
+        convert_to_numpy=True,
+    )
+    return [vec.astype(EMBEDDING_DTYPE).tobytes() for vec in vectors]
+
+
 def embedding_to_array(blob: bytes) -> NDArray[np.float32]:
     """Deserialize an embedding BLOB to a writable numpy array."""
     return np.frombuffer(blob, dtype=EMBEDDING_DTYPE).copy()
