@@ -29,7 +29,7 @@ def canonicalize_url(value: str | None) -> str | None:
 
     try:
         split = urlsplit(_unwrap_telegram_url(stripped))
-    except ValueError:
+    except (ValueError, AttributeError):
         return None
     scheme = split.scheme.lower()
     if not _is_supported_http_scheme(scheme):
