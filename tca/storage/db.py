@@ -103,6 +103,7 @@ def _create_engine(settings: AppSettings, *, begin_immediate: bool) -> AsyncEngi
         sqlite_url,
         poolclass=NullPool,
         future=True,
+        connect_args={"timeout": 30.0},
     )
     _install_sqlite_pragma_handler(engine)
     if begin_immediate:
