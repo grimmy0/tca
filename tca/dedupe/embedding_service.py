@@ -44,10 +44,11 @@ def compute_embeddings_batch(*, texts: list[str], batch_size: int = 32) -> list[
     """Encode a batch of texts and return L2-normalized embeddings as float32 bytes."""
     if not texts:
         return []
+    safe_batch_size = max(1, batch_size)
     model = get_model()
     vectors: NDArray[np.float32] = model.encode(  # pyright: ignore[reportUnknownMemberType]
         texts,
-        batch_size=batch_size,
+        batch_size=safe_batch_size,
         normalize_embeddings=True,
         convert_to_numpy=True,
     )
