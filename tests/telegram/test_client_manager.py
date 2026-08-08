@@ -68,6 +68,7 @@ def _build_app_with_manager(manager: TelethonClientManager) -> FastAPI:
         auth=RecordingDependency(),
         telethon_manager=manager,
         scheduler=RecordingDependency(),
+        bot_delivery=RecordingDependency(),
     )
     return app
 

@@ -110,12 +110,14 @@ async def test_graceful_shutdown_executes_required_sequence_order() -> None:
         auth=OrderedDependency("auth", shutdown_events),
         telethon_manager=OrderedDependency("telethon_manager", shutdown_events),
         scheduler=OrderedDependency("scheduler", shutdown_events),
+        bot_delivery=OrderedDependency("bot_delivery", shutdown_events),
     )
 
     async with lifespan(app):
         pass
 
     if shutdown_events != [
+        "bot_delivery.shutdown",
         "scheduler.shutdown",
         "writer_queue.close",
         "telethon_manager.shutdown",
@@ -139,6 +141,7 @@ async def test_graceful_shutdown_drains_writer_queue_with_commit_and_rollback(
         auth=OrderedDependency("auth", []),
         telethon_manager=OrderedDependency("telethon_manager", []),
         scheduler=OrderedDependency("scheduler", []),
+        bot_delivery=OrderedDependency("bot_delivery", []),
     )
     db_path = tmp_path / "graceful-shutdown.sqlite3"
 
@@ -235,6 +238,7 @@ async def test_graceful_shutdown_exits_before_timeout_when_scheduler_hangs(
         auth=OrderedDependency("auth", shutdown_events),
         telethon_manager=OrderedDependency("telethon_manager", shutdown_events),
         scheduler=scheduler,
+        bot_delivery=OrderedDependency("bot_delivery", shutdown_events),
     )
     monkeypatch.setattr(api_app, "SCHEDULER_SHUTDOWN_TIMEOUT_SECONDS", timeout_seconds)
 
@@ -248,6 +252,7 @@ async def test_graceful_shutdown_exits_before_timeout_when_scheduler_hangs(
     if not scheduler.cancelled:
         raise AssertionError
     if shutdown_events != [
+        "bot_delivery.shutdown",
         "writer_queue.close",
         "telethon_manager.shutdown",
         "auth.shutdown",
@@ -272,6 +277,7 @@ async def test_graceful_shutdown_continues_after_scheduler_shutdown_error() -> N
         auth=OrderedDependency("auth", shutdown_events),
         telethon_manager=OrderedDependency("telethon_manager", shutdown_events),
         scheduler=FailingSchedulerDependency(error_message=error_message),
+        bot_delivery=OrderedDependency("bot_delivery", shutdown_events),
     )
 
     with pytest.raises(RuntimeError, match=error_message):
@@ -279,6 +285,7 @@ async def test_graceful_shutdown_continues_after_scheduler_shutdown_error() -> N
             pass
 
     if shutdown_events != [
+        "bot_delivery.shutdown",
         "writer_queue.close",
         "telethon_manager.shutdown",
         "auth.shutdown",

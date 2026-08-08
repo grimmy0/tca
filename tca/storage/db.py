@@ -97,7 +97,15 @@ async def dispose_storage_runtime(runtime: StorageRuntime) -> None:
 def _create_engine(settings: AppSettings, *, begin_immediate: bool) -> AsyncEngine:
     """Create async SQLite engine bound to configured DB path."""
     db_path = settings.db_path.expanduser()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        from tca.storage.migrations import MigrationStartupError
+
+        raise MigrationStartupError.for_db_path_prepare_failure(
+            db_path,
+            details=str(exc),
+        ) from exc
     sqlite_url = build_sqlite_url(db_path)
     engine = create_async_engine(
         sqlite_url,

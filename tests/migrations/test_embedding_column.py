@@ -30,7 +30,9 @@ def test_items_embedding_column_exists_after_upgrade(tmp_path: Path) -> None:
 def test_items_embedding_column_removed_on_downgrade(tmp_path: Path) -> None:
     """Ensure embedding column is removed when downgrading by one revision."""
     db_path = tmp_path / "embedding-downgrade.sqlite3"
-    _upgrade_to_head(db_path)
+    result = _run_alembic_command(db_path, ("upgrade", "a3b4c5d6e7f8"))
+    if result.returncode != 0:
+        raise AssertionError
 
     result = _run_alembic_command(db_path, ("downgrade", "-1"))
     if result.returncode != 0:
