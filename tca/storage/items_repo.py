@@ -239,3 +239,32 @@ def _parse_datetime(value: str, *, field: str) -> datetime:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
     return parsed
+
+
+def export_items_to_csv(items: list[ItemRecord]) -> str:
+    """Export a list of ItemRecord instances to a CSV formatted string."""
+    import csv
+    import io
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "item_id",
+        "channel_id",
+        "message_id",
+        "published_at",
+        "title",
+        "canonical_url",
+        "dedupe_state",
+    ])
+    for item in items:
+        writer.writerow([
+            item.item_id,
+            item.channel_id,
+            item.message_id,
+            item.published_at.isoformat() if item.published_at else "",
+            item.title or "",
+            item.canonical_url or "",
+            item.dedupe_state,
+        ])
+    return output.getvalue()

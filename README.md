@@ -15,7 +15,7 @@ TCA is a local-first Telegram channel aggregator that runs on your machine, merg
 - API endpoints: `/health` (public), `/settings/{key}`, `/channels`, `/channel-groups`, `/jobs/poll-now/{channel_id}`, `/notifications`, `/notifications/{notification_id}/ack`, `/auth/telegram/start`, `/auth/telegram/verify-code`, `/auth/telegram/verify-password`, and `/openapi.json` (bearer auth required).
 - Scheduler core loop with jittered poll cadence and poll job enqueueing.
 - Ingest helpers: cursor state, bounded pagination, raw message upsert, flood-wait handling, account risk escalation, ingest error capture.
-- Storage: SQLite WAL/PRAGMAs, `BEGIN IMMEDIATE`, writer queue, migrations for core schema + FTS/ops tables.
+- Storage: SQLite WAL/PRAGMAs, `BEGIN IMMEDIATE`, writer queue, migrations for core schema + FTS/ops tables, and `export_items_to_csv` helper for item dataset exports.
 
 ## Why TCA
 
