@@ -245,3 +245,17 @@ def _assert_channel(
         raise AssertionError
     if record.is_enabled != expected_is_enabled:
         raise AssertionError
+
+
+def test_format_channel_status_summary() -> None:
+    from tca.storage.channels_repo import format_channel_status_summary
+
+    records = [
+        ChannelRecord(id=1, account_id=1, telegram_channel_id=101, name="Ch1", username="ch1", is_enabled=True),
+        ChannelRecord(id=2, account_id=1, telegram_channel_id=102, name="Ch2", username="ch2", is_enabled=False),
+        ChannelRecord(id=3, account_id=1, telegram_channel_id=103, name="Ch3", username="ch3", is_enabled=True),
+    ]
+    summary = format_channel_status_summary(records)
+    assert summary["total"] == 3
+    assert summary["enabled"] == 2
+    assert summary["disabled"] == 1

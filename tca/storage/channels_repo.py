@@ -521,3 +521,15 @@ def _coerce_count_int(*, value: object, field: str) -> int:
     if isinstance(value, str) and value.isdigit():
         return int(value)
     raise ChannelDecodeError.from_details(details=f"invalid `{field}` value")
+
+
+def format_channel_status_summary(channels: list[ChannelRecord]) -> dict[str, int]:
+    """Compute enabled, disabled, and total counts across channel records."""
+    total = len(channels)
+    enabled = sum(1 for c in channels if c.is_enabled)
+    disabled = total - enabled
+    return {
+        "total": total,
+        "enabled": enabled,
+        "disabled": disabled,
+    }
