@@ -533,3 +533,20 @@ def format_channel_status_summary(channels: list[ChannelRecord]) -> dict[str, in
         "enabled": enabled,
         "disabled": disabled,
     }
+
+
+def group_channels_by_status(
+    channels: list[ChannelRecord],
+) -> dict[str, list[ChannelRecord]]:
+    """Partition channel records into enabled and disabled collections."""
+    enabled: list[ChannelRecord] = []
+    disabled: list[ChannelRecord] = []
+    for c in channels:
+        if c.is_enabled:
+            enabled.append(c)
+        else:
+            disabled.append(c)
+    return {
+        "enabled": enabled,
+        "disabled": disabled,
+    }

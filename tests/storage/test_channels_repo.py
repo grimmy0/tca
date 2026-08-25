@@ -259,3 +259,17 @@ def test_format_channel_status_summary() -> None:
     assert summary["total"] == 3
     assert summary["enabled"] == 2
     assert summary["disabled"] == 1
+
+
+def test_group_channels_by_status() -> None:
+    from tca.storage.channels_repo import group_channels_by_status
+
+    records = [
+        ChannelRecord(id=1, account_id=1, telegram_channel_id=101, name="Ch1", username="ch1", is_enabled=True),
+        ChannelRecord(id=2, account_id=1, telegram_channel_id=102, name="Ch2", username="ch2", is_enabled=False),
+    ]
+    grouped = group_channels_by_status(records)
+    assert len(grouped["enabled"]) == 1
+    assert grouped["enabled"][0].name == "Ch1"
+    assert len(grouped["disabled"]) == 1
+    assert grouped["disabled"][0].name == "Ch2"
