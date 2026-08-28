@@ -273,3 +273,13 @@ def test_group_channels_by_status() -> None:
     assert grouped["enabled"][0].name == "Ch1"
     assert len(grouped["disabled"]) == 1
     assert grouped["disabled"][0].name == "Ch2"
+
+
+def test_format_cluster_summary() -> None:
+    from tca.storage.channels_repo import format_cluster_summary
+
+    clusters = [[1, 2, 3], [4, 5]]
+    summary = format_cluster_summary(clusters)
+    assert summary["cluster_count"] == 2
+    assert summary["total_items"] == 5
+    assert summary["avg_cluster_size"] == 2.5

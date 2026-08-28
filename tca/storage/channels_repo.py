@@ -550,3 +550,15 @@ def group_channels_by_status(
         "enabled": enabled,
         "disabled": disabled,
     }
+
+
+def format_cluster_summary(clusters: list[list[int]]) -> dict[str, int | float]:
+    """Compute cluster counts, total clustered items, and average cluster size."""
+    num_clusters = len(clusters)
+    total_items = sum(len(c) for c in clusters)
+    avg_size = round(total_items / num_clusters, 2) if num_clusters > 0 else 0.0
+    return {
+        "cluster_count": num_clusters,
+        "total_items": total_items,
+        "avg_cluster_size": avg_size,
+    }
