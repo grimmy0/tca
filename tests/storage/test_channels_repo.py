@@ -283,3 +283,18 @@ def test_format_cluster_summary() -> None:
     assert summary["cluster_count"] == 2
     assert summary["total_items"] == 5
     assert summary["avg_cluster_size"] == 2.5
+
+
+def test_find_channel_by_username() -> None:
+    from tca.storage.channels_repo import find_channel_by_username
+
+    records = [
+        ChannelRecord(id=1, account_id=1, telegram_channel_id=101, name="Ch1", username="crypto_daily", is_enabled=True),
+        ChannelRecord(id=2, account_id=1, telegram_channel_id=102, name="Ch2", username="news_channel", is_enabled=False),
+    ]
+    found = find_channel_by_username(records, "@Crypto_Daily")
+    assert found is not None
+    assert found.id == 1
+
+    not_found = find_channel_by_username(records, "nonexistent")
+    assert not_found is None

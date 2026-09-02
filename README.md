@@ -64,7 +64,7 @@ TCA follows a modular local-monolith layout:
 - `ingest/`: polling and message fetch logic (helpers only; no worker execution yet).
 - `normalize/`: canonical item transformation (planned).
 - `dedupe/`: strategy chain and cluster operations (planned).
-- `storage/`: SQLAlchemy repositories, write serialization, channel health summaries (`format_channel_status_summary`, `group_channels_by_status`, `format_cluster_summary`), and CSV export helpers.
+- `storage/`: SQLAlchemy repositories, write serialization, channel lookups (`find_channel_by_username`), health summaries (`format_channel_status_summary`, `group_channels_by_status`, `format_cluster_summary`), and CSV export helpers.
 - `scheduler/`: polling cadence, jitter, pause-aware selection (implemented); backoff/worker execution (planned).
 - `ops/`: retention, backup, health, graceful shutdown tasks (planned).
 

@@ -562,3 +562,16 @@ def format_cluster_summary(clusters: list[list[int]]) -> dict[str, int | float]:
         "total_items": total_items,
         "avg_cluster_size": avg_size,
     }
+
+
+def find_channel_by_username(
+    channels: list[ChannelRecord], username: str
+) -> ChannelRecord | None:
+    """Find the first channel record matching the given username (case-insensitive, strips @)."""
+    target = username.lstrip("@").strip().lower()
+    if not target:
+        return None
+    for c in channels:
+        if c.username and c.username.lstrip("@").strip().lower() == target:
+            return c
+    return None
