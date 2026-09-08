@@ -298,3 +298,19 @@ def test_find_channel_by_username() -> None:
 
     not_found = find_channel_by_username(records, "nonexistent")
     assert not_found is None
+
+
+def test_export_channels_to_json() -> None:
+    from tca.storage.channels_repo import export_channels_to_json
+    import json
+
+    records = [
+        ChannelRecord(id=1, account_id=1, telegram_channel_id=101, name="Ch1", username="crypto_daily", is_enabled=True),
+        ChannelRecord(id=2, account_id=1, telegram_channel_id=102, name="Ch2", username=None, is_enabled=False),
+    ]
+    raw_json = export_channels_to_json(records)
+    parsed = json.loads(raw_json)
+    assert len(parsed) == 2
+    assert parsed[0]["name"] == "Ch1"
+    assert parsed[0]["username"] == "crypto_daily"
+    assert parsed[1]["is_enabled"] is False

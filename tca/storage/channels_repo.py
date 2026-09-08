@@ -575,3 +575,19 @@ def find_channel_by_username(
         if c.username and c.username.lstrip("@").strip().lower() == target:
             return c
     return None
+
+
+def export_channels_to_json(channels: list[ChannelRecord], indent: int = 2) -> str:
+    """Serialize a list of ChannelRecord instances to a JSON formatted string."""
+    payload = [
+        {
+            "id": c.id,
+            "account_id": c.account_id,
+            "telegram_channel_id": c.telegram_channel_id,
+            "name": c.name,
+            "username": c.username,
+            "is_enabled": c.is_enabled,
+        }
+        for c in channels
+    ]
+    return json.dumps(payload, indent=indent)
