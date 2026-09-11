@@ -314,3 +314,23 @@ def test_export_channels_to_json() -> None:
     assert parsed[0]["name"] == "Ch1"
     assert parsed[0]["username"] == "crypto_daily"
     assert parsed[1]["is_enabled"] is False
+
+
+def test_filter_channels_by_keyword() -> None:
+    from tca.storage.channels_repo import filter_channels_by_keyword
+
+    records = [
+        ChannelRecord(id=1, account_id=1, telegram_channel_id=101, name="Crypto Daily News", username="crypto_daily", is_enabled=True),
+        ChannelRecord(id=2, account_id=1, telegram_channel_id=102, name="Tech Insider", username="tech_news", is_enabled=False),
+        ChannelRecord(id=3, account_id=1, telegram_channel_id=103, name="World Politics", username=None, is_enabled=True),
+    ]
+    crypto_matches = filter_channels_by_keyword(records, "crypto")
+    assert len(crypto_matches) == 1
+    assert crypto_matches[0].id == 1
+
+    news_matches = filter_channels_by_keyword(records, "news")
+    assert len(news_matches) == 2
+
+    empty_matches = filter_channels_by_keyword(records, "")
+    assert len(empty_matches) == 3
+

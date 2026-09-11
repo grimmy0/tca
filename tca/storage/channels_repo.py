@@ -591,3 +591,18 @@ def export_channels_to_json(channels: list[ChannelRecord], indent: int = 2) -> s
         for c in channels
     ]
     return json.dumps(payload, indent=indent)
+
+
+def filter_channels_by_keyword(
+    channels: list[ChannelRecord], keyword: str
+) -> list[ChannelRecord]:
+    """Filter ChannelRecord items matching a case-insensitive keyword in name or username."""
+    k = keyword.strip().lower()
+    if not k:
+        return list(channels)
+    return [
+        c
+        for c in channels
+        if k in c.name.lower() or (c.username and k in c.username.lower())
+    ]
+
