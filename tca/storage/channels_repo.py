@@ -606,3 +606,9 @@ def filter_channels_by_keyword(
         if k in c.name.lower() or (c.username and k in c.username.lower())
     ]
 
+
+def count_enabled_channels(channels: list[ChannelRecord]) -> int:
+    """Count the number of channels with is_enabled set to True."""
+    return sum(1 for c in channels if c.is_enabled)
+
+

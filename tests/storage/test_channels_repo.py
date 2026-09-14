@@ -334,3 +334,16 @@ def test_filter_channels_by_keyword() -> None:
     empty_matches = filter_channels_by_keyword(records, "")
     assert len(empty_matches) == 3
 
+
+def test_count_enabled_channels() -> None:
+    from tca.storage.channels_repo import count_enabled_channels
+
+    records = [
+        ChannelRecord(id=1, account_id=1, telegram_channel_id=101, name="Ch1", username="ch1", is_enabled=True),
+        ChannelRecord(id=2, account_id=1, telegram_channel_id=102, name="Ch2", username="ch2", is_enabled=False),
+        ChannelRecord(id=3, account_id=1, telegram_channel_id=103, name="Ch3", username="ch3", is_enabled=True),
+    ]
+    assert count_enabled_channels(records) == 2
+    assert count_enabled_channels([]) == 0
+
+
